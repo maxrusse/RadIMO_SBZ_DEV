@@ -160,6 +160,7 @@ DEFAULT_BALANCER = {
     'min_assignments_per_skill': 5,
     'imbalance_threshold_pct': 30,
     'allow_fallback_on_imbalance': True,
+    'fallback_strategy': 'skill_priority',
     'fallback_chain': DEFAULT_FALLBACK_CHAIN
 }
 
@@ -974,6 +975,21 @@ def get_next_available_worker(
     modality=default_modality,
     allow_fallback: bool = True,
 ):
+    strategy = BALANCER_SETTINGS.get('fallback_strategy', 'skill_priority')
+
+    if strategy == 'modality_priority':
+        return _get_worker_modality_priority(current_dt, role, modality, allow_fallback)
+    else:
+        return _get_worker_skill_priority(current_dt, role, modality, allow_fallback)
+
+
+def _get_worker_skill_priority(
+    current_dt: datetime,
+    role: str,
+    modality: str,
+    allow_fallback: bool,
+):
+    """Original behavior: Try all skill fallbacks per modality before moving to next modality."""
     visited = set()
 
     def _attempt_modality(target_modality: str):
@@ -1025,6 +1041,135 @@ def get_next_available_worker(
         "No workers available for role %s across modality fallback chain starting with %s",
         role,
         modality,
+    )
+    return None
+
+
+def _get_worker_modality_priority(
+    current_dt: datetime,
+    role: str,
+    modality: str,
+    allow_fallback: bool,
+):
+    """New behavior: Try each skill across all modalities before moving to next skill fallback."""
+
+    # Build the skill fallback sequence we'll try
+    role_map = {
+        'normal':  'Normal',
+        'notfall': 'Notfall',
+        'herz':    'Herz',
+        'privat':  'Privat',
+        'msk':     'Msk',
+        'chest':   'Chest'
+    }
+    role_lower = role.lower()
+    if role_lower not in role_map:
+        role_lower = 'normal'
+    primary_skill = role_map[role_lower]
+
+    # Get skill fallback chain for this role
+    skill_chain = [primary_skill]
+    if allow_fallback:
+        configured_fallbacks = BALANCER_FALLBACK_CHAIN.get(primary_skill, [])
+        for fallback_entry in configured_fallbacks:
+            if isinstance(fallback_entry, list):
+                skill_chain.extend(fallback_entry)
+            else:
+                skill_chain.append(fallback_entry)
+        # Add ultimate fallback to Normal if not already there
+        if 'Normal' not in skill_chain:
+            skill_chain.append('Normal')
+
+    # Build modality search order
+    modality_search = [modality] + MODALITY_FALLBACK_CHAIN.get(modality, [])
+
+    # Flatten modality groups
+    flat_modality_search = []
+    for entry in modality_search:
+        if isinstance(entry, list):
+            flat_modality_search.extend(entry)
+        else:
+            flat_modality_search.append(entry)
+
+    # Remove duplicates while preserving order
+    seen_modalities = set()
+    unique_modality_search = []
+    for mod in flat_modality_search:
+        if mod not in seen_modalities and mod in modality_data:
+            seen_modalities.add(mod)
+            unique_modality_search.append(mod)
+
+    # Now iterate: for each skill, try all modalities
+    for skill_to_try in skill_chain:
+        selection_logger.info(
+            "Trying skill %s across modalities %s",
+            skill_to_try,
+            unique_modality_search,
+        )
+
+        candidate_pool = []
+        for target_modality in unique_modality_search:
+            d = modality_data[target_modality]
+            if d['working_hours_df'] is None:
+                continue
+
+            tnow = current_dt.time()
+            active_df = d['working_hours_df'][
+                (d['working_hours_df']['start_time'] <= tnow) &
+                (d['working_hours_df']['end_time']   >= tnow)
+            ]
+
+            if active_df.empty:
+                continue
+
+            # Try this specific skill in this specific modality (no further fallbacks)
+            selection = _attempt_column_selection(active_df, skill_to_try, target_modality)
+            if selection is None or selection.empty:
+                continue
+
+            # Apply minimum balancer
+            balanced_df = _apply_minimum_balancer(selection, skill_to_try, target_modality)
+            result_df = balanced_df if not balanced_df.empty else selection
+
+            # Select best worker from this modality
+            hours_map = calculate_work_hours_now(current_dt, target_modality)
+
+            def weighted_ratio(person):
+                canonical_id = get_canonical_worker_id(person)
+                h = hours_map.get(canonical_id, 0)
+                w = get_global_weighted_count(canonical_id)
+                return w / h if h > 0 else w
+
+            available_workers = result_df['PPL'].unique()
+            if len(available_workers) == 0:
+                continue
+
+            best_person = sorted(available_workers, key=lambda p: weighted_ratio(p))[0]
+            candidate = result_df[result_df['PPL'] == best_person].iloc[0].copy()
+            candidate['__modality_source'] = target_modality
+            candidate['__selection_ratio'] = weighted_ratio(best_person)
+
+            ratio = candidate.get('__selection_ratio', float('inf'))
+            candidate_pool.append((ratio, candidate, skill_to_try, target_modality))
+
+        # If we found candidates for this skill, return the best one
+        if candidate_pool:
+            ratio, candidate, used_skill, source_modality = min(candidate_pool, key=lambda item: item[0])
+
+            if source_modality != modality or used_skill != primary_skill:
+                selection_logger.info(
+                    "Fallback used: skill=%s, modality=%s (requested: skill=%s, modality=%s)",
+                    used_skill,
+                    source_modality,
+                    primary_skill,
+                    modality,
+                )
+
+            return candidate, used_skill, source_modality
+
+    selection_logger.info(
+        "No workers available for role %s across all skill and modality fallbacks (modality_priority mode)",
+        role,
     )
     return None
 

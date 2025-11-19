@@ -82,16 +82,43 @@ teams share staff and overflow logic must be transparent.
 
 3. **Modality-level overflow chains**
 
-   - The new `modality_fallbacks` map (see `config.yaml`) describes which other
+   - The `modality_fallbacks` map (see `config.yaml`) describes which other
      modalities can cover a shortage (e.g., XRAY → CT → MR).
    - `get_next_available_worker` now walks `[requested_modality] + fallback
      chain`, calling `_select_worker_for_modality` at each step until a worker
      is found. The response clearly states the modality actually used so the UI
      can highlight cross-team support.
 
+4. **Fallback strategy modes** (configurable via `balancer.fallback_strategy`)
+
+   - **`skill_priority` mode** (default): Exhausts all skill fallbacks within
+     each modality before moving to the next modality. This minimizes
+     cross-modality borrowing and keeps teams working within their own modality
+     whenever possible.
+
+     Example for "Herz" in XRAY:
+     ```
+     XRAY: Herz → Notfall → Normal
+     CT:   Herz → Notfall → Normal
+     MR:   Herz → Notfall → Normal
+     ```
+
+   - **`modality_priority` mode**: Tries each skill across all modalities
+     before moving to the next skill fallback. This prioritizes skill
+     specialization over modality boundaries, ensuring specialized workers are
+     used across all teams before falling back to generalists.
+
+     Example for "Herz" in XRAY:
+     ```
+     Herz:    XRAY → CT → MR
+     Notfall: XRAY → CT → MR
+     Normal:  XRAY → CT → MR
+     ```
+
 Together, these layers give planners a modular control surface: per-skill
 fallbacks handle intra-modality overloads, while modality fallback chains enable
-cross-modality surge absorption. Both behaviors are data-driven via YAML.
+cross-modality surge absorption. The fallback strategy determines the priority
+order. All behaviors are data-driven via YAML.
 
 ## Configuration Reference (`config.yaml`)
 
@@ -101,6 +128,14 @@ cross-modality surge absorption. Both behaviors are data-driven via YAML.
   `DEFAULT_SKILLS` if a field is omitted.
 - **balancer** – enable/disable minimum assignment logic, imbalance thresholds,
   and skill fallback chains.
+  - **fallback_strategy** – controls the order in which skill and modality
+    fallbacks are attempted. Valid values:
+    - `skill_priority` (default): Try all skill fallbacks within the requested
+      modality before moving to the next modality. Example: For "Herz" in XRAY,
+      try Herz→Notfall→Normal in XRAY, then try Herz→Notfall→Normal in CT, etc.
+    - `modality_priority`: Try each skill across all modalities before moving
+      to the next skill fallback. Example: For "Herz" in XRAY, try Herz in
+      XRAY→CT→MR, then try Notfall in XRAY→CT→MR, then Normal in XRAY→CT→MR.
 - **modality_fallbacks** – ordered arrays such as `xray: [ct, mr]` that define
   the modular overflow path for `get_next_available_worker`.
 - **admin_password** – protects `/upload` via the simple login form.
