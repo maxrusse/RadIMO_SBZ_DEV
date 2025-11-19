@@ -532,39 +532,56 @@ def _get_worker_modality_priority(current_dt, role, modality, allow_fallback):
 **Location:** `app.py:1181-1322`
 
 ### Strategy
-**"Build complete pool of ALL (skill, modality) combinations and pick globally best worker"**
+**"Build pool of all CONFIGURED (skill, modality) combinations and pick globally best worker"**
 
 ### Search Order
 ```
-Build Cartesian product: all skills × all modalities
-Evaluate EVERY combination simultaneously
+Build skill chain from configured fallbacks
+Build modality chain from configured fallbacks
+Create pool: skill_chain × modality_chain (respecting config)
+Evaluate EVERY configured combination simultaneously
 Score each using weighted_ratio
 Return single globally-best candidate
 ```
 
 ### How It Works
-1. Creates Cartesian product of all valid (skill, modality) combinations
-2. Evaluates EVERY combination at once
-3. Uses `weighted_ratio` to score each combination
-4. Returns single globally-best candidate from entire pool
-5. Logs pool size and selection details
+1. Builds skill fallback sequence from `BALANCER_FALLBACK_CHAIN` configuration
+2. Builds modality search order from `MODALITY_FALLBACK_CHAIN` configuration
+3. Creates combinations ONLY from these configured chains (not blind all×all)
+4. Evaluates every configured combination at once
+5. Uses `weighted_ratio` to score each combination
+6. Returns single globally-best candidate from entire pool
+7. Logs pool size and selection details
 
 ### Example Flow
 **Request:** CT / Privat
 
+**With config.yaml:**
+```yaml
+balancer:
+  fallback_chain:
+    Privat: [Notfall, [Normal, Herz]]
+
+modality_fallbacks:
+  ct: [mr]
 ```
-Build pool of ALL possibilities:
+
+**Pool built:**
+```
+Skill chain: Privat → Notfall → Normal, Herz
+Modality chain: CT → MR
+
+Build pool from CONFIGURED combinations:
   CT × Privat
   CT × Notfall
   CT × Normal
+  CT × Herz
   MR × Privat
   MR × Notfall
   MR × Normal
-  XRAY × Privat
-  XRAY × Notfall
-  XRAY × Normal
+  MR × Herz
 
-Evaluate all 9 combinations
+Evaluate all 8 configured combinations
 Pick worker with lowest weighted_ratio across all
 ```
 
@@ -583,30 +600,45 @@ Compares against **global work across modalities**, preventing scenarios like:
 ### Code Structure
 ```python
 def _get_worker_pool_priority(current_dt, role, modality, allow_fallback):
-    # Build skill fallback sequence
-    skill_sequence = _build_skill_fallback_sequence(role, modality, allow_fallback)
+    # Build skill fallback chain from BALANCER_FALLBACK_CHAIN config
+    primary_skill = role_map[role.lower()]
+    skill_chain = [primary_skill]
 
-    # Build modality search order
-    modality_sequence = [modality] + get_modality_fallbacks(modality)
+    if allow_fallback:
+        configured_fallbacks = BALANCER_FALLBACK_CHAIN.get(primary_skill, [])
+        for fallback_entry in configured_fallbacks:
+            if isinstance(fallback_entry, list):
+                skill_chain.extend(fallback_entry)
+            else:
+                skill_chain.append(fallback_entry)
 
-    # Build COMPLETE pool (Cartesian product)
-    pool = []
-    for skill in skill_sequence:
-        for mod in modality_sequence:
-            result = _select_worker_for_modality(current_dt, skill, mod, ...)
-            if result:
-                pool.append({
-                    'worker': result['person'],
-                    'skill': skill,
-                    'modality': mod,
-                    'ratio': result['ratio'],
-                    'source': result['source']
-                })
+    # Build modality search order from MODALITY_FALLBACK_CHAIN config
+    modality_search = [modality] + MODALITY_FALLBACK_CHAIN.get(modality, [])
 
-    # Pick globally best
-    if pool:
-        best = min(pool, key=lambda x: x['ratio'])
-        return best
+    # Build pool from CONFIGURED combinations only
+    candidate_pool = []
+    for skill_to_try in skill_chain:
+        for target_modality in modality_search:
+            # Filter active workers
+            active_df = d['working_hours_df'][
+                (d['working_hours_df']['start_time'] <= current_time) &
+                (d['working_hours_df']['end_time'] >= current_time)
+            ]
+
+            # Try this specific (skill, modality) combination
+            selection = _attempt_column_selection(active_df, skill_to_try, target_modality)
+            balanced_df = _apply_minimum_balancer(selection, skill_to_try, target_modality)
+
+            # Calculate weighted ratio for best worker in this combination
+            best_person = sorted(available_workers, key=lambda p: weighted_ratio(p))[0]
+            ratio = weighted_ratio(best_person)
+
+            candidate_pool.append((ratio, candidate, skill_to_try, target_modality))
+
+    # Pick globally best from entire pool
+    if candidate_pool:
+        ratio, candidate, used_skill, source_modality = min(candidate_pool, key=lambda item: item[0])
+        return candidate, used_skill, source_modality
 
     return None
 ```
@@ -1003,12 +1035,14 @@ balancer:
 | Feature | Skill Priority | Modality Priority | Pool Priority |
 |---------|---------------|-------------------|---------------|
 | **Primary Goal** | Keep in modality | Find specific skill | Global optimization |
-| **Search Pattern** | Modality → Skills | Skill → Modalities | All combinations |
+| **Search Pattern** | Modality → Skills | Skill → Modalities | Configured combinations |
+| **Combinations** | Sequential | Parallel per skill | All configured fallbacks |
 | **Best For** | Modality expertise | Skill expertise | Maximum fairness |
 | **Complexity** | Low | Medium | High |
 | **Performance** | Fast | Medium | Slower (more checks) |
-| **Fallback Logic** | Sequential | Parallel per skill | Global pool |
-| **Cross-modality** | Last resort | Preferred | Equal weight |
+| **Fallback Logic** | Sequential | Parallel per skill | Global pool comparison |
+| **Cross-modality** | Last resort | Preferred | Equal weight (if configured) |
+| **Config Respect** | Yes | Yes | Yes (builds pool from config) |
 
 ---
 
@@ -1033,18 +1067,22 @@ balancer:
 
 #### Pool Priority Path
 ```
-Build pool:
+With config:
+  fallback_chain: Privat → [Notfall, [Normal, Herz]]
+  modality_fallbacks: ct → [mr]
+
+Build pool from CONFIGURED combinations:
   CT × Privat: Worker A (1.5)
   CT × Notfall: Worker D (1.1)
   CT × Normal: Worker E (0.9)
+  CT × Herz: Worker J (1.3)
   MR × Privat: Worker B (1.2)
   MR × Notfall: Worker F (1.0)
   MR × Normal: Worker G (0.8)
-  XRAY × Privat: Worker C (2.0)
-  XRAY × Notfall: Worker H (1.3)
-  XRAY × Normal: Worker I (1.4)
+  MR × Herz: Worker K (1.4)
 
-Return: Worker G (lowest ratio across entire pool)
+Return: Worker G (lowest ratio across entire configured pool)
+Note: XRAY not included - not in configured modality fallbacks
 ```
 
 ---
