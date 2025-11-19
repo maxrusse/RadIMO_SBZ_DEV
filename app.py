@@ -251,39 +251,6 @@ def _load_raw_config() -> Dict[str, Any]:
         return {}
 
 
-def _write_predefined_config(final_config: Dict[str, Any], output_path: str = 'config.predefined.yaml') -> None:
-    """Persist the fully merged configuration so operators can reuse it."""
-    try:
-        with open(output_path, 'w', encoding='utf-8') as handle:
-            yaml.safe_dump(final_config, handle, sort_keys=False, allow_unicode=True)
-    except Exception as exc:
-        selection_logger.warning("Unable to write %s: %s", output_path, exc)
-
-
-def ensure_predefined_config(final_config: Dict[str, Any], output_path: str = 'config.predefined.yaml') -> bool:
-    """
-    Ensure the predefined configuration on disk matches ``final_config``.
-
-    Returns ``True`` when the existing file already matches (no rewrite was
-    necessary) and ``False`` when the file had to be created or updated.
-    """
-    disk_config = None
-    try:
-        with open(output_path, 'r', encoding='utf-8') as existing:
-            disk_config = yaml.safe_load(existing) or {}
-    except FileNotFoundError:
-        disk_config = None
-    except Exception as exc:
-        selection_logger.warning("Unable to read %s: %s", output_path, exc)
-        disk_config = None
-
-    if disk_config == final_config:
-        return True
-
-    _write_predefined_config(final_config, output_path)
-    return False
-
-
 def _build_app_config() -> Dict[str, Any]:
     raw_config = _load_raw_config()
     config: Dict[str, Any] = {
@@ -377,7 +344,6 @@ def _build_app_config() -> Dict[str, Any]:
 
 
 APP_CONFIG = _build_app_config()
-ensure_predefined_config(APP_CONFIG)
 MODALITY_SETTINGS = APP_CONFIG['modalities']
 SKILL_SETTINGS = APP_CONFIG['skills']
 allowed_modalities = list(MODALITY_SETTINGS.keys()) or list(DEFAULT_MODALITIES.keys())
