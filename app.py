@@ -897,11 +897,7 @@ def get_active_df_for_role(
     if filtered_df is None:
         return active_df.iloc[0:0], primary_column
 
-    if (
-        allow_fallback
-        and isinstance(used_column, str)
-        and _should_balance_via_fallback(filtered_df, used_column, modality)
-    ):
+    if isinstance(used_column, str) and _should_balance_via_fallback(filtered_df, used_column, modality):
         fallback_df, fallback_column = _try_configured_fallback(active_df, used_column, modality)
         if fallback_df is not None:
             filtered_df = fallback_df
@@ -984,21 +980,13 @@ def get_next_available_worker(
         if target_modality in visited or target_modality not in modality_data:
             return None
         visited.add(target_modality)
-        result = _select_worker_for_modality(
-            current_dt,
-            role,
-            target_modality,
-            allow_fallback=allow_fallback,
-        )
+        result = _select_worker_for_modality(current_dt, role, target_modality)
         if result is None:
             return None
         candidate, used_column = result
         return candidate, used_column, target_modality
 
-    if allow_fallback:
-        search_order = [modality] + MODALITY_FALLBACK_CHAIN.get(modality, [])
-    else:
-        search_order = [modality]
+    search_order = [modality] + MODALITY_FALLBACK_CHAIN.get(modality, [])
 
     for entry in search_order:
         if isinstance(entry, list):
