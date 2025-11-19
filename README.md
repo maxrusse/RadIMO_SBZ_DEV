@@ -100,8 +100,8 @@ cross-modality surge absorption. Both behaviors are data-driven via YAML.
   the modular overflow path for `get_next_available_worker`.
 - **admin_password** – protects `/upload` via the simple login form.
 
-Any change to `config.yaml` is merged with defaults and persisted into
-`config.predefined.yaml` for traceability.
+Any change to `config.yaml` is merged with defaults when the app starts, so you
+only have to maintain a single configuration file.
 
 ## API Surface
 
