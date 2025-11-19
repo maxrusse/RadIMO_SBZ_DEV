@@ -115,6 +115,32 @@ teams share staff and overflow logic must be transparent.
      Normal:  XRAY → CT → MR
      ```
 
+   - **`pool_priority` mode**: Collects ALL possible (skill, modality)
+     combinations into a single pool, evaluates the load for each candidate,
+     and selects the globally optimal worker. This approach ignores
+     fixed fallback paths entirely and instead performs true load balancing
+     across all available resources.
+
+     Example for "Herz" in XRAY:
+     ```
+     Pool of all 9 combinations:
+     1. XRAY/Herz     → Worker A (ratio: 0.5)
+     2. XRAY/Notfall  → Worker B (ratio: 0.3) ← BEST
+     3. XRAY/Normal   → Worker C (ratio: 0.7)
+     4. CT/Herz       → Worker D (ratio: 0.6)
+     5. CT/Notfall    → Worker E (ratio: 0.4)
+     6. CT/Normal     → Worker F (ratio: 0.8)
+     7. MR/Herz       → Worker G (ratio: 0.9)
+     8. MR/Notfall    → Worker H (ratio: 0.5)
+     9. MR/Normal     → Worker I (ratio: 1.0)
+
+     → Selects Worker B (XRAY/Notfall) with lowest ratio
+     ```
+
+     This mode is ideal when load balancing is more important than preserving
+     modality or skill preferences. It ensures no worker becomes overloaded
+     while valid alternatives exist elsewhere.
+
 Together, these layers give planners a modular control surface: per-skill
 fallbacks handle intra-modality overloads, while modality fallback chains enable
 cross-modality surge absorption. The fallback strategy determines the priority
@@ -136,6 +162,9 @@ order. All behaviors are data-driven via YAML.
     - `modality_priority`: Try each skill across all modalities before moving
       to the next skill fallback. Example: For "Herz" in XRAY, try Herz in
       XRAY→CT→MR, then try Notfall in XRAY→CT→MR, then Normal in XRAY→CT→MR.
+    - `pool_priority`: Collect all (skill, modality) combinations and select
+      the globally optimal worker based on load. Ignores sequential paths and
+      performs true load balancing across all fallback options.
 - **modality_fallbacks** – ordered arrays such as `xray: [ct, mr]` that define
   the modular overflow path for `get_next_available_worker`.
 - **admin_password** – protects `/upload` via the simple login form.

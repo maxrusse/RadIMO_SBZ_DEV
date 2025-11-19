@@ -113,7 +113,7 @@ balancer:
   min_assignments_per_skill: 5
   imbalance_threshold_pct: 30
   allow_fallback_on_imbalance: true
-  fallback_strategy: skill_priority
+  fallback_strategy: skill_priority  # Options: skill_priority, modality_priority, pool_priority
   fallback_chain:
     Normal: []
     Notfall:

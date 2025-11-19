@@ -979,6 +979,8 @@ def get_next_available_worker(
 
     if strategy == 'modality_priority':
         return _get_worker_modality_priority(current_dt, role, modality, allow_fallback)
+    elif strategy == 'pool_priority':
+        return _get_worker_pool_priority(current_dt, role, modality, allow_fallback)
     else:
         return _get_worker_skill_priority(current_dt, role, modality, allow_fallback)
 
@@ -1172,6 +1174,150 @@ def _get_worker_modality_priority(
         role,
     )
     return None
+
+
+def _get_worker_pool_priority(
+    current_dt: datetime,
+    role: str,
+    modality: str,
+    allow_fallback: bool,
+):
+    """Pool-based approach: Collect ALL possible (skill, modality) combinations and pick the globally best one."""
+
+    # Build the skill fallback sequence
+    role_map = {
+        'normal':  'Normal',
+        'notfall': 'Notfall',
+        'herz':    'Herz',
+        'privat':  'Privat',
+        'msk':     'Msk',
+        'chest':   'Chest'
+    }
+    role_lower = role.lower()
+    if role_lower not in role_map:
+        role_lower = 'normal'
+    primary_skill = role_map[role_lower]
+
+    # Get skill fallback chain
+    skill_chain = [primary_skill]
+    if allow_fallback:
+        configured_fallbacks = BALANCER_FALLBACK_CHAIN.get(primary_skill, [])
+        for fallback_entry in configured_fallbacks:
+            if isinstance(fallback_entry, list):
+                skill_chain.extend(fallback_entry)
+            else:
+                skill_chain.append(fallback_entry)
+        # Add ultimate fallback to Normal if not already there
+        if 'Normal' not in skill_chain:
+            skill_chain.append('Normal')
+
+    # Build modality search order
+    modality_search = [modality] + MODALITY_FALLBACK_CHAIN.get(modality, [])
+
+    # Flatten modality groups
+    flat_modality_search = []
+    for entry in modality_search:
+        if isinstance(entry, list):
+            flat_modality_search.extend(entry)
+        else:
+            flat_modality_search.append(entry)
+
+    # Remove duplicates while preserving order
+    seen_modalities = set()
+    unique_modality_search = []
+    for mod in flat_modality_search:
+        if mod not in seen_modalities and mod in modality_data:
+            seen_modalities.add(mod)
+            unique_modality_search.append(mod)
+
+    # Build the complete pool: all (skill, modality) combinations
+    selection_logger.info(
+        "Building candidate pool for role %s: skills=%s, modalities=%s (pool_priority mode)",
+        role,
+        skill_chain,
+        unique_modality_search,
+    )
+
+    candidate_pool = []
+
+    for skill_to_try in skill_chain:
+        for target_modality in unique_modality_search:
+            d = modality_data[target_modality]
+            if d['working_hours_df'] is None:
+                continue
+
+            tnow = current_dt.time()
+            active_df = d['working_hours_df'][
+                (d['working_hours_df']['start_time'] <= tnow) &
+                (d['working_hours_df']['end_time']   >= tnow)
+            ]
+
+            if active_df.empty:
+                continue
+
+            # Try this specific skill in this specific modality
+            selection = _attempt_column_selection(active_df, skill_to_try, target_modality)
+            if selection is None or selection.empty:
+                continue
+
+            # Apply minimum balancer
+            balanced_df = _apply_minimum_balancer(selection, skill_to_try, target_modality)
+            result_df = balanced_df if not balanced_df.empty else selection
+
+            # Select best worker from this (skill, modality) combination
+            hours_map = calculate_work_hours_now(current_dt, target_modality)
+
+            def weighted_ratio(person):
+                canonical_id = get_canonical_worker_id(person)
+                h = hours_map.get(canonical_id, 0)
+                w = get_global_weighted_count(canonical_id)
+                return w / h if h > 0 else w
+
+            available_workers = result_df['PPL'].unique()
+            if len(available_workers) == 0:
+                continue
+
+            # Get the best worker for this specific (skill, modality) combination
+            best_person = sorted(available_workers, key=lambda p: weighted_ratio(p))[0]
+            candidate = result_df[result_df['PPL'] == best_person].iloc[0].copy()
+            candidate['__modality_source'] = target_modality
+            candidate['__selection_ratio'] = weighted_ratio(best_person)
+
+            ratio = candidate.get('__selection_ratio', float('inf'))
+            candidate_pool.append((ratio, candidate, skill_to_try, target_modality))
+
+    # Now select the globally best candidate from the entire pool
+    if not candidate_pool:
+        selection_logger.info(
+            "No workers available for role %s across all skill and modality combinations (pool_priority mode)",
+            role,
+        )
+        return None
+
+    # Sort by ratio and pick the best
+    ratio, candidate, used_skill, source_modality = min(candidate_pool, key=lambda item: item[0])
+
+    selection_logger.info(
+        "Selected from pool of %d candidates: skill=%s, modality=%s, person=%s, ratio=%.4f (requested: skill=%s, modality=%s)",
+        len(candidate_pool),
+        used_skill,
+        source_modality,
+        candidate.get('PPL', 'unknown'),
+        ratio,
+        primary_skill,
+        modality,
+    )
+
+    if source_modality != modality or used_skill != primary_skill:
+        selection_logger.info(
+            "Fallback used: skill=%s, modality=%s (requested: skill=%s, modality=%s)",
+            used_skill,
+            source_modality,
+            primary_skill,
+            modality,
+        )
+
+    return candidate, used_skill, source_modality
 
 # -----------------------------------------------------------
 # Daily Reset: check (for every modality) at >= 07:30
