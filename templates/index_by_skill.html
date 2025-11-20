@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RadIMO: {{ modality_labels[modality] }} Koordinator</title>
+  <title>RadIMO: {{ skill_labels[skill] }} Koordinator</title>
   <style>
     :root {
       --disabled-color:  #888;
@@ -24,10 +24,10 @@
       --table-header-bg: #f8f9fa;
       --highlight-bg:    rgba(0, 0, 0, 0.05);
     }
-    
+
     /* Reset */
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    
+
     body {
       font-family: system-ui, -apple-system, sans-serif;
       background: var(--body-bg);
@@ -35,25 +35,26 @@
       max-width: 1000px;
       margin: 0 auto;
     }
-    
-    body[data-modality] {
-      background: var(--modality-bg, var(--body-bg));
+
+    body[data-skill] {
+      background: var(--skill-bg, var(--body-bg));
     }
 
-    {% for key, settings in modalities.items() %}
-    body[data-modality="{{ key }}"] {
-      --modality-bg: {{ settings.background_color }};
-      --modality-nav: {{ settings.nav_color }};
-      --modality-hover: {{ settings.hover_color }};
+    /* Skill-specific background colors */
+    {% for skill_def in skill_definitions %}
+    body[data-skill="{{ skill_def.name }}"] {
+      --skill-bg: {{ skill_def.button_color }}22;
+      --skill-nav: {{ skill_def.button_color }};
+      --skill-hover: {{ skill_def.button_color }}dd;
     }
     {% endfor %}
 
     .result-panel,
     .clipboard-note {
-      background: var(--modality-bg, #fff);
+      background: var(--skill-bg, #fff);
     }
-    
-    /* Premium Header with Modality Selector */
+
+    /* Premium Header with Skill Selector */
     .premium-header {
       display: flex;
       justify-content: space-between;
@@ -64,17 +65,18 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       margin-bottom: 1rem;
     }
-    
+
     .premium-header h1 {
       font-size: 1.75rem;
       margin: 0;
     }
-    
-    .modality-selector {
+
+    .skill-selector {
       display: flex;
-      gap: 1rem;
+      gap: 0.5rem;
+      flex-wrap: wrap;
     }
-    .modality-selector a {
+    .skill-selector a {
       text-decoration: none;
       font-weight: bold;
       padding: 0.5rem 1rem;
@@ -84,15 +86,15 @@
       border: 2px solid;
       transition: border-width 0.2s;
     }
-    {% for key, settings in modalities.items() %}
-    .modality-selector a[data-modality="{{ key }}"] {
-      border-color: {{ settings.nav_color }};
+    {% for skill_def in skill_definitions %}
+    .skill-selector a[data-skill="{{ skill_def.name }}"] {
+      border-color: {{ skill_def.button_color }};
     }
     {% endfor %}
-    .modality-selector a.active {
+    .skill-selector a.active {
       border-width: 4px;
     }
-    
+
     .card {
       background: var(--card-bg);
       border-radius: 8px;
@@ -100,20 +102,20 @@
       padding: 1rem;
       margin-bottom: 1rem;
     }
-    
-    /* Grid layout for buttons */
+
+    /* Grid layout for modality buttons */
     .button-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       grid-auto-rows: 1fr;
       gap: 1rem;
-      border: 4px solid;
+      border: 4px solid var(--skill-nav, var(--primary-color));
       border-radius: 8px;
       padding: 0.5rem;
       margin-bottom: 1rem;
     }
 
-    .skill-button-wrapper {
+    .modality-button-wrapper {
       display: flex;
       width: 100%;
       gap: 0.4rem;
@@ -149,17 +151,12 @@
       opacity: 0.9;
     }
     .btn:active { transform: scale(0.98); }
-    .special-btn {
-      min-height: 60px;
-      font-size: 1.8rem;
-      padding: 1rem;
-    }
 
-    .skill-main-btn {
+    .modality-main-btn {
       flex: 1 1 66%;
     }
 
-    .skill-strict-btn {
+    .modality-strict-btn {
       flex: 0 0 34%;
       min-height: 120px;
       font-size: 1.4rem;
@@ -170,7 +167,7 @@
       font-weight: 700;
       border: 2px dashed rgba(255, 255, 255, 0.6);
     }
-    
+
     .result-panel {
       border-radius: 8px;
       padding: 1rem;
@@ -183,7 +180,7 @@
       margin: 0.5rem 0;
     }
     .timer { color: #666; font-size: 1rem; }
-    
+
     .clipboard-note {
       color: var(--primary-color);
       padding: 0.5rem;
@@ -218,7 +215,7 @@
       box-shadow: 0 1px 2px var(--info-item-shadow);
     }
     .info-item:last-child { margin-bottom: 0; }
-    
+
     /* Click History Logo as Mini Logos */
     .click-history-wrapper {
       margin-top: 20px;
@@ -234,7 +231,7 @@
       width: 30px;
       height: 30px;
       border-radius: 4px;
-      background-color: var(--modality-bg);
+      background-color: var(--skill-bg, var(--body-bg));
       display: flex;
       align-items: center;
       justify-content: center;
@@ -265,37 +262,37 @@
     }
   </style>
 </head>
-<body data-modality="{{ modality }}">
-  <!-- Premium Header with Embedded Modality Selector -->
+<body data-skill="{{ skill }}">
+  <!-- Premium Header with Embedded Skill Selector -->
   <header class="premium-header">
-    <h1>RadIMO: {{ modality_labels[modality] }} Koordinator</h1>
-    <div class="modality-selector">
-      {% for mod in modality_order %}
-        <a href="{{ url_for('index', modality=mod) }}" data-modality="{{ mod }}" class="{% if modality == mod %}active{% endif %}">{{ modality_labels[mod] }}</a>
+    <h1>RadIMO: {{ skill_labels[skill] }} Koordinator</h1>
+    <div class="skill-selector">
+      {% for s in skill_order %}
+        <a href="{{ url_for('index_by_skill', skill=s) }}" data-skill="{{ s }}" class="{% if skill == s %}active{% endif %}">{{ skill_labels[s] }}</a>
       {% endfor %}
     </div>
   </header>
-  
+
   <!-- Main Assignment Panel -->
   <section class="card">
     <div id="buttonGrid" class="button-grid">
-      {% for skill in skill_definitions %}
-        {% set style_parts = ['--btn-bg: ' ~ skill.button_color, '--btn-text: ' ~ skill.text_color] %}
-        {% if skill.optional and not available_specialties.get(skill.slug, False) %}
-          {% set style_parts = style_parts + ['display: none;'] %}
-        {% endif %}
-        <div class="skill-button-wrapper" data-skill-slug="{{ skill.slug }}" style="{{ '; '.join(style_parts) }}">
-          <button id="skill-btn-{{ skill.slug }}"
-            data-skill-name="{{ skill.name }}"
-            onclick="getNextAssignment('{{ skill.name }}')"
-            class="btn assignment-btn skill-main-btn {% if skill.special %}special-btn{% endif %}">
-            {{ skill.label }}
+      {% for mod_key in modality_order %}
+        {% set mod = modalities[mod_key] %}
+        {% set is_available = available_modalities.get(mod_key, False) %}
+        <div class="modality-button-wrapper" data-modality="{{ mod_key }}" {% if not is_available %}style="display: none;"{% endif %}>
+          <button id="mod-btn-{{ mod_key }}"
+            data-modality="{{ mod_key }}"
+            onclick="getNextAssignment('{{ mod_key }}', '{{ skill }}')"
+            class="btn assignment-btn modality-main-btn"
+            style="--btn-bg: {{ mod.nav_color }}; --btn-text: #ffffff;">
+            {{ mod.label }}
           </button>
           <button type="button"
-            class="btn assignment-btn skill-strict-btn"
-            onclick="getNextAssignment('{{ skill.name }}', true)"
-            aria-label="Nur diese Gruppe (kein Fallback)"
-            title="Nur diese Gruppe">
+            class="btn assignment-btn modality-strict-btn"
+            onclick="getNextAssignment('{{ mod_key }}', '{{ skill }}', true)"
+            aria-label="Nur diese Modalität (kein Fallback)"
+            title="Nur diese Modalität"
+            style="--btn-bg: {{ mod.nav_color }};">
             *
           </button>
         </div>
@@ -305,9 +302,8 @@
     <div class="clipboard-note" style="display: flex; justify-content: space-between; align-items: center;">
       <span>Kürzel wird automatisch kopiert, Einfügen mit STRG+V im RadCenter</span>
       <div>
-        <a href="{{ url_for('index_by_skill') }}" class="small-button">Nach Skill</a>
-        <a href="{{ url_for('timetable', modality=modality) }}" class="small-button">Zeitplan</a>
-        <a href="{{ url_for('upload_file', modality=modality) }}" class="small-button">Admin</a>
+        <a href="{{ url_for('index') }}" class="small-button">Nach Modalität</a>
+        <a href="{{ url_for('upload_file') }}" class="small-button">Admin</a>
       </div>
     </div>
     <div class="info-box">
@@ -318,7 +314,7 @@
       </div>
     </div>
   </section>
-  
+
   <!-- Click History Logo as Mini Logos -->
   <div class="click-history-wrapper">
     <div id="clickHistory" class="click-history"></div>
@@ -332,19 +328,19 @@
       </div>
     </div>
   </div>
-  
+
   <script>
     const clickHistoryCount = 15;
-    const modalityBg = getComputedStyle(document.body).getPropertyValue('--modality-bg').trim();
-    let clickHistoryColors = new Array(clickHistoryCount).fill({ color: modalityBg });
+    const skillBg = getComputedStyle(document.body).getPropertyValue('--skill-bg').trim();
+    let clickHistoryColors = new Array(clickHistoryCount).fill({ color: skillBg });
     const clickHistoryContainer = document.getElementById('clickHistory');
     for (let i = 0; i < clickHistoryCount; i++) {
       const box = document.createElement('div');
       box.classList.add('click-history-box');
-      box.style.backgroundColor = modalityBg;
+      box.style.backgroundColor = skillBg;
       clickHistoryContainer.appendChild(box);
     }
-    
+
     function updateClickHistory(newColor) {
       const newEntry = { color: newColor };
       clickHistoryColors.pop();
@@ -354,7 +350,7 @@
         box.innerHTML = "";
       });
     }
-    
+
     document.getElementById('buttonGrid').addEventListener('click', function(e) {
       const button = e.target.closest('button');
       if (button) {
@@ -362,16 +358,16 @@
         updateClickHistory(bgColor);
       }
     });
-    
+
     let requestInProgress = false;
     let timerInterval, lastClickTime, disableTimeout;
-    let currentModality = "{{ modality }}";
-    
-    const skillButtonMap = {};
-    document.querySelectorAll('.skill-button-wrapper').forEach(wrapper => {
-      const slug = wrapper.dataset.skillSlug;
-      if (slug) {
-        skillButtonMap[slug] = wrapper;
+    let currentSkill = "{{ skill }}";
+
+    const modalityButtonMap = {};
+    document.querySelectorAll('.modality-button-wrapper').forEach(wrapper => {
+      const modality = wrapper.dataset.modality;
+      if (modality) {
+        modalityButtonMap[modality] = wrapper;
       }
     });
 
@@ -381,23 +377,25 @@
     });
 
     function quickReload() {
-      fetch('/api/quick_reload?modality={{ modality }}')
+      fetch('/api/quick_reload?skill={{ skill }}')
         .then(response => response.json())
         .then(data => {
-          for (const [slug, isAvailable] of Object.entries(data.available_buttons)) {
-            const wrapper = skillButtonMap[slug];
-            if (wrapper) wrapper.style.display = isAvailable ? '' : 'none';
+          if (data.available_modalities) {
+            for (const [modality, isAvailable] of Object.entries(data.available_modalities)) {
+              const wrapper = modalityButtonMap[modality];
+              if (wrapper) wrapper.style.display = isAvailable ? '' : 'none';
+            }
           }
         })
         .catch(e => console.error("Quick reload error:", e));
     }
 
-    function getNextAssignment(skill, forcePrimary = false) {
+    function getNextAssignment(modality, skill, forcePrimary = false) {
       if (requestInProgress) return;
       updateButtonsState(true);
       const endpoint = forcePrimary
-        ? `/api/${currentModality}/${skill}/strict`
-        : `/api/${currentModality}/${skill}`;
+        ? `/api/${modality}/${skill}/strict`
+        : `/api/${modality}/${skill}`;
       fetch(endpoint)
         .then(response => response.json())
         .then(data => {
@@ -410,7 +408,7 @@
           alert('Fehler beim Abrufen.');
         });
     }
-    
+
     function showResult(person) {
       const resultDiv = document.getElementById('result');
       if (!person || person === "") {
@@ -426,14 +424,14 @@
       const match = person.match(/\(([^)]+)\)/);
       if (match && match[1]) copyTextToClipboard(match[1]);
     }
-    
+
     function startTimer() {
       lastClickTime = new Date();
       updateTimer();
       if (timerInterval) clearInterval(timerInterval);
       timerInterval = setInterval(updateTimer, 1000);
     }
-    
+
     function updateTimer() {
       const now = new Date();
       const secondsElapsed = Math.floor((now - lastClickTime) / 1000);
@@ -446,7 +444,7 @@
         minutes.toString().padStart(2, '0') + ":" +
         seconds.toString().padStart(2, '0');
     }
-    
+
     function copyTextToClipboard(text) {
       const textarea = document.createElement("textarea");
       textarea.value = text;
@@ -461,7 +459,7 @@
       }
       document.body.removeChild(textarea);
     }
-    
+
     function updateButtonsState(disabled) {
       if (!disabled && requestInProgress) return;
       requestInProgress = disabled;

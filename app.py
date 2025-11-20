@@ -456,6 +456,8 @@ def inject_modality_settings():
         'modality_order': allowed_modalities,
         'modality_labels': modality_labels,
         'skill_definitions': SKILL_TEMPLATES,
+        'skill_order': SKILL_COLUMNS,
+        'skill_labels': {s['name']: s['label'] for s in SKILL_TEMPLATES},
     }
 
 
@@ -468,6 +470,42 @@ def normalize_modality(modality_value: Optional[str]) -> str:
 
 def resolve_modality_from_request() -> str:
     return normalize_modality(request.values.get('modality'))
+
+
+def normalize_skill(skill_value: Optional[str]) -> str:
+    """Validate and normalize skill parameter"""
+    if not skill_value:
+        return SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Normal'
+    # Try exact match first
+    if skill_value in SKILL_COLUMNS:
+        return skill_value
+    # Try case-insensitive match
+    skill_value_title = skill_value.title()
+    if skill_value_title in SKILL_COLUMNS:
+        return skill_value_title
+    # Default to first skill
+    return SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Normal'
+
+
+def get_available_modalities_for_skill(skill: str) -> dict:
+    """Check which modalities have active workers for this skill"""
+    available = {}
+    tnow = get_local_berlin_now().time()
+
+    for modality in allowed_modalities:
+        d = modality_data[modality]
+        if d['working_hours_df'] is not None:
+            active_df = d['working_hours_df'][
+                (d['working_hours_df']['start_time'] <= tnow) &
+                (d['working_hours_df']['end_time'] >= tnow)
+            ]
+            available[modality] = bool(
+                (skill in active_df.columns) and (active_df[skill].sum() > 0)
+            )
+        else:
+            available[modality] = False
+
+    return available
 
 # -----------------------------------------------------------
 # TIME / DATE HELPERS (unchanged)
@@ -1571,6 +1609,32 @@ def index():
         modality=modality
     )
 
+
+@app.route('/by-skill')
+def index_by_skill():
+    """
+    Skill-based view: navigate by skill, see all modalities as buttons
+    """
+    skill = request.args.get('skill', SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Normal')
+    skill = normalize_skill(skill)
+
+    # Determine available modalities for this skill (check working hours)
+    available_modalities_dict = get_available_modalities_for_skill(skill)
+
+    # Get info texts from first modality (they're typically the same)
+    info_texts = []
+    if allowed_modalities:
+        first_modality = allowed_modalities[0]
+        info_texts = modality_data[first_modality].get('info_texts', [])
+
+    return render_template(
+        'index_by_skill.html',
+        skill=skill,
+        available_modalities=available_modalities_dict,
+        info_texts=info_texts
+    )
+
+
 def get_admin_password():
     try:
         with open("config.yaml", "r") as f:
@@ -2216,11 +2280,25 @@ def get_entry():
 
 @app.route('/api/quick_reload', methods=['GET'])
 def quick_reload():
+    # Check if this is a skill-based view request
+    skill_param = request.args.get('skill')
+
+    if skill_param:
+        # Skill-based view: return available modalities for this skill
+        skill = normalize_skill(skill_param)
+        available_modalities_dict = get_available_modalities_for_skill(skill)
+        checks = run_operational_checks('reload', force=True)
+        return jsonify({
+            "available_modalities": available_modalities_dict,
+            "operational_checks": checks,
+        })
+
+    # Modality-based view (existing logic)
     modality = resolve_modality_from_request()
     d = modality_data[modality]
     now = get_local_berlin_now()
     checks = run_operational_checks('reload', force=True)
-    
+
     # Determine available buttons based on currently active working hours
     available_buttons = {SKILL_SLUG_MAP[skill]: False for skill in SKILL_COLUMNS}
     if d['working_hours_df'] is not None:
