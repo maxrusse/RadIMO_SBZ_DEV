@@ -2463,6 +2463,189 @@ def force_refresh_today():
         return jsonify({"error": f"Fehler beim Force Refresh: {str(e)}"}), 500
 
 
+@app.route('/prep-next-day')
+@admin_required
+def prep_next_day():
+    """
+    Next day prep/edit page.
+    Shows editable table for tomorrow's schedule.
+    Can be used for both normal prep and force refresh scenarios.
+    """
+    next_day = get_next_workday()
+
+    return render_template(
+        'prep_next_day.html',
+        target_date=next_day.strftime('%Y-%m-%d'),
+        target_date_german=next_day.strftime('%d.%m.%Y'),
+        is_next_day=True
+    )
+
+
+@app.route('/api/prep-next-day/data', methods=['GET'])
+@admin_required
+def get_prep_data():
+    """
+    Get current working_hours_df data for all modalities.
+    Returns data in format suitable for edit table.
+    """
+    result = {}
+
+    for modality in allowed_modalities:
+        d = modality_data[modality]
+        df = d.get('working_hours_df')
+
+        if df is not None and not df.empty:
+            # Convert DataFrame to list of dicts for JSON
+            data = []
+            for idx, row in df.iterrows():
+                worker_data = {
+                    'row_index': int(idx),
+                    'PPL': row['PPL'],
+                    'start_time': row['start_time'].strftime('%H:%M') if pd.notnull(row['start_time']) else '',
+                    'end_time': row['end_time'].strftime('%H:%M') if pd.notnull(row['end_time']) else '',
+                    'Modifier': float(row.get('Modifier', 1.0)),
+                }
+
+                # Add all skill columns
+                for skill in SKILL_COLUMNS:
+                    worker_data[skill] = int(row.get(skill, 0))
+
+                data.append(worker_data)
+
+            result[modality] = data
+        else:
+            result[modality] = []
+
+    return jsonify(result)
+
+
+@app.route('/api/prep-next-day/update-row', methods=['POST'])
+@admin_required
+def update_prep_row():
+    """
+    Update a single worker row in working_hours_df.
+    """
+    try:
+        data = request.json
+        modality = data.get('modality')
+        row_index = data.get('row_index')
+        updates = data.get('updates', {})
+
+        if modality not in modality_data:
+            return jsonify({'error': 'Invalid modality'}), 400
+
+        df = modality_data[modality]['working_hours_df']
+
+        if df is None or row_index >= len(df):
+            return jsonify({'error': 'Invalid row index'}), 400
+
+        # Apply updates
+        for col, value in updates.items():
+            if col in ['start_time', 'end_time']:
+                # Parse time string
+                try:
+                    df.at[row_index, col] = datetime.strptime(value, '%H:%M').time()
+                except:
+                    return jsonify({'error': f'Invalid time format for {col}'}), 400
+            elif col in SKILL_COLUMNS or col == 'Modifier':
+                # Update skill or modifier
+                df.at[row_index, col] = value
+            elif col == 'PPL':
+                # Update worker name
+                df.at[row_index, col] = value
+
+        # Recalculate shift_duration if times changed
+        if 'start_time' in updates or 'end_time' in updates:
+            start = df.at[row_index, 'start_time']
+            end = df.at[row_index, 'end_time']
+            if pd.notnull(start) and pd.notnull(end):
+                start_dt = datetime.combine(datetime.today(), start)
+                end_dt = datetime.combine(datetime.today(), end)
+                if end_dt < start_dt:
+                    end_dt += timedelta(days=1)
+                df.at[row_index, 'shift_duration'] = (end_dt - start_dt).seconds / 3600
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/prep-next-day/add-worker', methods=['POST'])
+@admin_required
+def add_prep_worker():
+    """
+    Add a new worker row to working_hours_df.
+    """
+    try:
+        data = request.json
+        modality = data.get('modality')
+        worker_data = data.get('worker_data', {})
+
+        if modality not in modality_data:
+            return jsonify({'error': 'Invalid modality'}), 400
+
+        df = modality_data[modality]['working_hours_df']
+
+        # Build new row
+        new_row = {
+            'PPL': worker_data.get('PPL', 'Neuer Worker (NW)'),
+            'start_time': datetime.strptime(worker_data.get('start_time', '07:00'), '%H:%M').time(),
+            'end_time': datetime.strptime(worker_data.get('end_time', '15:00'), '%H:%M').time(),
+            'Modifier': float(worker_data.get('Modifier', 1.0)),
+        }
+
+        # Add skill columns
+        for skill in SKILL_COLUMNS:
+            new_row[skill] = int(worker_data.get(skill, 0))
+
+        # Calculate shift_duration
+        start_dt = datetime.combine(datetime.today(), new_row['start_time'])
+        end_dt = datetime.combine(datetime.today(), new_row['end_time'])
+        if end_dt < start_dt:
+            end_dt += timedelta(days=1)
+        new_row['shift_duration'] = (end_dt - start_dt).seconds / 3600
+
+        # Append to DataFrame
+        if df is None or df.empty:
+            modality_data[modality]['working_hours_df'] = pd.DataFrame([new_row])
+        else:
+            modality_data[modality]['working_hours_df'] = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+
+        return jsonify({'success': True, 'row_index': len(modality_data[modality]['working_hours_df']) - 1})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/prep-next-day/delete-worker', methods=['POST'])
+@admin_required
+def delete_prep_worker():
+    """
+    Delete a worker row from working_hours_df.
+    """
+    try:
+        data = request.json
+        modality = data.get('modality')
+        row_index = data.get('row_index')
+
+        if modality not in modality_data:
+            return jsonify({'error': 'Invalid modality'}), 400
+
+        df = modality_data[modality]['working_hours_df']
+
+        if df is None or row_index >= len(df):
+            return jsonify({'error': 'Invalid row index'}), 400
+
+        # Delete row
+        modality_data[modality]['working_hours_df'] = df.drop(df.index[row_index]).reset_index(drop=True)
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/<modality>/<role>', methods=['GET'])
 def assign_worker_api(modality, role):
     modality = modality.lower()
