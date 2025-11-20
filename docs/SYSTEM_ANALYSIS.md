@@ -3,16 +3,16 @@
 **Note:** This document was originally created for v17 (Excel-based uploads). Some sections have been updated for v18 (medweb CSV integration).
 
 ## Table of Contents
-1. [~~Excel File Handling~~](#excel-file-handling---obsolete) - **OBSOLETE** (see [WORKFLOW.md](WORKFLOW.md) for v18 CSV workflow)
-2. [Medweb CSV Integration - v18](#medweb-csv-integration---v18) - **NEW**
-3. [Distribution Logic & Balancing Report](#distribution-logic--balancing-report) - **CURRENT**
+1. [Excel File Handling](#excel-file-handling---obsolete) - Historical v17 system (see [WORKFLOW.md](WORKFLOW.md) for current v18 workflow)
+2. [Medweb CSV Integration - v18](#medweb-csv-integration---v18) - Current workflow
+3. [Time Exclusion System - v18](#time-exclusion-system---v18) - Day-specific scheduling
+4. [Distribution Logic & Balancing Report](#distribution-logic--balancing-report) - Core assignment engine
    - [The Three Selection Paths](#the-three-selection-paths)
    - [Balancing Mechanisms](#balancing-mechanisms)
    - [Skill Value System (-1, 0, 1)](#skill-value-system)
    - [Fallback Mechanisms](#fallback-mechanisms)
    - [Global Cross-Modality Tracking](#global-cross-modality-tracking)
-4. [Time Exclusion System - v18](#time-exclusion-system---v18) - **NEW**
-5. [Modular Architecture Report](#modular-architecture-report) - **MOSTLY CURRENT**
+5. [Modular Architecture Report](#modular-architecture-report) - System structure
 
 ---
 
