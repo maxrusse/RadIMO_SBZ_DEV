@@ -184,6 +184,25 @@ medweb_mapping:
       shift: "Fruehdienst"
       base_skills: {Normal: 1, Notfall: 1, Privat: 1, Herz: 0, Msk: 0, Chest: 0}
 
+    # Time exclusions (boards, meetings, teaching) - NEW
+    # These punch out time from work shifts (worker completely unavailable)
+    - match: "Board"
+      exclusion: true
+      duration: "1h30m"  # Default duration if not parsed from description
+      # Examples: "Kopf-Hals-Board (Mo 15:30)", "CT-Board", etc.
+
+    - match: "Besprechung"
+      exclusion: true
+      duration: "1h"
+
+    - match: "Fortbildung"
+      exclusion: true
+      duration: "2h"
+
+    - match: "Aufklärung"
+      exclusion: true
+      duration: "1h"
+
     # SBZ Aufklärung - uses shifts logic
     - match: "SBZ Aufklärung"
       modality: "ct"

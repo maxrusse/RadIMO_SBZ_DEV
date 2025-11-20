@@ -9,11 +9,12 @@ from flask import (
 )
 from flask import session
 import pandas as pd
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, date
 import pytz
 import os
 import copy
 import shutil
+import re
 from pathlib import Path
 from threading import Lock
 
@@ -820,10 +821,11 @@ def preload_next_workday(csv_path: str, config: dict) -> dict:
         )
 
         if not modality_dfs:
+            date_str = next_day.strftime('%Y-%m-%d')
             return {
                 'success': False,
-                'target_date': next_day.strftime('%Y-%m-%d'),
-                'message': f'Keine SBZ-Daten für {next_day.strftime('%Y-%m-%d')} gefunden'
+                'target_date': date_str,
+                'message': f'Keine SBZ-Daten für {date_str} gefunden'
             }
 
         # Reset all counters and apply to modality_data
@@ -853,12 +855,13 @@ def preload_next_workday(csv_path: str, config: dict) -> dict:
             d['info_texts'] = []
             d['last_uploaded_filename'] = f"medweb_{next_day.strftime('%Y%m%d')}.csv"
 
+        date_str = next_day.strftime('%Y-%m-%d')
         return {
             'success': True,
-            'target_date': next_day.strftime('%Y-%m-%d'),
+            'target_date': date_str,
             'modalities_loaded': list(modality_dfs.keys()),
             'total_workers': sum(len(df) for df in modality_dfs.values()),
-            'message': f'Preload erfolgreich für {next_day.strftime('%Y-%m-%d')}'
+            'message': f'Preload erfolgreich für {date_str}'
         }
 
     except Exception as e:
