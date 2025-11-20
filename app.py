@@ -3013,7 +3013,20 @@ def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
                     if person not in d['skill_counts'][actual_skill]:
                         d['skill_counts'][actual_skill][person] = 0
                     d['skill_counts'][actual_skill][person] += 1
-                    modifier = candidate.get('Modifier', 1.0)
+
+                    # Determine if modifier should apply
+                    modifier = 1.0
+                    modifier_active_only = BALANCER_SETTINGS.get('modifier_applies_to_active_only', False)
+
+                    if modifier_active_only:
+                        # Only apply modifier if skill value is 1 (active)
+                        skill_value = candidate.get(actual_skill, 0)
+                        if skill_value == 1:
+                            modifier = candidate.get('Modifier', 1.0)
+                    else:
+                        # Apply modifier regardless of skill value (old behavior)
+                        modifier = candidate.get('Modifier', 1.0)
+
                     if person not in d['WeightedCounts']:
                         d['WeightedCounts'][person] = 0.0
                     d['WeightedCounts'][person] += (
