@@ -943,40 +943,62 @@ def build_working_hours_from_medweb(
             continue  # Don't add to work shifts
 
         # Normal work activity (not exclusion)
-        modality = normalize_modality(rule.get('modality'))
-        if modality not in allowed_modalities:
+        # Support both single modality and multi-modality (sub-specialty teams)
+        target_modalities = []
+
+        if 'modalities' in rule:
+            # Multi-modality support (e.g., MSK team across xray, ct, mr)
+            raw_modalities = rule['modalities']
+            if isinstance(raw_modalities, list):
+                target_modalities = [normalize_modality(m) for m in raw_modalities]
+            else:
+                # Single modality in 'modalities' field (edge case)
+                target_modalities = [normalize_modality(raw_modalities)]
+        elif 'modality' in rule:
+            # Backward compatible: single modality
+            target_modalities = [normalize_modality(rule['modality'])]
+        else:
+            # No modality specified, skip
             continue
 
-        # Base skills from rule
+        # Filter to only allowed modalities
+        target_modalities = [m for m in target_modalities if m in allowed_modalities]
+
+        if not target_modalities:
+            continue
+
+        # Base skills from rule (same for all modalities)
         base_skills = {s: 0 for s in SKILL_COLUMNS}
         base_skills.update(rule.get('base_skills', {}))
 
-        # Apply roster overrides (config > worker mapping)
-        final_skills = apply_roster_overrides(
-            base_skills, canonical_id, modality, worker_roster
-        )
-
-        # Compute time ranges
+        # Compute time ranges (same for all modalities)
         time_ranges = compute_time_ranges(row, rule, target_date, config)
 
-        # Add row(s) for each time range
-        for start_time, end_time in time_ranges:
-            # Calculate shift duration
-            start_dt = datetime.combine(target_date.date(), start_time)
-            end_dt = datetime.combine(target_date.date(), end_time)
-            if end_dt < start_dt:
-                end_dt += pd.Timedelta(days=1)
-            duration_hours = (end_dt - start_dt).seconds / 3600
+        # Create entries for EACH target modality
+        for modality in target_modalities:
+            # Apply roster overrides (config > worker mapping) per modality
+            final_skills = apply_roster_overrides(
+                base_skills, canonical_id, modality, worker_roster
+            )
 
-            rows_per_modality[modality].append({
-                'PPL': ppl_str,
-                'canonical_id': canonical_id,
-                'start_time': start_time,
-                'end_time': end_time,
-                'shift_duration': duration_hours,
-                'Modifier': 1.0,  # Can be extended with modifier_overrides
-                **final_skills
-            })
+            # Add row(s) for each time range in this modality
+            for start_time, end_time in time_ranges:
+                # Calculate shift duration
+                start_dt = datetime.combine(target_date.date(), start_time)
+                end_dt = datetime.combine(target_date.date(), end_time)
+                if end_dt < start_dt:
+                    end_dt += pd.Timedelta(days=1)
+                duration_hours = (end_dt - start_dt).seconds / 3600
+
+                rows_per_modality[modality].append({
+                    'PPL': ppl_str,
+                    'canonical_id': canonical_id,
+                    'start_time': start_time,
+                    'end_time': end_time,
+                    'shift_duration': duration_hours,
+                    'Modifier': 1.0,  # Can be extended with modifier_overrides
+                    **final_skills
+                })
 
     # SECOND PASS: Apply exclusions to split/truncate shifts
     if exclusions_per_worker:

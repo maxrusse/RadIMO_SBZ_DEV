@@ -184,6 +184,29 @@ medweb_mapping:
       shift: "Fruehdienst"
       base_skills: {Normal: 1, Notfall: 1, Privat: 1, Herz: 0, Msk: 0, Chest: 0}
 
+    # Sub-specialty teams (multi-modality support) - NEW in v18
+    # These workers cover multiple modalities for their specialty
+    # Use 'modalities' (list) instead of 'modality' (string)
+    - match: "MSK Assistent"
+      modalities: ["xray", "ct", "mr"]  # Available in all three modalities
+      shift: "Fruehdienst"
+      base_skills: {Normal: 0, Notfall: 0, Privat: 0, Herz: 0, Msk: 1, Chest: 0}
+
+    - match: "MSK Team"
+      modalities: ["xray", "ct", "mr"]
+      shift: "Fruehdienst"
+      base_skills: {Normal: 0, Notfall: 0, Privat: 0, Herz: 0, Msk: 1, Chest: 0}
+
+    - match: "Herz Team"
+      modalities: ["ct", "mr"]  # Cardiac specialists in CT and MR
+      shift: "Fruehdienst"
+      base_skills: {Normal: 0, Notfall: 1, Privat: 0, Herz: 1, Msk: 0, Chest: 0}
+
+    - match: "Chest Team"
+      modalities: ["xray", "ct"]  # Chest specialists in X-ray and CT
+      shift: "Fruehdienst"
+      base_skills: {Normal: 0, Notfall: 0, Privat: 0, Herz: 0, Msk: 0, Chest: 1}
+
     # Time exclusions (boards, meetings, teaching) - NEW
     # These punch out time from work shifts (worker completely unavailable)
     # Schedule is day-specific (Montag, Dienstag, Mittwoch, Donnerstag, Freitag)

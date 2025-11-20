@@ -233,6 +233,7 @@ Directly ingest medweb CSV schedules with configuration-based activity mapping:
 ```yaml
 medweb_mapping:
   rules:
+    # Single modality (traditional)
     - match: "CT Spätdienst"
       modality: "ct"
       shift: "Spaetdienst"
@@ -242,11 +243,18 @@ medweb_mapping:
       modality: "mr"
       shift: "Fruehdienst"
       base_skills: {Normal: 1, Notfall: 0, Privat: 0, Herz: 0, Msk: 0, Chest: 0}
+
+    # Multi-modality (sub-specialty teams) - NEW
+    - match: "MSK Assistent"
+      modalities: ["xray", "ct", "mr"]  # Available in all three modalities
+      shift: "Fruehdienst"
+      base_skills: {Normal: 0, Notfall: 0, Msk: 1, Privat: 0, Herz: 0, Chest: 0}
 ```
 
 **Benefits:**
 - No manual Excel file creation needed
 - Activity → modality/skill mapping in config.yaml
+- **Multi-modality support:** Sub-specialty teams across multiple modalities
 - Extensible: add new activities by updating config
 - Single CSV upload populates all modalities
 
@@ -697,7 +705,7 @@ RadIMO ingests monthly schedules from medweb in CSV format:
 
 Activities are mapped to modalities and skills via `config.yaml`:
 
-| Activity | Modality | Shift | Example Skills |
+| Activity | Modality/Modalities | Shift | Example Skills |
 |----------|----------|-------|----------------|
 | CT Assistent | ct | Fruehdienst | Normal=1, Notfall=1 |
 | CT Spätdienst | ct | Spaetdienst | Normal=1, Notfall=1 |
@@ -705,8 +713,25 @@ Activities are mapped to modalities and skills via `config.yaml`:
 | MR Assistent 1. Monat | mr | Fruehdienst | Normal=1, Notfall=0 |
 | Chir Assistent | xray | Fruehdienst | Normal=1, Notfall=1 |
 | SBZ: MRT-OA | mr | Fruehdienst | Privat=1 (PP role) |
+| **MSK Assistent** | **xray, ct, mr** ⭐ | Fruehdienst | **Msk=1** (sub-specialty team) |
+| **Herz Team** | **ct, mr** ⭐ | Fruehdienst | **Herz=1, Notfall=1** |
+
+⭐ **Multi-modality support (NEW):** Sub-specialty teams can be assigned across multiple modalities simultaneously.
 
 Add new activity mappings by updating `medweb_mapping.rules` in `config.yaml`.
+
+**Multi-modality syntax:**
+```yaml
+# Single modality (traditional)
+- match: "CT Assistent"
+  modality: "ct"
+  base_skills: {Normal: 1, Notfall: 1}
+
+# Multi-modality (sub-specialty teams)
+- match: "MSK Assistent"
+  modalities: ["xray", "ct", "mr"]  # Available in all three
+  base_skills: {Msk: 1, Normal: 0}
+```
 
 ---
 
@@ -763,6 +788,7 @@ Use force refresh when significant staffing changes occur mid-day (e.g., half th
 
 ### v18 (November 2025)
 - ✨ **Config-driven medweb CSV integration** - Direct CSV ingestion with mapping rules
+- 🔀 **Multi-modality support** - Sub-specialty teams across multiple modalities (e.g., MSK in xray/ct/mr)
 - ⏰ **Automatic daily preload** - 7:30 AM auto-preload via APScheduler
 - 📝 **Next-day schedule preparation** - Advanced edit page with simple/advanced modes
 - 👥 **Worker skill roster admin portal** - Web UI for real-time skill management (JSON-based)
