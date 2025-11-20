@@ -553,6 +553,189 @@ def get_all_workers_by_canonical_id():
         canonical_to_variations[canonical].append(name)
     return canonical_to_variations
 
+# -----------------------------------------------------------
+# Medweb CSV Ingestion (Config-Driven)
+# -----------------------------------------------------------
+
+def match_mapping_rule(activity_desc: str, rules: list) -> Optional[dict]:
+    """Find first matching rule for activity description."""
+    if not activity_desc:
+        return None
+    activity_lower = activity_desc.lower()
+    for rule in rules:
+        match_str = rule.get('match', '')
+        if match_str.lower() in activity_lower:
+            return rule
+    return None
+
+def apply_roster_overrides(
+    base_skills: dict,
+    canonical_id: str,
+    modality: str,
+    worker_roster: dict
+) -> dict:
+    """Apply per-worker skill overrides from config.yaml worker_skill_roster."""
+    if canonical_id not in worker_roster:
+        return base_skills.copy()
+
+    final_skills = base_skills.copy()
+
+    # Apply default overrides
+    if 'default' in worker_roster[canonical_id]:
+        for skill, value in worker_roster[canonical_id]['default'].items():
+            if skill in final_skills:
+                final_skills[skill] = value
+
+    # Apply modality-specific overrides
+    if modality in worker_roster[canonical_id]:
+        for skill, value in worker_roster[canonical_id][modality].items():
+            if skill in final_skills:
+                final_skills[skill] = value
+
+    return final_skills
+
+def compute_time_ranges(
+    row: pd.Series,
+    rule: dict,
+    target_date: datetime,
+    config: dict
+) -> List[Tuple[time, time]]:
+    """
+    Compute start/end times based on shift and date.
+    Uses shift_times from config.yaml.
+    """
+    shift_name = rule.get('shift', 'Fruehdienst')
+    shift_config = config.get('shift_times', {}).get(shift_name, {})
+
+    if not shift_config:
+        # Default fallback
+        return [(time(7, 0), time(15, 0))]
+
+    # Check for special days (Friday)
+    is_friday = target_date.weekday() == 4
+
+    if is_friday and 'friday' in shift_config:
+        time_str = shift_config['friday']
+    else:
+        time_str = shift_config.get('default', '07:00-15:00')
+
+    # Parse "07:00-15:00"
+    try:
+        start_str, end_str = time_str.split('-')
+        start_time = datetime.strptime(start_str.strip(), '%H:%M').time()
+        end_time = datetime.strptime(end_str.strip(), '%H:%M').time()
+        return [(start_time, end_time)]
+    except Exception:
+        return [(time(7, 0), time(15, 0))]
+
+def build_ppl_from_row(row: pd.Series) -> str:
+    """Build PPL string from medweb CSV row."""
+    name = str(row.get('Name des Mitarbeiters', 'Unknown'))
+    code = str(row.get('Code des Mitarbeiters', 'UNK'))
+    return f"{name} ({code})"
+
+def build_working_hours_from_medweb(
+    csv_path: str,
+    target_date: datetime,
+    config: dict
+) -> Dict[str, pd.DataFrame]:
+    """
+    Parse medweb CSV and build working_hours_df for each modality.
+
+    Returns:
+        {
+            'ct': DataFrame(PPL, start_time, end_time, shift_duration, Modifier, Normal, Notfall, ...),
+            'mr': DataFrame(...),
+            'xray': DataFrame(...)
+        }
+    """
+    # Load CSV
+    try:
+        medweb_df = pd.read_csv(csv_path, sep=',', encoding='latin1')
+    except Exception:
+        try:
+            medweb_df = pd.read_csv(csv_path, sep=';', encoding='latin1')
+        except Exception as e:
+            raise ValueError(f"Fehler beim Laden der CSV: {e}")
+
+    # Parse date column
+    medweb_df['Datum_parsed'] = pd.to_datetime(
+        medweb_df['Datum'], dayfirst=True, errors='coerce'
+    ).dt.date
+
+    day_df = medweb_df[medweb_df['Datum_parsed'] == target_date.date()]
+
+    if day_df.empty:
+        return {}
+
+    # Get mapping config
+    mapping_rules = config.get('medweb_mapping', {}).get('rules', [])
+    worker_roster = config.get('worker_skill_roster', {})
+
+    # Prepare data structures
+    rows_per_modality = {mod: [] for mod in allowed_modalities}
+
+    # Process each activity
+    for _, row in day_df.iterrows():
+        activity_desc = str(row.get('Beschreibung der Aktivität', ''))
+
+        # Match rule
+        rule = match_mapping_rule(activity_desc, mapping_rules)
+        if not rule:
+            continue  # Not SBZ-relevant or not mapped
+
+        modality = normalize_modality(rule['modality'])
+        if modality not in allowed_modalities:
+            continue
+
+        # Base skills from rule
+        base_skills = {s: 0 for s in SKILL_COLUMNS}
+        base_skills.update(rule.get('base_skills', {}))
+
+        # Build PPL and get canonical ID
+        ppl_str = build_ppl_from_row(row)
+        canonical_id = get_canonical_worker_id(ppl_str)
+
+        # Apply roster overrides (config > worker mapping)
+        final_skills = apply_roster_overrides(
+            base_skills, canonical_id, modality, worker_roster
+        )
+
+        # Compute time ranges
+        time_ranges = compute_time_ranges(row, rule, target_date, config)
+
+        # Add row(s) for each time range
+        for start_time, end_time in time_ranges:
+            # Calculate shift duration
+            start_dt = datetime.combine(target_date.date(), start_time)
+            end_dt = datetime.combine(target_date.date(), end_time)
+            if end_dt < start_dt:
+                end_dt += pd.Timedelta(days=1)
+            duration_hours = (end_dt - start_dt).seconds / 3600
+
+            rows_per_modality[modality].append({
+                'PPL': ppl_str,
+                'canonical_id': canonical_id,
+                'start_time': start_time,
+                'end_time': end_time,
+                'shift_duration': duration_hours,
+                'Modifier': 1.0,  # Can be extended with modifier_overrides
+                **final_skills
+            })
+
+    # Convert to DataFrames
+    result = {}
+    for modality, rows in rows_per_modality.items():
+        if not rows:
+            continue
+        df = pd.DataFrame(rows)
+        # Remove canonical_id column (used internally only)
+        if 'canonical_id' in df.columns:
+            df = df.drop(columns=['canonical_id'])
+        result[modality] = df
+
+    return result
+
 def validate_excel_structure(df: pd.DataFrame, required_columns) -> (bool, str):
     # Rename column "PP" to "Privat" if it exists
     if "PP" in df.columns:
@@ -561,7 +744,7 @@ def validate_excel_structure(df: pd.DataFrame, required_columns) -> (bool, str):
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
         return False, f"Fehlende Spalten: {', '.join(missing_columns)}"
-    
+
     # Example format checks:
     if 'TIME' in df.columns:
         try:
@@ -1869,113 +2052,144 @@ def logout():
 @app.route('/upload', methods=['GET', 'POST'])
 @admin_required
 def upload_file():
-    modality = resolve_modality_from_request()
-    d = modality_data[modality]
-    
+    """
+    Medweb CSV upload route (config-driven).
+    Replaces old Excel per-modality upload.
+    """
     if request.method == 'POST':
         if 'file' not in request.files:
             return jsonify({"error": "Keine Datei ausgewählt"}), 400
         file = request.files['file']
         if file.filename == '':
             return jsonify({"error": "Keine Datei ausgewählt"}), 400
-        if not file.filename.endswith('.xlsx'):
-            return jsonify({"error": "Ungültiger Dateityp"}), 400
-        scheduled = request.form.get('scheduled_upload', '0')
-        file_path = None
+        if not file.filename.lower().endswith('.csv'):
+            return jsonify({"error": "Ungültiger Dateityp. Bitte eine CSV-Datei hochladen."}), 400
+
+        target_date_str = request.form.get('target_date')
+        if not target_date_str:
+            return jsonify({"error": "Bitte Zieldatum angeben"}), 400
+
         try:
-            if scheduled == '1':
-                file.save(d['scheduled_file_path'])
-                return redirect(url_for('upload_file', modality=modality))
-            else:
-                # For immediate uploads, reset all counters BEFORE loading the file
+            target_date = datetime.strptime(target_date_str, '%Y-%m-%d')
+        except Exception:
+            return jsonify({"error": "Ungültiges Datumsformat"}), 400
+
+        # Save CSV temporarily
+        csv_path = os.path.join(app.config['UPLOAD_FOLDER'], 'medweb_temp.csv')
+        try:
+            file.save(csv_path)
+
+            # Parse medweb CSV
+            modality_dfs = build_working_hours_from_medweb(
+                csv_path,
+                target_date,
+                APP_CONFIG
+            )
+
+            if not modality_dfs:
+                return jsonify({"error": f"Keine SBZ-Daten für {target_date.strftime('%Y-%m-%d')} gefunden"}), 400
+
+            # Reset all counters and apply to modality_data
+            for modality, df in modality_dfs.items():
+                d = modality_data[modality]
+
+                # Reset counters
                 d['draw_counts'] = {}
                 d['skill_counts'] = {skill: {} for skill in SKILL_COLUMNS}
                 d['WeightedCounts'] = {}
                 global_worker_data['weighted_counts_per_mod'][modality] = {}
                 global_worker_data['assignments_per_mod'][modality] = {}
-                
-                # Now save and load the file
-                file_path = d['default_file_path']
-                file.save(file_path)
-                d['last_uploaded_filename'] = os.path.basename(file_path)
-                initialize_data(file_path, modality)
-                # Update live backup on new upload
-                backup_dataframe(modality)
-                return redirect(url_for('upload_file', modality=modality))
-        except Exception as e:
-            if file_path:
-                quarantine_excel(file_path, f"upload {modality}: {e}")
-            return jsonify({"error": f"Fehler beim Hochladen der Datei: {e}"}), 500
 
-    # GET method: Prepare data for the upload page
-    # 1. Debug info table from working_hours_df.
+                # Load DataFrame
+                d['working_hours_df'] = df
+
+                # Initialize counters
+                for worker in df['PPL'].unique():
+                    d['draw_counts'][worker] = 0
+                    d['WeightedCounts'][worker] = 0.0
+                    for skill in SKILL_COLUMNS:
+                        if skill not in d['skill_counts']:
+                            d['skill_counts'][skill] = {}
+                        d['skill_counts'][skill][worker] = 0
+
+                # Set info texts (empty for now, can be extended)
+                d['info_texts'] = []
+                d['last_uploaded_filename'] = f"medweb_{target_date.strftime('%Y%m%d')}.csv"
+
+            # Clean up temp file
+            os.remove(csv_path)
+
+            return jsonify({
+                "success": True,
+                "message": f"Medweb CSV erfolgreich geladen für {target_date.strftime('%Y-%m-%d')}",
+                "modalities_loaded": list(modality_dfs.keys()),
+                "total_workers": sum(len(df) for df in modality_dfs.values())
+            })
+
+        except Exception as e:
+            if os.path.exists(csv_path):
+                os.remove(csv_path)
+            return jsonify({"error": f"Fehler beim Verarbeiten der CSV: {str(e)}"}), 500
+
+    # GET method: Show upload page with stats
+    # Get first modality for display
+    modality = resolve_modality_from_request()
+    d = modality_data[modality]
+
+    # Compute combined stats across all modalities
+    all_worker_names = set()
+    combined_skill_counts = {skill: {} for skill in SKILL_COLUMNS}
+
+    for mod_key in allowed_modalities:
+        mod_d = modality_data[mod_key]
+        for skill in SKILL_COLUMNS:
+            for worker, count in mod_d['skill_counts'].get(skill, {}).items():
+                all_worker_names.add(worker)
+                if worker not in combined_skill_counts[skill]:
+                    combined_skill_counts[skill][worker] = 0
+                combined_skill_counts[skill][worker] += count
+
+    # Compute sum counts and global counts
+    sum_counts = {}
+    global_counts = {}
+    global_weighted_counts = {}
+    for worker in all_worker_names:
+        total = sum(combined_skill_counts[skill].get(worker, 0) for skill in SKILL_COLUMNS)
+        sum_counts[worker] = total
+
+        canonical = get_canonical_worker_id(worker)
+        global_counts[worker] = get_global_assignments(canonical)
+        global_weighted_counts[worker] = get_global_weighted_count(canonical)
+
+    # Build combined stats table
+    combined_workers = sorted(all_worker_names)
+    modality_stats = {}
+    for worker in combined_workers:
+        modality_stats[worker] = {
+            skill: combined_skill_counts[skill].get(worker, 0)
+            for skill in SKILL_COLUMNS
+        }
+        modality_stats[worker]['total'] = sum_counts.get(worker, 0)
+
+    # Debug info from first loaded modality
     debug_info = (
         d['working_hours_df'].to_html(index=True)
         if d['working_hours_df'] is not None else "Keine Daten verfügbar"
     )
 
-    # 2. Prepare JSON for timeline usage.
-    if d['working_hours_df'] is not None:
-        df_for_json = d['working_hours_df'].copy()
-        df_for_json['start_time'] = df_for_json['start_time'].apply(
-            lambda t: t.strftime('%H:%M:%S') if pd.notnull(t) else ""
-        )
-        df_for_json['end_time'] = df_for_json['end_time'].apply(
-            lambda t: t.strftime('%H:%M:%S') if pd.notnull(t) else ""
-        )
-        debug_data = df_for_json.to_json(orient='records')
-    else:
-        debug_data = "[]"
-
-    # 3. Compute per‑skill counts and summed counts per worker.
-    skill_counts = {skill: d['skill_counts'].get(skill, {}) for skill in SKILL_COLUMNS}
-    worker_names = set()
-    for skill in SKILL_COLUMNS:
-        worker_names.update(skill_counts.get(skill, {}).keys())
-
-    sum_counts = {}
-    for worker in worker_names:
-        total = sum(skill_counts[skill].get(worker, 0) for skill in SKILL_COLUMNS)
-        sum_counts[worker] = total
-
-    # 4. Compute global assignments and weighted counts.
-    global_counts = {}
-    global_weighted_counts = {}
-    for worker in worker_names:
-        canonical = get_canonical_worker_id(worker)
-        global_counts[worker] = get_global_assignments(canonical)
-        global_weighted_counts[worker] = get_global_weighted_count(canonical)
-
-    # 5. Build the combined stats for a unified table.
-    combined_workers = sorted(set(sum_counts.keys()) | set(global_counts.keys()))
-    modality_stats = {}
-    for worker in combined_workers:
-        modality_stats[worker] = {
-            skill: skill_counts.get(skill, {}).get(worker, 0)
-            for skill in SKILL_COLUMNS
-        }
-        modality_stats[worker]['total'] = sum(
-            modality_stats[worker][skill] for skill in SKILL_COLUMNS
-        )
-
-    # 6. Get info texts.
-    info_texts = d.get('info_texts', [])
-
-    # 7. Re-run the operational checks so admins immediately see the latest status.
+    # Run operational checks
     checks = run_operational_checks('admin_view', force=True)
 
     return render_template(
         'upload.html',
         debug_info=debug_info,
-        debug_data=debug_data,
         modality=modality,
-        skill_counts=skill_counts,
-        sum_counts=sum_counts,     
+        skill_counts=combined_skill_counts,
+        sum_counts=sum_counts,
         global_counts=global_counts,
         global_weighted_counts=global_weighted_counts,
         combined_workers=combined_workers,
         modality_stats=modality_stats,
-        info_texts=info_texts,
         operational_checks=checks,
     )
 

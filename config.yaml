@@ -130,3 +130,88 @@ balancer:
     Chest:
       - Notfall
       - Normal
+
+# Medweb CSV Upload Configuration
+medweb_mapping:
+  # Rules for mapping medweb activities to modalities and skills
+  # Rules are evaluated in order; first match wins
+  rules:
+    # CT activities
+    - match: "CT Spätdienst"
+      modality: "ct"
+      shift: "Spaetdienst"
+      base_skills: {Normal: 1, Notfall: 1, Privat: 0, Herz: 0, Msk: 0, Chest: 0}
+
+    - match: "CT Assistent"
+      modality: "ct"
+      shift: "Fruehdienst"
+      base_skills: {Normal: 1, Notfall: 1, Privat: 0, Herz: 0, Msk: 0, Chest: 0}
+
+    - match: "SBZ: CT Privatpatienten"
+      modality: "ct"
+      shift: "Fruehdienst"
+      base_skills: {Normal: 0, Notfall: 0, Privat: 1, Herz: 0, Msk: 0, Chest: 0}
+
+    # MR activities
+    - match: "MRT Spätdienst"
+      modality: "mr"
+      shift: "Spaetdienst"
+      base_skills: {Normal: 1, Notfall: 1, Privat: 0, Herz: 0, Msk: 0, Chest: 0}
+
+    - match: "MR Assistent 1. Monat"
+      modality: "mr"
+      shift: "Fruehdienst"
+      base_skills: {Normal: 1, Notfall: 0, Privat: 0, Herz: 0, Msk: 0, Chest: 0}
+
+    - match: "MR Assistent"
+      modality: "mr"
+      shift: "Fruehdienst"
+      base_skills: {Normal: 1, Notfall: 1, Privat: 0, Herz: 0, Msk: 0, Chest: 0}
+
+    - match: "SBZ: MRT-OA"
+      modality: "mr"
+      shift: "Fruehdienst"
+      base_skills: {Normal: 0, Notfall: 0, Privat: 1, Herz: 0, Msk: 0, Chest: 0}
+
+    # Chir activities → xray modality (per user clarification: chir=xray)
+    - match: "Chir Assistent"
+      modality: "xray"
+      shift: "Fruehdienst"
+      base_skills: {Normal: 1, Notfall: 1, Privat: 0, Herz: 0, Msk: 0, Chest: 0}
+
+    - match: "OA / FA Chir"
+      modality: "xray"
+      shift: "Fruehdienst"
+      base_skills: {Normal: 1, Notfall: 1, Privat: 1, Herz: 0, Msk: 0, Chest: 0}
+
+    # SBZ Aufklärung - uses shifts logic
+    - match: "SBZ Aufklärung"
+      modality: "ct"
+      shift: "Fruehdienst"
+      label: "Aufklärung"
+      base_skills: {Normal: 1, Notfall: 0, Privat: 0, Herz: 0, Msk: 0, Chest: 0}
+
+# Shift time definitions
+shift_times:
+  Fruehdienst:
+    default: "07:00-15:00"
+    friday: "07:00-13:00"
+  Spaetdienst:
+    default: "13:00-21:00"
+    friday: "13:00-19:00"
+
+# Worker skill roster - per-worker overrides
+# Config takes precedence over medweb mapping
+# -1 = excluded (never use), 0 = passive (fallback only), 1 = active (primary + fallback)
+worker_skill_roster:
+  # Example workers - add your workers here
+  # KRUE:
+  #   default:
+  #     Normal: 1
+  #     Notfall: 1
+  #     Privat: 0
+  #     Herz: 0
+  #     Msk: -1
+  #     Chest: 1
+  #   ct:
+  #     Notfall: 0  # Per-modality override

@@ -3,961 +3,413 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ modality_labels[modality] }} Admin - Upload & Verwaltung</title>
+  <title>RadIMO Admin - Medweb CSV Upload</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='vis.min.css') }}">
   <style>
-
-    
-    :root {
-      --disabled-color:  #888;
-
-      /* Global & Other Colors */
-      --primary-color:   #004892;
-      --global-accent:   #004892;
-      --body-bg:         #f0f0f0;
-      --header-bg:       #fff;
-      --tab-bg:          #fff;
-      --tab-color:       #000;
-      --card-bg:         #fff;
-      --result-panel-bg: #f0f8ff;
-      --clipboard-bg:    #f0f8ff;
-      --info-box-border: #dc3545;
-      --info-item-bg:    #fff;
-      --info-item-shadow: rgba(0, 0, 0, 0.05);
-      --card-header-bg:  #f8f9fa;
-      --stats-header-bg: #f8f9fa;
-      --table-header-bg: #f8f9fa;
-      --highlight-bg:    rgba(0, 0, 0, 0.05);
-    }
-    
-    /* Fallback gradient for no-skill case */
-    .skill-none {
-      background: #aaa;
-    }
-    
-    /* Reset */
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    
+
     body {
       font-family: system-ui, -apple-system, sans-serif;
-      background: var(--body-bg);
-      padding: 1rem;
+      background: #f0f0f0;
+      padding: 2rem;
       max-width: 1400px;
       margin: 0 auto;
     }
-    body[data-modality] {
-      background: var(--modality-bg, var(--body-bg));
-    }
 
-    {% for key, settings in modalities.items() %}
-    body[data-modality="{{ key }}"] {
-      --modality-bg: {{ settings.background_color }};
-      --modality-nav: {{ settings.nav_color }};
-      --modality-hover: {{ settings.hover_color }};
-    }
-    {% endfor %}
-    
-    /* Modal styles for password input */
-    #authModal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0,0,0,0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-    }
-    #authModal .modal-content {
-      background: #fff;
-      padding: 20px;
-      border-radius: 5px;
-      text-align: center;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-    #authModal input[type="password"] {
-      padding: 10px;
-      font-size: 1rem;
-      width: 200px;
-      margin-top: 10px;
-    }
-    #authModal button {
-      padding: 10px 20px;
-      font-size: 1rem;
-      margin-top: 10px;
-      cursor: pointer;
-    }
-    
-    /* Premium Header with Embedded Modality Selector */
-    .premium-header {
+    .header {
+      background: #004892;
+      color: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: var(--header-bg);
-      padding: 1rem 2rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      margin-bottom: 1rem;
     }
-    .premium-header h1 {
-      font-size: 1.75rem;
-      margin: 0;
+
+    .header h1 {
+      font-size: 1.8rem;
     }
-    .modality-selector {
-      display: flex;
-      gap: 1rem;
-    }
-    .modality-selector a {
+
+    .header-actions a {
+      color: white;
       text-decoration: none;
-      font-weight: bold;
+      margin-left: 1rem;
       padding: 0.5rem 1rem;
-      border-radius: 20px;
-      background: var(--tab-bg);
-      color: var(--tab-color);
-      border: 2px solid;
-      transition: border-width 0.2s;
-    }
-    {% for key, settings in modalities.items() %}
-    .modality-selector a[data-modality="{{ key }}"] {
-      border-color: {{ settings.nav_color }};
-    }
-    {% endfor %}
-    .modality-selector a.active {
-      border-width: 4px;
-    }
-    
-    /* Back, Upload & Download Buttons */
-    .back-button, .upload-button, .download-button {
-      display: inline-block;
-      padding: 0.75rem 1.5rem;
-      color: #fff;
-      text-decoration: none;
+      background: rgba(255,255,255,0.2);
       border-radius: 4px;
-      font-size: 1rem;
-      margin: 1rem 0;
-      transition: background 0.3s;
-      border: none;
-      cursor: pointer;
+      transition: background 0.2s;
     }
-    .back-button, .upload-button, .download-button {
-      background: var(--modality-nav, var(--primary-color));
+
+    .header-actions a:hover {
+      background: rgba(255,255,255,0.3);
     }
-    .back-button:hover,
-    .upload-button:hover,
-    .download-button:hover {
-      background: var(--modality-hover, #003f73);
-    }
-    
-    /* New Generic Modality Button */
-    .modality-button {
-      display: inline-block;
-      padding: 0.75rem 1.5rem;
-      color: #fff;
-      text-decoration: none;
-      border-radius: 4px;
-      font-size: 1rem;
-      margin: 1rem 0;
-      transition: background 0.3s;
-      border: none;
-      cursor: pointer;
-      background: var(--modality-nav, var(--global-accent));
-    }
-    .modality-button:hover { background: var(--modality-hover, #003f73); }
-    
-    /* File Upload & Custom File */
-    .custom-file {
-      position: relative;
-      display: inline-block;
-      overflow: hidden;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      background: #fff;
-      cursor: pointer;
-      padding: 0.5rem 1rem;
-      margin-top: 0.5rem;
-      transition: background 0.3s;
-    }
-    .custom-file:hover { background: #f9f9f9; }
-    .custom-file input[type="file"] {
-      position: absolute;
-      left: 0;
-      top: 0;
-      opacity: 0;
-      cursor: pointer;
-      height: 100%;
-      width: 100%;
-    }
-    .custom-file #fileName { pointer-events: none; }
-    
-    .radio-group label { display: block; margin-bottom: 0.5rem; cursor: pointer; }
-    
-    /* Card Styles */
+
     .card {
-      background: var(--card-bg);
+      background: white;
+      padding: 2rem;
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      padding: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .card h2 {
       margin-bottom: 1rem;
+      color: #333;
+      border-bottom: 2px solid #004892;
+      padding-bottom: 0.5rem;
     }
 
-    .operational-checks h2 {
-      margin-bottom: 0.75rem;
+    .upload-section {
+      background: #f8f9fa;
+      padding: 2rem;
+      border-radius: 8px;
+      border: 2px dashed #004892;
+      margin-bottom: 2rem;
     }
 
-    .operational-checks-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
+    .form-group {
+      margin-bottom: 1.5rem;
     }
 
-    .operational-check-item {
-      display: flex;
-      flex-direction: column;
-      border: 1px solid rgba(0,0,0,0.08);
-      border-left-width: 6px;
-      border-radius: 6px;
-      padding: 0.75rem;
-      background: #fff;
-    }
-
-    .operational-check-item strong {
-      font-size: 1rem;
-    }
-
-    .operational-check-detail {
-      font-size: 0.9rem;
-      color: #444;
-      margin-top: 0.25rem;
-    }
-
-    .operational-check-status {
-      font-size: 0.85rem;
-      font-weight: 600;
-      margin-top: 0.25rem;
-      text-transform: uppercase;
-    }
-
-    .operational-check-item.ok {
-      border-left-color: #28a745;
-    }
-
-    .operational-check-item.warn {
-      border-left-color: #ffc107;
-    }
-
-    .operational-check-item.error {
-      border-left-color: #dc3545;
-    }
-
-    .operational-check-timestamp {
-      font-size: 0.8rem;
-      color: #555;
-      margin-top: 0.75rem;
-    }
-    .form-group { margin-bottom: 1rem; }
-    label {
+    .form-group label {
       display: block;
       margin-bottom: 0.5rem;
       font-weight: 600;
-      color: var(--primary-color);
+      color: #333;
     }
-    input[type="text"],
-    input[type="number"],
-    input[type="file"],
-    textarea,
-    select {
+
+    .form-group input[type="file"],
+    .form-group input[type="date"] {
       width: 100%;
-      padding: 0.5rem;
-      border: 1px solid #ccc;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
       border-radius: 4px;
       font-size: 1rem;
     }
-    
-    /* Table & Debug Section */
-    .table-container {
-      width: 100%;
-      overflow-x: auto;
-      padding: 1rem;
-      box-sizing: border-box;
+
+    .btn-primary {
+      background: #004892;
+      color: white;
+      padding: 1rem 2rem;
+      border: none;
+      border-radius: 4px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: background 0.2s;
     }
-    .debug-info table {
+
+    .btn-primary:hover {
+      background: #003670;
+    }
+
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .message {
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+      display: block;
+    }
+
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      display: block;
+    }
+
+    .stats-table {
       width: 100%;
       border-collapse: collapse;
-      background: #fff;
+      margin-top: 1rem;
     }
-    .debug-info th,
-    .debug-info td {
-      padding: 0.5rem;
-      border: 1px solid #ddd;
+
+    .stats-table th,
+    .stats-table td {
+      padding: 0.75rem;
       text-align: left;
+      border-bottom: 1px solid #ddd;
     }
-    .active-row {
-      background-color: var(--modality-bg, #fff) !important;
+
+    .stats-table th {
+      background: #f8f9fa;
+      font-weight: 600;
+      color: #333;
     }
-    
-    /* Edit Form */
-    .edit-form .form-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
+
+    .stats-table tr:hover {
+      background: #f8f9fa;
+    }
+
+    .skill-column {
+      text-align: center;
+    }
+
+    .info-box {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 4px;
+      padding: 1rem;
       margin-bottom: 1rem;
     }
-    .edit-form .form-group { flex: 1; min-width: 200px; }
-    
-    /* Timeline */
-    .timeline-card { margin-bottom: 1rem; }
-    #timeline-container {
-      border: 1px solid #ccc;
-      border-radius: 8px;
+
+    .info-box h3 {
+      margin-bottom: 0.5rem;
+      color: #856404;
+    }
+
+    .operational-checks {
+      list-style: none;
+    }
+
+    .operational-checks li {
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+      border-radius: 4px;
+    }
+
+    .check-ok {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .check-warning {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .check-error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .debug-section {
+      margin-top: 2rem;
+    }
+
+    .debug-section summary {
+      cursor: pointer;
       padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 4px;
+      font-weight: 600;
+      user-select: none;
+    }
+
+    .debug-section summary:hover {
+      background: #e9ecef;
+    }
+
+    .debug-content {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+
+    .config-info {
+      background: #e7f3ff;
+      border-left: 4px solid #004892;
+      padding: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .config-info code {
       background: #fff;
-      min-height: 150px;
-    }
-    .legend { display: flex; gap: 1rem; margin-top: 0.5rem; }
-    .legend-item { display: flex; align-items: center; font-size: 0.9rem; }
-    .legend-box {
-      width: 15px;
-      height: 15px;
-      margin-right: 0.5rem;
-      border: 1px solid #ddd;
+      padding: 0.2rem 0.4rem;
       border-radius: 3px;
+      font-family: 'Courier New', monospace;
     }
-    .legend-box.skill-normal,
-    .legend-box.skill-notfall,
-    .legend-box.skill-herz,
-    .legend-box.skill-msk,
-    .legend-box.skill-chest,
-    .legend-box.skill-privat { background: transparent; }
   </style>
-
 </head>
-<body data-modality="{{ modality }}">
-  <!-- Main content container -->
-  <div id="content">
-    <!-- Premium Header with Embedded Modality Selector -->
-    <header class="premium-header">
-      <h1>{{ modality_labels[modality] }} Admin - Upload & Verwaltung</h1>
-      <div class="modality-selector">
-        {% for mod in modality_order %}
-          <a href="{{ url_for('upload_file', modality=mod) }}" data-modality="{{ mod }}" class="{% if modality == mod %}active{% endif %}">{{ modality_labels[mod] }}</a>
-        {% endfor %}
-      </div>
-    </header>
+<body>
+  <div class="header">
+    <div>
+      <h1>🏥 RadIMO Admin Panel</h1>
+      <p>Medweb CSV Upload & System Verwaltung</p>
+    </div>
+    <div class="header-actions">
+      <a href="{{ url_for('index', modality=modality) }}">← Zurück zur Zuteilung</a>
+      <a href="{{ url_for('logout') }}">Logout</a>
+    </div>
+  </div>
 
-    {% if operational_checks %}
-    <section class="card operational-checks">
-      <h2>Systemchecks</h2>
-      <ul class="operational-checks-list">
-        {% for result in operational_checks.results %}
-          <li class="operational-check-item {{ result.status|lower }}">
-            <strong>{{ result.name }}</strong>
-            <span class="operational-check-status">{{ result.status }}</span>
-            <div class="operational-check-detail">{{ result.detail }}</div>
-          </li>
-        {% endfor %}
-      </ul>
-      <div class="operational-check-timestamp">
-        Letzter Lauf ({{ operational_checks.context }}): {{ operational_checks.timestamp }}
-      </div>
-    </section>
-    {% endif %}
+  <div id="message-container"></div>
 
+  <!-- Upload Section -->
+  <div class="card">
+    <h2>📤 Medweb CSV Upload</h2>
 
-    <!-- Back Button -->
-    <a href="{{ url_for('index', modality=modality) }}" class="back-button">Zurück zur Hauptseite</a>
-    <a href="{{ url_for('logout', modality=modality) }}" class="back-button">Logout</a>
-
-      <!-- Statistics Section -->
-      
-    <div class="card">
-      <h2>Statistiken</h2>
-      <div class="table-container">
-        <div class="debug-info">
-          <table>
-            <thead>
-              <tr>
-                <th>MA</th>
-                {% for skill in skill_definitions %}
-                  <th>{{ skill.label }}</th>
-                {% endfor %}
-                <th>∑</th>
-                <th>W (Global)</th>
-              </tr>
-            </thead>
-            <tbody id="modalityStatsBody">
-              {% for worker in combined_workers %}
-                <tr>
-                  <td>{{ worker }}</td>
-                  {% for skill in skill_definitions %}
-                    {% set mod_val = modality_stats[worker][skill.name] %}
-                    {% set global_val = global_counts[worker][skill.name] if global_counts[worker] and skill.name in global_counts[worker] else 0 %}
-                    <td>
-                      {% if mod_val == global_val %}
-                        {{ mod_val }}
-                      {% else %}
-                        {{ mod_val }} | {{ global_val }}
-                      {% endif %}
-                    </td>
-                  {% endfor %}
-                  {% set mod_total = modality_stats[worker]['total'] %}
-                  {% set global_total = global_counts[worker].total if global_counts[worker] and 'total' in global_counts[worker] else 0 %}
-                  <td>
-                    {% if mod_total == global_total %}
-                      {{ mod_total }}
-                    {% else %}
-                      {{ mod_total }} | {{ global_total }}
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ "%.1f"|format(global_weighted_counts[worker] if worker in global_weighted_counts else 0) }}
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <div class="config-info">
+      <strong>ℹ️ Config-gesteuerte Medweb-Anbindung</strong>
+      <p>Diese Seite verwendet die <code>medweb_mapping</code> Regeln aus <code>config.yaml</code> um CSV-Aktivitäten automatisch auf Modalitäten und Skills zu mappen.</p>
+      <p><strong>Unterstützte Aktivitäten:</strong> CT Assistent, CT Spätdienst, MR Assistent, MR Assistent 1. Monat, MRT Spätdienst, Chir Assistent, OA/FA Chir, SBZ: MRT-OA, etc.</p>
     </div>
 
-
-
-    <!-- Datei Upload Section -->
-    <div class="card file-upload-card" style="padding: 0.75rem 1rem;">
-      <h2 style="margin-bottom: 0.5rem;">Datei Upload</h2>
-      <form action="{{ url_for('upload_file', modality=modality) }}" method="post" enctype="multipart/form-data" class="upload-form">
-        <div class="form-row" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: nowrap; margin-bottom: 0.75rem;">
-          <div class="custom-file" style="position: relative; width: 180px; height: 2.2rem;">
-            <input type="file" name="file" id="fileInput" accept=".xlsx" onchange="updateFileName(this)" style="width: 100%; height: 100%; opacity: 0; cursor: pointer;">
-            <span id="fileName" style="position: absolute; top: 50%; left: 0.5rem; transform: translateY(-50%); pointer-events: none; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 160px;">Datei wählen</span>
-          </div>
-          <div style="display: flex; align-items: center; white-space: nowrap; font-size: 0.9rem;">
-            <label style="margin: 0 0.3rem 0 0;">Modus:</label>
-            <label style="margin: 0 0.5rem 0 0; display: flex; align-items: center;">
-              <input type="radio" name="scheduled_upload" value="0" checked style="margin-right: 0.2rem;"> Sofort
-            </label>
-            <label style="margin: 0; display: flex; align-items: center;">
-              <input type="radio" name="scheduled_upload" value="1" style="margin-right: 0.2rem;"> 07:30
-            </label>
-          </div>
-          <button type="submit" class="upload-button" style="padding: 0.4rem 0.8rem; font-size: 0.9rem; height: 2.2rem; margin: 0;">Upload</button>
-        </div>
-        <div class="form-row" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: nowrap;">
-          <label style="margin: 0; font-size: 0.9rem; white-space: nowrap;">Download File:</label>
-          <a href="{{ url_for('download_file', modality=modality) }}" class="download-button" style="padding: 0.4rem 0.8rem; font-size: 0.9rem; height: 2.2rem; margin: 0;">Letzte</a>
-          <a href="{{ url_for('download_latest', modality=modality) }}" class="download-button" style="padding: 0.4rem 0.8rem; font-size: 0.9rem; height: 2.2rem; margin: 0;">Live-Backup</a>
-        </div>
-      </form>
-    </div>
-
-    <!-- Debug / Data Overview Section -->
-    <div class="card">
-      <h2>Zeiten Übersicht ({{ modality_labels[modality] }})</h2>
-      <div class="debug-info">
-        <div class="table-container">
-          {{ debug_info|safe }}
-        </div>
-      </div>
-    </div>
-
-
-    <!-- Edit Entry Section with tighter layout -->
-    <div class="card">
-      <h2>Bearbeiten der Einträge</h2>
-      <div class="edit-form">
-        <form action="{{ url_for('edit_entry') }}" method="post">
-          <input type="hidden" name="modality" value="{{ modality }}">
-
-          <!-- First row: Index, Person, Time, Modifier -->
-          <div class="form-row" style="margin-bottom: 0.5rem;">
-            <div class="form-group" style="flex: 0.5; min-width: 100px;">
-              <label for="index" style="margin-bottom: 0.2rem;">Index:</label>
-              <input type="number" id="index" name="index" placeholder="z.B. 0" oninput="loadEntry()" style="padding: 0.3rem;">
-              <small style="font-size: 0.7rem;">Index aus der Tabelle</small>
-            </div>
-            <div class="form-group" style="flex: 1; min-width: 150px;">
-              <label for="person" style="margin-bottom: 0.2rem;">Person:</label>
-              <input type="text" id="person" name="person" required placeholder="Name (Kürzel)" style="padding: 0.3rem;">
-              <small style="font-size: 0.7rem;">Format: Name (Kürzel)</small>
-            </div>
-            <div class="form-group" style="flex: 1; min-width: 150px;">
-              <label for="time" style="margin-bottom: 0.2rem;">Zeit:</label>
-              <input type="text" id="time" name="time" pattern="\d{2}:\d{2}-\d{2}:\d{2}" required placeholder="07:00-14:00" style="padding: 0.3rem;">
-              <small style="font-size: 0.7rem;">Format HH:MM-HH:MM</small>
-            </div>
-            <div class="form-group" style="flex: 0.5; min-width: 100px;">
-              <label for="modifier" style="margin-bottom: 0.2rem;">Modifier:</label>
-              <input type="text" id="modifier" name="modifier" required placeholder="1.0" style="padding: 0.3rem;">
-              <small style="font-size: 0.7rem;">z.B. 0.5 für halbe Arbeit</small>
-            </div>
-          </div>
-
-          <!-- Second row: Skills with compact toggles -->
-          <div class="form-row" style="margin-bottom: 0.5rem; display: flex; align-items: flex-end;">
-            <!-- Skill toggles in a more compact format -->
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              {% for skill in skill_definitions %}
-                <div class="form-group" style="min-width: auto; margin-bottom: 0; display: flex; align-items: center; padding: 0.2rem 0.5rem;">
-                  <label for="{{ skill.form_key }}" style="margin: 0; margin-right: 0.3rem; font-weight: normal; display: flex; align-items: center;">
-                    <div style="width: 12px; height: 12px; background: {{ skill.button_color }}; margin-right: 0.3rem; border-radius: 2px;"></div>
-                    {{ skill.label }}:
-                  </label>
-                  <select id="{{ skill.form_key }}" name="{{ skill.form_key }}" style="width: 40px; padding: 0.2rem; border-radius: 3px; text-align: center;">
-                    <option value="-1">-1</option>
-                    <option value="0">0</option>
-                    <option value="1">1</option>
-                  </select>
-                </div>
-              {% endfor %}
-            </div>
-          </div>
-
-          <!-- Legend as small plain text matching other help text format -->
-          <div class="form-group" style="margin-bottom: 0.5rem;">
-            <small style="font-size: 0.7rem;">
-              Gewichtung: -1 = Ausschluss, 0 = Nur Fallback (passiv), 1 = Aktiv
-            </small>
-          </div>
-
-          <!-- Button row with smaller buttons -->
-          <div class="form-row" style="margin-bottom: 0; justify-content: flex-start; gap: 0.5rem;">
-            <button type="submit" class="modality-button" style="padding: 0.4rem 0.8rem; margin: 0;">Aktualisieren/Hinzufügen</button>
-            <button type="button" class="modality-button" onclick="deleteEntry()" style="padding: 0.4rem 0.8rem; margin: 0;">Löschen</button>
-          </div>
-        </form>
-        <form id="deleteForm" action="{{ url_for('delete_entry') }}" method="post" style="display:none;">
-          <input type="hidden" id="deleteIndex" name="index">
-          <input type="hidden" name="modality" value="{{ modality }}">
-        </form>
-      </div>
-    </div>
-
-
-      
-    <!-- Timeline Section -->
-    <div class="card timeline-card">
-      <h2>Zeitplan</h2>
-      <div id="timeline-container"></div>
-      <div class="legend">
-        {% for skill in skill_definitions %}
-          <div class="legend-item">
-            <div class="legend-box" style="background: {{ skill.button_color }};"></div> {{ skill.label }}
-          </div>
-        {% endfor %}
-      </div>
-    </div>
-
-      
-
-
-      
-      
-    <!-- Info Text bearbeiten Section -->
-    <div class="card">
-      <h2>Info Text bearbeiten</h2>
-      <form action="{{ url_for('edit_info') }}" method="post">
-        <input type="hidden" name="modality" value="{{ modality }}">
+    <div class="upload-section">
+      <form id="upload-form" enctype="multipart/form-data">
         <div class="form-group">
-          <label for="info_text">Info Text (jede Zeile entspricht einer Info):</label>
-          <textarea id="info_text" name="info_text" rows="5" style="width: 100%;">{{ info_texts | join('\n') }}</textarea>
+          <label for="csv-file">📁 Medweb CSV Datei:</label>
+          <input type="file" id="csv-file" name="file" accept=".csv" required>
+          <small style="color: #666; display: block; margin-top: 0.5rem;">
+            Erwartet: medweb CSV mit Spalten wie "Datum", "Beschreibung der Aktivität", "Name des Mitarbeiters", "Code des Mitarbeiters"
+          </small>
         </div>
-        <button type="submit" class="modality-button">Info Text aktualisieren</button>
+
+        <div class="form-group">
+          <label for="target-date">📅 Zieldatum:</label>
+          <input type="date" id="target-date" name="target_date" required>
+          <small style="color: #666; display: block; margin-top: 0.5rem;">
+            Das Datum für welches die Dienstpläne aus der CSV extrahiert werden sollen
+          </small>
+        </div>
+
+        <button type="submit" class="btn-primary" id="upload-btn">
+          ⬆️ CSV Hochladen & Verarbeiten
+        </button>
       </form>
     </div>
-      
-    <button onclick="toggleSummaryStats()" class="modality-button" style="padding: 0.4rem 0.8rem; margin: 0;">Full Stats</button>
+  </div>
 
-    <div id="summaryStatsContainer" class="card" style="display: none;">
-      <h2>Zusammenfassung (Gesamtstatistik)</h2>
-      <div class="table-container">
-        <div class="debug-info">
-          <table>
-            <thead>
-              <tr>
-                <th>MA</th>
-                {% for mod in modality_order %}
-                  <th>{{ modality_labels[mod] }}</th>
-                {% endfor %}
-                <th>∑</th>
-                <th>W (Global)</th>
-              </tr>
-            </thead>
-            <tbody id="summaryStatsBody">
-              <tr><td colspan="{{ modality_order|length + 3 }}">Lade Daten...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+  <!-- Operational Checks -->
+  {% if operational_checks %}
+  <div class="card">
+    <h2>✅ System-Checks</h2>
+    <ul class="operational-checks">
+      {% for check in operational_checks.results %}
+        <li class="{% if check.status == 'OK' %}check-ok{% elif check.status == 'WARNING' %}check-warning{% else %}check-error{% endif %}">
+          <strong>{{ check.name }}:</strong> {{ check.status }}
+          {% if check.detail %}
+            <br><small>{{ check.detail }}</small>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    <p style="margin-top: 1rem; color: #666;"><small>Letzte Prüfung: {{ operational_checks.timestamp }}</small></p>
+  </div>
+  {% endif %}
+
+  <!-- Worker Statistics -->
+  {% if combined_workers %}
+  <div class="card">
+    <h2>📊 Worker Statistiken (Alle Modalitäten)</h2>
+    <div style="overflow-x: auto;">
+      <table class="stats-table">
+        <thead>
+          <tr>
+            <th>Worker</th>
+            {% for skill in skill_counts.keys() %}
+              <th class="skill-column">{{ skill }}</th>
+            {% endfor %}
+            <th class="skill-column"><strong>Total</strong></th>
+            <th class="skill-column">Global</th>
+            <th class="skill-column">Weighted</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for worker in combined_workers %}
+            <tr>
+              <td><strong>{{ worker }}</strong></td>
+              {% for skill in skill_counts.keys() %}
+                <td class="skill-column">{{ modality_stats[worker][skill] }}</td>
+              {% endfor %}
+              <td class="skill-column"><strong>{{ modality_stats[worker].total }}</strong></td>
+              <td class="skill-column">{{ global_counts.get(worker, 0) }}</td>
+              <td class="skill-column">{{ "%.2f"|format(global_weighted_counts.get(worker, 0)) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-     
-      
-      
+    <p style="margin-top: 1rem; color: #666;">
+      <small>
+        <strong>Total:</strong> Zuteilungen in dieser Modalität |
+        <strong>Global:</strong> Zuteilungen über alle Modalitäten |
+        <strong>Weighted:</strong> Gewichtete Zuteilungen (berücksichtigt Skill-Faktoren)
+      </small>
+    </p>
+  </div>
+  {% endif %}
+
+  <!-- Debug Info -->
+  <details class="card debug-section">
+    <summary>🔍 Debug-Informationen (working_hours_df)</summary>
+    <div class="debug-content">
+      {{ debug_info|safe }}
     </div>
-    
+  </details>
 
-
-
-
-    <!-- Back Button -->
-    <a href="{{ url_for('index', modality=modality) }}" class="back-button">Zurück zur Hauptseite</a>
-    <a href="{{ url_for('logout', modality=modality) }}" class="back-button">Logout</a>
-    
-  <script src="{{ url_for('static', filename='vis.min.js') }}"></script>
   <script>
-    function updateFileName(input) {
-      var fileName = input.files.length ? input.files[0].name : "Keine ausgewählt";
-      document.getElementById("fileName").textContent = fileName;
-    }
-    
-    // Updated loadEntry function: fetches data for a given index.
-    function loadEntry() {
-      const i = document.getElementById('index').value;
-      if (i !== '') {
-        fetch(`/get_entry?modality={{ modality }}&index=${i}`)
-          .then(response => response.json())
-          .then(data => {
-            if (data.error) {
-              alert(data.error);
-            } else {
-              document.getElementById('person').value = data.person;
-              document.getElementById('time').value = data.time;
-              const fieldKeys = ['modifier', ...skillFormKeys];
-              fieldKeys.forEach(field => {
-                document.getElementById(field).value = (field in data) ? data[field] : 0;
-              });
-            }
-          });
-      }
-    }
-    
-    function deleteEntry() {
-      const i = document.getElementById('index').value;
-      if (i !== '') {
-        document.getElementById('deleteIndex').value = i;
-        document.getElementById('deleteForm').submit();
-      } else {
-        alert('Bitte Index angeben.');
-      }
-    }
+    // Set today as default date
+    document.getElementById('target-date').valueAsDate = new Date();
 
-    const skillColumns = {{ skill_columns|tojson }};
-    const skillSlugMap = {{ skill_slug_map|tojson }};
-    const skillColorMap = {{ skill_color_map|tojson }};
-    const skillFormKeys = {{ skill_definitions | map(attribute='form_key') | list | tojson }};
+    // Handle form submission
+    document.getElementById('upload-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
 
-    function buildGradient(skills) {
-      const stripeWidth = 10;
-      const gapWidth = 15;
-      if (!skills || skills.length === 0) {
-        return "background: #ffffff;";
-      }
-      const colors = skills.map(slug => skillColorMap[slug] || '#cccccc');
-      if (colors.length === 1) {
-        const color = colors[0];
-        return `background: repeating-linear-gradient(
-          90deg,
-          ${color} 0px,
-          ${color} ${stripeWidth}px,
-          #ffffff ${stripeWidth}px,
-          #ffffff ${stripeWidth + gapWidth}px
-        );`;
-      }
-      const stops = colors.map((color, idx) => {
-        const start = idx * stripeWidth;
-        const end = start + stripeWidth;
-        return `${color} ${start}px, ${color} ${end}px`;
-      });
-      const blockWidth = colors.length * stripeWidth;
-      stops.push(`#ffffff ${blockWidth}px, #ffffff ${blockWidth + gapWidth}px`);
-      const period = blockWidth + gapWidth;
-      return `background: repeating-linear-gradient(90deg, ${stops.join(', ')}, #ffffff ${period}px);`;
-    }
-    
-    function buildTimeline() {
-      const timelineContainer = document.getElementById('timeline-container');
-      if (!timelineContainer) {
-        console.error("Timeline container not found");
-        return;
-      }
-      let dfData;
+      const form = e.target;
+      const formData = new FormData(form);
+      const uploadBtn = document.getElementById('upload-btn');
+      const messageContainer = document.getElementById('message-container');
+
+      // Disable button
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = '⏳ Verarbeite...';
+
       try {
-        dfData = JSON.parse('{{ debug_data|safe }}');
-        console.log("Loaded timeline data:", dfData);
-      } catch (e) {
-        console.error("Failed to parse timeline data:", e);
-        timelineContainer.innerHTML = "<p>Error loading timeline data</p>";
-        return;
-      }
-      dfData = dfData.filter(entry => entry.TIME !== '00:00-00:00');
-      if (dfData.length === 0) {
-        timelineContainer.innerHTML = "<p>No active schedule entries found</p>";
-        return;
-      }
-      const items = [];
-      const groups = [];
-      const groupMap = {};
-      dfData.forEach((entry) => {
-        const groupId = entry.PPL;
-        const startTimeParts = entry.start_time.split(':');
-        const startDateTime = new Date();
-        startDateTime.setHours(parseInt(startTimeParts[0], 10), parseInt(startTimeParts[1], 10), 0);
-        if (!groupMap[groupId]) {
-          groupMap[groupId] = { id: groupId, order: startDateTime };
-          groups.push(groupMap[groupId]);
-        } else {
-          if (startDateTime < groupMap[groupId].order) {
-            groupMap[groupId].order = startDateTime;
-          }
-        }
-      });
-      groups.sort((a, b) => a.order - b.order);
-      const finalGroups = groups.map(group => ({ id: group.id, content: group.id }));
-      dfData.forEach((entry, index) => {
-        const startTimeParts = entry.start_time.split(':');
-        const endTimeParts = entry.end_time.split(':');
-        const startDateTime = new Date();
-        startDateTime.setHours(parseInt(startTimeParts[0], 10), parseInt(startTimeParts[1], 10), 0);
-        const endDateTime = new Date();
-        endDateTime.setHours(parseInt(endTimeParts[0], 10), parseInt(endTimeParts[1], 10), 0);
-        const activeSkills = [];
-        skillColumns.forEach(skillName => {
-          if (entry[skillName] > 0) {
-            const slug = skillSlugMap[skillName] || skillName.toLowerCase();
-            activeSkills.push(slug);
-          }
+        const response = await fetch('/upload', {
+          method: 'POST',
+          body: formData
         });
-        const customClass = `timeline-item-${index}`;
-        const customStyle = document.createElement('style');
-        customStyle.textContent = `.${customClass} { ${buildGradient(activeSkills)} }`;
-        document.head.appendChild(customStyle);
-        items.push({
-          id: index,
-          group: entry.PPL,
-          start: startDateTime,
-          end: endDateTime,
-          content: '',
-          title: `${entry.PPL}<br>Zeit: ${entry.TIME}<br>Skills: ${activeSkills.join(', ')}`,
-          className: customClass
-        });
-      });
-      const today = new Date();
-      const options = {
-        zoomable: false,
-        moveable: true,
-        stack: false,
-        min: new Date(today.setHours(7, 0, 0)),
-        max: new Date(today.setHours(20, 0, 0)),
-        showCurrentTime: true,
-        format: {
-          minorLabels: { hour: 'HH:mm', minute: 'HH:mm' }
-        },
-        orientation: { axis: 'top', item: 'top' },
-        margin: { item: { vertical: 10 } },
-        verticalScroll: true,
-      };
-      const timeline = new vis.Timeline(timelineContainer, items, finalGroups, options);
-      setInterval(() => {
-        timeline.setCurrentTime(new Date());
-      }, 60000);
-      timeline.setWindow(
-        new Date(today.setHours(Math.max(7, new Date().getHours() - 1), 0, 0)),
-        new Date(today.setHours(Math.min(20, new Date().getHours() + 2), 0, 0))
-      );
-    }
-    
-    document.addEventListener("DOMContentLoaded", function() {
-      buildTimeline();
-    });
 
-    /**
-     * Updates the modality-specific statistics table (first table).
-     */
-    function updateUploadStats() {
-        fetch(`/api/quick_reload?modality={{ modality }}`)
-            .then(response => response.json())
-            .then(data => {
-                let modalityRows = "";
-                const workers = Object.keys(data.Summe).sort((a, b) =>
-                    data.Summe[b] - data.Summe[a] || a.localeCompare(b)
-                );
+        const result = await response.json();
 
-                workers.forEach(worker => {
-                    modalityRows += `<tr class="stats-row"><td>${worker}</td>`;
+        if (response.ok && result.success) {
+          // Success
+          messageContainer.innerHTML = `
+            <div class="message success">
+              ✅ ${result.message}<br>
+              <strong>Modalitäten geladen:</strong> ${result.modalities_loaded.join(', ')}<br>
+              <strong>Workers gefunden:</strong> ${result.total_workers}
+            </div>
+          `;
 
-                    let totalForWorker = 0;
-
-                    // Loop through skills and compute modality-based count
-                    skillColumns.forEach(skill => {
-                        const currentModCount = (data[skill] && data[skill][worker]) ? data[skill][worker] : 0;
-                        const globalModCount = data.Global[worker]?.[skill] || 0;
-                        const extraCount = globalModCount - currentModCount;
-
-                        let displayValue = currentModCount;
-                        if (extraCount > 0) {
-                            displayValue += ` (+${extraCount} ${getModalityAbbreviation(worker, data.Global[worker])})`;
-                        }
-                        modalityRows += `<td>${displayValue}</td>`;
-                        totalForWorker += currentModCount;
-                    });
-
-                    // Compute total with possible extras
-                    const currentModTotal = data.Summe[worker] || 0;
-                    const globalModTotal = data.Global[worker]?.total || 0;
-                    const totalExtra = globalModTotal - currentModTotal;
-
-                    let displayTotal = currentModTotal;
-                    if (totalExtra > 0) {
-                        displayTotal += ` (+${totalExtra} ${getModalityAbbreviation(worker, data.Global[worker])})`;
-                    }
-
-                    // 🛠 Fix: Ensure Global Weight is Correctly Displayed
-                    const globalWeighted = (data.GlobalWeighted && data.GlobalWeighted[worker] !== undefined) 
-                        ? parseFloat(data.GlobalWeighted[worker]).toFixed(1) 
-                        : "N/A"; 
-
-                    modalityRows += `<td>${displayTotal}</td><td>${globalWeighted}</td></tr>`;
-                });
-
-                document.getElementById("modalityStatsBody").innerHTML = modalityRows;
-            })
-            .catch(error => console.error("Error updating stats:", error));
-    }
-
-    const summaryModalities = {{ modality_order|tojson }};
-
-    /**
-     * Generates the summary table (Gesamtstatistik) for all modalities.
-     */
-    function updateSummaryTable() {
-      const fetchPromises = summaryModalities.map(mod =>
-        fetch(`/api/quick_reload?modality=${mod}`)
-          .then(r => r.json())
-          .catch(error => {
-            console.error(`Error loading summary stats for ${mod}:`, error);
-            return null;
-          })
-      );
-
-      Promise.all(fetchPromises)
-        .then(results => {
-          const summaryData = {};
-          const allWorkers = new Set();
-          const modalityDataMap = {};
-
-          summaryModalities.forEach((mod, index) => {
-            const modData = results[index] || {};
-            modalityDataMap[mod] = modData;
-            Object.keys(modData.Summe || {}).forEach(worker => allWorkers.add(worker));
-          });
-
-          allWorkers.forEach(worker => {
-            summaryData[worker] = { total: 0, weighted: 0 };
-            summaryModalities.forEach(mod => {
-              const dataForMod = modalityDataMap[mod] || {};
-              const sumValue = dataForMod.Summe && dataForMod.Summe[worker]
-                ? parseInt(dataForMod.Summe[worker])
-                : 0;
-              summaryData[worker][mod] = sumValue;
-              summaryData[worker].total += sumValue;
-
-              const weightedValue = dataForMod.GlobalWeighted && dataForMod.GlobalWeighted[worker]
-                ? parseFloat(dataForMod.GlobalWeighted[worker])
-                : 0;
-              if (!isNaN(weightedValue)) {
-                summaryData[worker].weighted = Math.max(summaryData[worker].weighted, weightedValue);
-              }
-            });
-          });
-
-          let sortedWorkers = Object.keys(summaryData).sort((a, b) =>
-            summaryData[b].weighted - summaryData[a].weighted
-          );
-
-          if (sortedWorkers.length === 0) {
-            document.getElementById("summaryStatsBody").innerHTML = `<tr><td colspan="${summaryModalities.length + 3}">Keine Daten vorhanden</td></tr>`;
-            return;
-          }
-
-          let summaryRows = "";
-          sortedWorkers.forEach(worker => {
-            summaryRows += `<tr class="stats-row"><td>${worker}</td>`;
-            summaryModalities.forEach(mod => {
-              summaryRows += `<td>${summaryData[worker][mod] || 0}</td>`;
-            });
-            summaryRows += `<td>${summaryData[worker].total}</td><td>${summaryData[worker].weighted.toFixed(1)}</td></tr>`;
-          });
-
-          document.getElementById("summaryStatsBody").innerHTML = summaryRows;
-        })
-        .catch(error => console.error("Error updating summary stats:", error));
-    }
-
-
-
-    // On page load, update the summary table and set an interval for refresh.
-    document.addEventListener("DOMContentLoaded", function() {
-      updateSummaryTable(); // Update global summary table on load.
-      setInterval(updateSummaryTable, 60000); // Refresh every 60 seconds.
-    });
-
-  document.addEventListener("DOMContentLoaded", function() {
-    const now = new Date();
-    let activeWorkers = new Set();
-
-    // Parse timeline data from debug_data
-    try {
-      const timelineData = JSON.parse('{{ debug_data|safe }}') || [];
-      timelineData.forEach(entry => {
-        if (entry.TIME === '00:00-00:00') return;
-        const start = new Date();
-        const end = new Date();
-        const [startHour, startMin] = entry.start_time.split(':');
-        const [endHour, endMin] = entry.end_time.split(':');
-        start.setHours(parseInt(startHour, 10), parseInt(startMin, 10), 0);
-        end.setHours(parseInt(endHour, 10), parseInt(endMin, 10), 0);
-        if (now >= start && now <= end) {
-          activeWorkers.add(entry.PPL);
-        }
-      });
-    } catch (e) {
-      console.error("Error parsing debug_data:", e);
-    }
-
-    // Update the Statistik table rows (assuming the worker name is in the first <td>)
-    document.querySelectorAll("#modalityStatsBody tr").forEach(row => {
-      const worker = row.querySelector("td").textContent.trim();
-      if (activeWorkers.has(worker)) {
-        row.classList.add("active-row");
-      } else {
-        row.classList.remove("active-row");
-      }
-    });
-
-    // Update the Zeiten Übersicht table rows (assuming the worker name is in the first <td>)
-    document.querySelectorAll(".debug-info table tr").forEach(row => {
-      const workerCell = row.querySelector("td");
-      if (workerCell) {
-        const worker = workerCell.textContent.trim();
-        if (activeWorkers.has(worker)) {
-          row.classList.add("active-row");
+          // Reload page after 2 seconds to show updated stats
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
         } else {
-          row.classList.remove("active-row");
+          // Error
+          messageContainer.innerHTML = `
+            <div class="message error">
+              ❌ Fehler: ${result.error || 'Unbekannter Fehler'}
+            </div>
+          `;
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = '⬆️ CSV Hochladen & Verarbeiten';
         }
+      } catch (error) {
+        messageContainer.innerHTML = `
+          <div class="message error">
+            ❌ Netzwerkfehler: ${error.message}
+          </div>
+        `;
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = '⬆️ CSV Hochladen & Verarbeiten';
       }
     });
-  });
-
   </script>
-    
-    <script>
-      function toggleSummaryStats() {
-        var container = document.getElementById("summaryStatsContainer");
-        container.style.display = (container.style.display === "none" || container.style.display === "") ? "block" : "none";
-      }
-    </script>
-    
 </body>
 </html>
