@@ -3,34 +3,19 @@
 **Note:** This document was originally created for v17 (Excel-based uploads). Some sections have been updated for v18 (medweb CSV integration).
 
 ## Table of Contents
-1. [Excel File Handling](#excel-file-handling---obsolete) - Historical v17 system (see [WORKFLOW.md](WORKFLOW.md) for current v18 workflow)
-2. [Medweb CSV Integration - v18](#medweb-csv-integration---v18) - Current workflow
-3. [Time Exclusion System - v18](#time-exclusion-system---v18) - Day-specific scheduling
-4. [Distribution Logic & Balancing Report](#distribution-logic--balancing-report) - Core assignment engine
+1. [Medweb CSV Integration - v18](#medweb-csv-integration---v18) - Current workflow
+2. [Time Exclusion System - v18](#time-exclusion-system---v18) - Day-specific scheduling
+3. [Distribution Logic & Balancing Report](#distribution-logic--balancing-report) - Core assignment engine
    - [The Three Selection Paths](#the-three-selection-paths)
    - [Balancing Mechanisms](#balancing-mechanisms)
    - [Skill Value System (-1, 0, 1)](#skill-value-system)
    - [Fallback Mechanisms](#fallback-mechanisms)
    - [Global Cross-Modality Tracking](#global-cross-modality-tracking)
-5. [Modular Architecture Report](#modular-architecture-report) - System structure
+4. [Modular Architecture Report](#modular-architecture-report) - System structure
 
 ---
 
-# Excel File Handling - OBSOLETE
 
-**⚠️ This section describes the OLD v17 Excel-based upload system which was removed in v18.**
-
-> **What Replaced It:** RadIMO v18 uses config-driven medweb CSV integration instead.
->
-> **Current Documentation:**
-> - [WORKFLOW.md](WORKFLOW.md) - Complete medweb CSV workflow
-> - [EXCEL_PATH_MIGRATION.md](EXCEL_PATH_MIGRATION.md) - Why Excel was removed
-> - [INTEGRATION_COMPARISON.md](INTEGRATION_COMPARISON.md) - Why config-driven approach
->
-> **Rollback:** See [BACKUP.md](../BACKUP.md) for restoring Excel upload code (commit e77525b)
-
-<details>
-<summary>📜 Historical Documentation (Click to expand)</summary>
 
 ## 📊 Overview
 
