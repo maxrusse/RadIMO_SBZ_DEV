@@ -1,18 +1,36 @@
 # RadIMO SBZ - Complete System Analysis
 
+**Note:** This document was originally created for v17 (Excel-based uploads). Some sections have been updated for v18 (medweb CSV integration).
+
 ## Table of Contents
-1. [Excel File Handling - Complete Analysis](#excel-file-handling---complete-analysis)
-2. [Distribution Logic & Balancing Report](#distribution-logic--balancing-report)
+1. [~~Excel File Handling~~](#excel-file-handling---obsolete) - **OBSOLETE** (see [WORKFLOW.md](WORKFLOW.md) for v18 CSV workflow)
+2. [Medweb CSV Integration - v18](#medweb-csv-integration---v18) - **NEW**
+3. [Distribution Logic & Balancing Report](#distribution-logic--balancing-report) - **CURRENT**
    - [The Three Selection Paths](#the-three-selection-paths)
    - [Balancing Mechanisms](#balancing-mechanisms)
    - [Skill Value System (-1, 0, 1)](#skill-value-system)
    - [Fallback Mechanisms](#fallback-mechanisms)
    - [Global Cross-Modality Tracking](#global-cross-modality-tracking)
-3. [Modular Architecture Report](#modular-architecture-report)
+4. [Time Exclusion System - v18](#time-exclusion-system---v18) - **NEW**
+5. [Modular Architecture Report](#modular-architecture-report) - **MOSTLY CURRENT**
 
 ---
 
-# Excel File Handling - Complete Analysis
+# Excel File Handling - OBSOLETE
+
+**⚠️ This section describes the OLD v17 Excel-based upload system which was removed in v18.**
+
+> **What Replaced It:** RadIMO v18 uses config-driven medweb CSV integration instead.
+>
+> **Current Documentation:**
+> - [WORKFLOW.md](WORKFLOW.md) - Complete medweb CSV workflow
+> - [EXCEL_PATH_MIGRATION.md](EXCEL_PATH_MIGRATION.md) - Why Excel was removed
+> - [INTEGRATION_COMPARISON.md](INTEGRATION_COMPARISON.md) - Why config-driven approach
+>
+> **Rollback:** See [BACKUP.md](../BACKUP.md) for restoring Excel upload code (commit e77525b)
+
+<details>
+<summary>📜 Historical Documentation (Click to expand)</summary>
 
 ## 📊 Overview
 
@@ -403,6 +421,202 @@ Total:             ~50 MB/month
 ✅ **Quarantine Isolation:** Bad files moved to separate directory
 ⚠️ **File Size Limits:** Not enforced (Flask default: 16MB)
 ⚠️ **Malicious Excel:** No virus scanning (assumes trusted admins)
+
+</details>
+
+---
+
+# Medweb CSV Integration - v18
+
+## 📊 Overview
+
+RadIMO v18 uses **config-driven medweb CSV integration** to directly ingest worker schedules without manual Excel file creation. This approach provides better maintainability, flexibility, and automation.
+
+## 🔄 Architecture
+
+```
+medweb.csv (monthly schedule)
+    ↓
+Config-driven parsing (medweb_mapping rules)
+    ↓
+Worker skill roster overrides
+    ↓
+Time exclusion processing (boards, meetings)
+    ↓
+working_hours_df per modality
+    ↓
+Real-time assignment system
+```
+
+## ⚙️ Key Components
+
+### 1. Medweb Mapping Rules
+
+Activities from medweb CSV are mapped to modalities and skills via `config.yaml`:
+
+```yaml
+medweb_mapping:
+  rules:
+    - match: "CT Spätdienst"
+      modality: "ct"
+      shift: "Spaetdienst"
+      base_skills: {Normal: 1, Notfall: 1, Privat: 0, ...}
+```
+
+**How Matching Works:**
+- Case-insensitive substring matching
+- First matching rule wins
+- Unmapped activities are ignored
+
+### 2. Worker Skill Roster
+
+Per-worker skill overrides with modality-specific configuration:
+
+```yaml
+worker_skill_roster:
+  AAn:  # Worker abbreviation
+    default:  # All modalities
+      Msk: 1  # MSK specialist
+    ct:  # CT-specific override
+      Notfall: 0  # Only fallback for CT Notfall
+```
+
+**Precedence:** `worker_skill_roster` > `medweb_mapping` > system defaults
+
+### 3. Auto-Preload System
+
+**Schedule:** Daily at 7:30 AM CET
+**Source:** `uploads/master_medweb.csv`
+**Logic:** Friday → Monday, other days → tomorrow
+**Mechanism:** APScheduler with CronTrigger
+
+### 4. Upload Strategies
+
+- **Manual Upload:** Any date, immediate processing
+- **Preload Next Day:** Manual trigger for tomorrow
+- **Force Refresh:** Emergency same-day reload (destroys counters)
+
+**Detailed Documentation:** See [WORKFLOW.md](WORKFLOW.md)
+
+---
+
+# Time Exclusion System - v18
+
+## 📊 Overview
+
+The time exclusion system **punches out time** from worker shifts for boards, meetings, teaching, and other non-work activities. This allows workers to have complex schedules with interruptions.
+
+## 🔧 Configuration
+
+Time exclusions are **day-specific** - same activity can have different times per weekday:
+
+```yaml
+medweb_mapping:
+  rules:
+    - match: "Kopf-Hals-Board"
+      exclusion: true
+      schedule:
+        Montag: "15:30-17:00"  # Only applies on Mondays
+      prep_time:
+        before: "30m"  # Prep time: 15:00-15:30
+        after: "15m"   # Cleanup: 17:00-17:15
+
+    - match: "Board"
+      exclusion: true
+      schedule:
+        Dienstag: "15:00-17:00"
+        Mittwoch: "10:00-12:00"
+        Donnerstag: "14:00-16:00"
+```
+
+## ⚙️ How It Works
+
+### 1. CSV Entry Detection
+
+When CSV contains exclusion activity for a worker:
+```
+"24.11.2025","NM","ZANDERCH","CZ","Charlotte Dr Zander",...,"Kopf-Hals-Board",...
+```
+
+### 2. Schedule Lookup
+
+- Get weekday name: `get_weekday_name_german(target_date)` → "Montag"
+- Check if schedule exists: `schedule["Montag"]` → "15:30-17:00"
+- If no schedule for this weekday → activity ignored (doesn't apply today)
+
+### 3. Prep Time Extension (Optional)
+
+```
+Base exclusion:     [15:30 ───── 17:00]
+With prep_time:
+  before: "30m" →  [15:00
+  after: "15m"   →           17:15]
+
+Final exclusion:    [15:00 ────── 17:15]
+```
+
+### 4. Shift Splitting
+
+Worker's original shift: `07:00-21:00`
+After exclusion applied: `07:00-15:00` + `17:15-21:00`
+
+```
+Original:  [07:00 ────────────────────────── 21:00]
+Exclusion:              [15:00 ─── 17:15]
+
+Result:    [07:00 ──── 15:00] [17:15 ──── 21:00]
+```
+
+## 🔄 Processing Algorithm
+
+### Two-Pass System
+
+**FIRST PASS - Collect exclusions and work shifts:**
+1. For each CSV row:
+   - Match against `medweb_mapping.rules`
+   - If `exclusion: true`:
+     - Check if weekday in schedule
+     - Parse time range
+     - Apply prep_time extensions
+     - Store in `exclusions_per_worker[canonical_id]`
+     - Skip adding to work shifts
+   - If normal work:
+     - Add to `rows_per_modality[modality]`
+
+**SECOND PASS - Apply exclusions:**
+2. Group shifts by worker
+3. For workers with exclusions:
+   - Call `apply_exclusions_to_shifts()`
+   - Splits/truncates shifts at exclusion boundaries
+   - Handles multiple overlapping exclusions
+   - Minimum segment: 0.1h (6 minutes)
+
+### Example with Multiple Exclusions
+
+```
+Original shift:    [07:00 ────────────────────────── 21:00]
+
+Exclusions:
+  Board:                  [10:00 ── 12:00]
+  Fortbildung:                        [15:00 ──── 17:00]
+
+Result:            [07:00 ─ 10:00] [12:00 ─ 15:00] [17:00 ─ 21:00]
+```
+
+## 📝 Logging
+
+```
+INFO: Time exclusion for Charlotte Dr Zander (CZ) (Montag): 15:00-17:15 (Kopf-Hals-Board)
+INFO: Applying time exclusions for 3 workers on Montag
+```
+
+## ✅ Benefits
+
+- ✅ **No time parsing needed** - Time range in config, not CSV description
+- ✅ **Day-specific** - Board on Monday ≠ Board on Tuesday
+- ✅ **Prep time support** - Automatic before/after extension
+- ✅ **Multiple exclusions** - Handles overlapping correctly
+- ✅ **Config-driven** - Add new exclusions without code changes
 
 ---
 

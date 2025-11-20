@@ -1,92 +1,229 @@
 ============================================================
-Verfahrensverzeichnis – RadIMO (V16)
+Verfahrensverzeichnis – RadIMO (V18)
 ============================================================
 
 1. Bezeichnung und Beschreibung
 ------------------------------------------------------------
 Verfahrensname / Projekt:
   RadIMO – Koordinationssystem für Schichtzuweisungen
-  in der Radiologie (Version V16)
+  in der Radiologie (Version V18)
 
 Beschreibung:
   System zur automatisierten Schichtplanung von Radiologie-
-  Mitarbeitenden auf Basis von Excel-Eingabedaten. Bereit-
-  stellung über ein Web-Frontend. Änderungen, Uploads und
-  Löschungen werden durch das System verarbeitet, dabei 
-  entstehen tagesaktuelle Backups. Reset erfolgt werktags 
-  morgens.
+  Mitarbeitenden auf Basis von medweb CSV-Exportdaten.
+  Bereitstellung über ein Web-Frontend mit Echtzeit-
+  Zuweisungslogik. Automatische Datenaktualisierung täglich
+  um 07:30 Uhr. Änderungen, manuelle Uploads und Löschungen
+  werden durch das System verarbeitet, dabei entstehen
+  tagesaktuelle Backups. Zeitbasierte Ausschlüsse (Boards,
+  Besprechungen, Fortbildung) werden automatisch aus
+  konfigurierten Regeln angewendet.
 
 2. Verzeichnis der IT-Komponenten
 ------------------------------------------------------------
 Projektverzeichnis:
-/nfs/norasys/notebooks/russe/radimo16
+/nfs/norasys/notebooks/russe/RadIMO_SBZ_DEV
 
 Wichtige Dateien und Verzeichnisse:
-  - app.py                → Hauptlogik und API
+  - app.py                → Hauptlogik, API und Scheduler
   - gunicorn_config.py    → Serverkonfiguration
-  - config.yaml           → Admin-Zugangsdaten
-  - templates/            → HTML-UI (index.html, etc.)
-  - static/               → Icons, JS, CSS, EULA.txt
-  - uploads/              → Uploads & Backup (Excel)
+  - config.yaml           → Admin-Zugangsdaten, medweb CSV
+                             Mapping-Regeln, Zeitausschlüsse,
+                             Skill-Roster
+  - templates/            → HTML-UI (index.html, edit.html, etc.)
+  - static/               → Icons, JS, CSS, EULA.txt,
+                             verfahrensverzeichniss.txt
+  - uploads/              → CSV-Uploads & Backup
       └── backups/        → Tagesaktuelle Sicherungen
-  - logs/                 → Server-Logs (Gunicorn)
+  - logs/                 → Server-Logs (Gunicorn, selection.log)
+  - docs/                 → Technische Dokumentation
+      ├── WORKFLOW.md               → Betriebsabläufe
+      ├── SYSTEM_ANALYSIS.md        → Systemarchitektur
+      ├── FRONTEND_ARCHITECTURE.md  → UI-Struktur
+      └── TESTING_GUIDE.md          → Testszenarien
 
 3. Datenverarbeitung und Backup-Strategie
 ------------------------------------------------------------
 Datenquelle:
-  - Excel-Tabellen mit Personal- und Zeitdaten
-    (Tabelle1: Schichten, Tabelle2 optional: Infozeilen)
+  - Medweb CSV-Export mit Personal- und Aktivitätsdaten
+    Format: Datum, Nachmittag/Vormittag, Benutzername, Kürzel,
+            Personenname, Zeit von, Zeit bis, Stunden,
+            Beschreibung der Aktivität, Organisationseinheit
+  - Config-basierte Zuordnung von Aktivitäten zu Modalitäten
+    (CT, MR, XRAY) und Skills (Normal, Notfall, Herz, Msk, etc.)
 
 Verarbeitung:
-  - Validierung der Formate (Zeit, Spaltenstruktur)
-  - Zuweisungslogik anhand Fähigkeiten und Verfügbarkeit
+  - Parsing der CSV-Daten mit Datumsfilterung
+  - Anwendung von Mapping-Regeln (config.yaml)
+  - Zeitbasierte Ausschlüsse (Boards, Besprechungen, etc.)
+    → Schichten werden automatisch gesplittet
+  - Worker-spezifische Skill-Overrides aus Roster
+  - Echtzeit-Zuweisungslogik mit Load-Balancing
+  - Fallback-Strategien (skill_priority, modality_priority,
+    pool_priority)
   - Interaktive Bearbeitung über Weboberfläche
+
+Automatisierung:
+  - APScheduler führt täglich um 07:30 Uhr automatische
+    Datenaktualisierung durch (Preload für nächsten Werktag)
+  - Manuelle Force-Reload-Funktion für sofortige Updates
+  - Automatischer Reset bei Datumsüberschreitung
 
 Backup-Strategie:
   - Backup bei jedem Upload, Edit oder Löschvorgang
-  - Speichern nur der relevanten Spalteninhalte
+  - Speichern der CSV-Daten und berechneten Schichten
   - Backups gelten nur tagesaktuell – bis zum nächsten Werktag
-  - Automatischer Reset werktäglich ab 07:30 Uhr
+  - Wiederherstellungsfunktion für Fehlerbehebung
 
-4. Sicherheitsmaßnahmen und Zugriff
+4. Datenarten und personenbezogene Daten
+------------------------------------------------------------
+Verarbeitete Daten:
+  - Personenname (z.B., "Charlotte Dr Zander")
+  - Benutzername / Kürzel (z.B., "ZANDERCH", "CZ")
+  - Arbeitszeitdaten (Datum, Von-Zeit, Bis-Zeit, Stunden)
+  - Aktivitätsbeschreibungen (z.B., "CT", "Kopf-Hals-Board")
+  - Organisationseinheit (z.B., "NM", "RAD")
+  - Berechnete Zuweisungsdaten (Zählerstände, Ratios)
+
+Besondere Kategorien:
+  - Keine Gesundheitsdaten der Mitarbeitenden
+  - Keine biometrischen oder genetischen Daten
+  - Ausschließlich dienstliche Schichtplanungsdaten
+
+Empfänger:
+  - Autorisierte Nutzer des RadIMO-Systems (Schichtkoordination)
+  - Zugriff beschränkt auf lokales Netzwerk
+
+5. Sicherheitsmaßnahmen und Zugriff
 ------------------------------------------------------------
 Technisch:
   - Zugriffsschutz über Passwort (config.yaml)
   - Flask-Session-Handling mit Secret-Key
-  - Thread-Locking bei kritischen Zugriffen
-  - Logging aller Anfragen und Dateiaktionen
+  - Thread-Locking bei kritischen Datei- und Speicherzugriffen
+  - Logging aller Anfragen, Dateiaktionen und Zuweisungen
+  - Sandbox-Modus für unauthorisierte Zugriffe (Read-Only)
+  - Input-Validierung bei CSV-Upload und API-Anfragen
 
 Organisatorisch:
   - Admin-Zugriff nur mit Passwort
-  - Trennung von Bearbeitungs- und Viewer-Modus
+  - Trennung von Admin- und Viewer-Modus
   - Backup-Logik verhindert Datenverlust bei Parallelzugriffen
+  - Zugriff nur über internes Netzwerk (kein Internet-Zugang)
+  - Serverumgebung: Gunicorn mit Unix-Socket oder Port-Binding
 
-5. Rechtsgrundlage & Löschfristen
+6. Rechtsgrundlage & Löschfristen
 ------------------------------------------------------------
 Rechtsgrundlage:
   - Interne betriebliche Anforderung zur Schichtkoordination
-  - DSGVO-konforme Datenverarbeitung zu dienstlichen Zwecken
+  - DSGVO Art. 6 Abs. 1 lit. b (Erfüllung vertraglicher
+    Verpflichtungen zur Dienstplanung)
+  - DSGVO Art. 6 Abs. 1 lit. f (berechtigtes Interesse an
+    effizienter Personalkoordination)
 
 Löschfristen:
-  - Uploads täglich zurückgesetzt (07:30 Uhr)
+  - CSV-Uploads täglich zurückgesetzt (07:30 Uhr Auto-Preload)
   - Backups tagesaktuell gültig (bis nächster Werktag)
+  - Session-Daten: Ende der Browser-Session
+  - Log-Dateien: Nach internen Richtlinien (empfohlen: 30 Tage)
   - Langfristige Archivierung nach internen Richtlinien
 
-6. Verantwortlichkeiten
+7. Verantwortlichkeiten
 ------------------------------------------------------------
 Verantwortlich:
-  Maximilian Russe 
-  
-Ansprechpartner:
-  - IT-Admin / Datenmanagement
-  - Datenschutzbeauftragter (bei DSGVO-Fragen)
+  Maximilian Russe
+  Institut für Diagnostische und Interventionelle Radiologie
 
-7. Versionshistorie
+Ansprechpartner:
+  - IT-Admin / Systemverantwortlicher
+  - Datenschutzbeauftragter (bei DSGVO-Fragen)
+  - Radiologie-Leitung (bei fachlichen Fragen)
+
+8. Versionshistorie
 ------------------------------------------------------------
 Aktuelle Version:
-  V16 (Produktivstand: radimo16)
+  V18 (Produktivstand: RadIMO_SBZ_DEV)
 
-Änderungen:
-  - Einführung der Backup-Logik (tagesaktuell)
-  - Flexible Spaltenerkennung (Herz, Msk, Chest)
-  - Verbesserte UI-Darstellung & Statistikübersicht
+Wesentliche Änderungen gegenüber V16/V17:
+  V18 (2025-01):
+    - Migration von Excel-Upload zu medweb CSV-Integration
+    - Config-basiertes Activity-Mapping (config.yaml)
+    - Zeitbasierte Ausschlüsse mit Schicht-Splitting
+      (Boards, Besprechungen, Fortbildung)
+    - Automatischer Preload um 07:30 Uhr (APScheduler)
+    - Worker-spezifisches Skill-Roster mit Overrides
+    - Next-Day Prep-Page mit Simple/Advanced Mode
+    - Verbesserte Dokumentation (docs/)
+
+  V17:
+    - Übergangsversion mit gemischtem Excel/CSV-Support
+
+  V16:
+    - Basis-System mit Excel-Upload
+    - Manuelle Dateiverwaltung
+    - Grundlegende Load-Balancing-Strategien
+
+9. Technische Details zur Datenverarbeitung
+------------------------------------------------------------
+Medweb CSV Integration:
+  - Einlesen der CSV mit pandas (UTF-8 encoding)
+  - Datumsfilterung auf Zieldatum
+  - Mapping von Aktivitäten auf Modalitäten/Skills via Regex
+  - Zwei-Phasen-Algorithmus:
+    1. PASS 1: Sammeln von Arbeitsdiensten und Zeitausschlüssen
+    2. PASS 2: Anwendung der Ausschlüsse auf Schichten
+
+Zeitausschluss-System:
+  - Wochentagsbasierte Zeitfenster (Montag-Sonntag)
+  - Automatische Prep-Time-Berechnung (vorher/nachher)
+  - Schicht-Splitting bei Überlappung
+  - Mindestdauer: 0.1h (6 Minuten) pro Segment
+  - Beispiel: 07:00-21:00 → 07:00-15:00 + 17:15-21:00
+              (bei Board 15:00-17:00 mit 30m Prep)
+
+Zuweisungslogik:
+  - Drei Fallback-Strategien konfigurierbar:
+    • skill_priority: Alle Skills einer Modalität vor Wechsel
+    • modality_priority: Skill über alle Modalitäten
+    • pool_priority: Globale Pool-Optimierung
+  - Load-Balancing basiert auf weighted_count / hours_worked
+  - Imbalance-Detection mit konfigurierbarem Threshold
+  - Strict-Mode für garantierte Skill/Modalität-Übereinstimmung
+
+10. Datenschutz-Folgenabschätzung
+------------------------------------------------------------
+Risikobewertung:
+  - Geringes Risiko: Nur dienstliche Schichtdaten
+  - Kein Profiling oder automatisierte Entscheidungen mit
+    rechtlicher Wirkung
+  - Zugriff beschränkt auf autorisiertes Personal
+  - Keine Übermittlung an Drittländer
+  - Keine Cloud-Speicherung (nur lokales Netzwerk)
+
+Maßnahmen zur Risikominimierung:
+  - Zugriffskontrolle (Passwort)
+  - Verschlüsselte Session-Verwaltung
+  - Tägliche Datenlöschung (Auto-Reset)
+  - Logging für Nachvollziehbarkeit
+  - Regelmäßige Backups zur Datensicherheit
+
+11. Betroffenenrechte
+------------------------------------------------------------
+Mitarbeitende haben folgende Rechte bezüglich ihrer Daten:
+
+  - Auskunftsrecht (Art. 15 DSGVO)
+  - Recht auf Berichtigung (Art. 16 DSGVO)
+  - Recht auf Löschung (Art. 17 DSGVO)
+  - Recht auf Einschränkung (Art. 18 DSGVO)
+  - Recht auf Datenübertragbarkeit (Art. 20 DSGVO)
+  - Widerspruchsrecht (Art. 21 DSGVO)
+
+Kontakt:
+  Anfragen zu Betroffenenrechten sind zu richten an:
+  - Datenschutzbeauftragten der Einrichtung
+  - Systemverantwortlicher: Maximilian Russe
+
+============================================================
+Stand: 2025-11-20
+Version: V18
+Nächste Überprüfung: 2026-01-01
+============================================================

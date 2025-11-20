@@ -408,6 +408,95 @@ worker_skill_roster.KRUE.ct: {Notfall: 0}  # Only fallback for CT Notfall
 
 ---
 
+### Time Exclusions (NEW in v18)
+
+Time exclusions **punch out time** from worker shifts for boards, meetings, teaching, etc.
+
+Located in `config.yaml` under `medweb_mapping.rules`:
+
+```yaml
+medweb_mapping:
+  rules:
+    # Time exclusions - day-specific schedules
+    - match: "Kopf-Hals-Board"
+      exclusion: true
+      schedule:
+        Montag: "15:30-17:00"  # Only applies on Mondays
+      prep_time:
+        before: "30m"  # Prep: excludes 15:00-15:30
+        after: "15m"   # Cleanup: excludes 17:00-17:15
+
+    - match: "Board"
+      exclusion: true
+      schedule:
+        Dienstag: "15:00-17:00"   # Different times per day
+        Mittwoch: "10:00-12:00"
+        Donnerstag: "14:00-16:00"
+
+    - match: "Besprechung"
+      exclusion: true
+      schedule:
+        Montag: "09:00-10:00"
+        Mittwoch: "14:00-15:00"
+        Freitag: "13:00-14:00"
+```
+
+**How It Works:**
+
+1. **CSV Entry**: Worker has `"Kopf-Hals-Board"` in Beschreibung der Aktivität
+2. **Weekday Check**: Is today in the schedule? (e.g., "Montag")
+3. **Time Range**: Get schedule["Montag"] → "15:30-17:00"
+4. **Prep Time**: Apply before/after extensions → 15:00-17:15
+5. **Split Shift**: Worker's 07:00-21:00 becomes 07:00-15:00 + 17:15-21:00
+
+**Example:**
+
+```
+CSV Entry (Monday):
+"24.11.2025","NM","ZANDERCH","CZ","Charlotte Dr Zander",...,"Kopf-Hals-Board",...
+
+Original Shift:    [07:00 ────────────────────────── 21:00]
+Exclusion:                  [15:00 ────── 17:15]
+                           (with prep time)
+
+Result:            [07:00 ──── 15:00]  [17:15 ──── 21:00]
+```
+
+**Multiple Exclusions:**
+
+System handles multiple overlapping exclusions per worker:
+
+```
+Original:    [07:00 ────────────────────────── 21:00]
+
+Exclusions:
+  Board:              [10:00 ── 12:00]
+  Fortbildung:                    [15:00 ─── 17:00]
+
+Result:      [07:00─10:00] [12:00─15:00] [17:00─21:00]
+```
+
+**Key Benefits:**
+- ✅ Day-specific: Same activity, different times per weekday
+- ✅ No parsing: Time in config, not CSV description
+- ✅ Prep time: Automatic before/after extension
+- ✅ Config-driven: Add new exclusions without code changes
+- ✅ Flexible: Handles multiple overlapping exclusions
+
+**Adding New Exclusion:**
+1. Add rule to `medweb_mapping.rules` with `exclusion: true`
+2. Define `schedule` with weekday-specific times
+3. Optionally add `prep_time` (before/after)
+4. Restart application
+
+**Logging:**
+```log
+INFO: Time exclusion for Charlotte Dr Zander (CZ) (Montag): 15:00-17:15 (Kopf-Hals-Board)
+INFO: Applying time exclusions for 3 workers on Montag
+```
+
+---
+
 ## 🔍 Troubleshooting
 
 ### CSV Upload Issues

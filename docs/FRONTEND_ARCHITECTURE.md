@@ -1,5 +1,7 @@
 # RadIMO SBZ Frontend Architecture - Comprehensive Analysis
 
+**Note:** This document describes the frontend UI structure (still current for v18). For backend changes in v18 (medweb CSV integration, time exclusions), see [WORKFLOW.md](WORKFLOW.md) and [SYSTEM_ANALYSIS.md](SYSTEM_ANALYSIS.md).
+
 ## 1. CURRENT FRONTEND ORGANIZATION: Modality-Based with All Skills
 
 The RadIMO system is organized by **modality** (CT, MR, XRAY) with all skills available within each modality. Each user navigates to a specific modality view and can interact with all configured skills.
