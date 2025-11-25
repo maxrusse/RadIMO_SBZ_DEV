@@ -1584,12 +1584,17 @@ def _get_effective_assignment_load(
 
 def _apply_minimum_balancer(filtered_df: pd.DataFrame, column: str, modality: str) -> pd.DataFrame:
     """
-    Apply minimum balancer to prioritize workers with fewer assignments.
+    Two-phase balancer to ensure fair initial distribution:
 
-    IMPORTANT: This function should not cause "clumping" where one worker gets
-    hammered with all assignments until reaching min_required. Instead, it should
-    distribute work more evenly by prioritizing the worker with the FEWEST assignments,
-    ensuring round-robin-like behavior even below the minimum threshold.
+    Phase 1 (No-Overflow Mode): Until ALL primary workers have at least min_required
+    assignments, restrict selection to only workers below the threshold. This ensures
+    round-robin distribution where everyone gets their fair share before anyone gets
+    overloaded.
+
+    Phase 2 (Normal Mode): Once all primary workers have the minimum, return all
+    workers and allow normal weighted selection with overflow based on hours worked.
+
+    Example: If min_required=3, worker A must get 3 tasks before worker B can get a 4th.
     """
     if filtered_df.empty or not BALANCER_SETTINGS.get('enabled', True):
         return filtered_df
@@ -1601,25 +1606,23 @@ def _apply_minimum_balancer(filtered_df: pd.DataFrame, column: str, modality: st
     if not skill_counts:
         return filtered_df
 
-    # Get all workers with their counts
-    below_min_workers = []
+    # Check if all workers have reached the minimum threshold
+    all_workers_count = []
     for _, row in filtered_df.iterrows():
         worker = row['PPL']
         count = _get_effective_assignment_load(worker, column, modality, skill_counts)
-        if count < min_required:
-            below_min_workers.append((worker, count))
+        all_workers_count.append(count)
 
-    # If no workers below minimum, return all
-    if not below_min_workers:
+    # Phase 2: If ALL workers have at least min_required, return full pool (normal mode)
+    if all(count >= min_required for count in all_workers_count):
         return filtered_df
 
-    # Find the minimum count among below-min workers
-    min_count = min(count for _, count in below_min_workers)
-
-    # Return only workers with the minimum count (ensures round-robin distribution)
+    # Phase 1: Some workers still below minimum, restrict to only those below threshold
+    # This ensures no-overflow behavior until everyone has the minimum
     prioritized = filtered_df[
         filtered_df['PPL'].apply(
-            lambda worker: _get_effective_assignment_load(worker, column, modality, skill_counts) == min_count
+            lambda worker: _get_effective_assignment_load(worker, column, modality, skill_counts)
+            < min_required
         )
     ]
 
