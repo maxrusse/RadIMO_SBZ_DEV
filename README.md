@@ -27,7 +27,7 @@ RadIMO orchestrates workload distribution for radiology teams across multiple mo
 
 ### The Problem
 Radiology departments face complex daily staffing challenges:
-- **Multiple modalities** require specialized coverage (CT, MR, X-ray)
+- **Multiple modalities** require specialized coverage (CT, MR, X-ray, more)
 - **Variable skills** within teams (emergency, cardiac, MSK specialists)
 - **Changing schedules** with rotations, meetings, and boards
 - **Fair workload distribution** across overlapping shifts
@@ -227,14 +227,14 @@ RadIMO provides three distinct admin interfaces for different operational needs:
 - **Deployment:** Gunicorn + systemd, runs on local network
 
 **Scalability:**
-- Handles 50+ workers across 3 modalities
+- Handles 50+ workers across 3+ modalities
 - Thousands of daily assignments
 - Sub-second response times
 - Minimal resource footprint
 
 **Maintainability:**
-- Config-driven (90% of changes need no code)
-- Comprehensive documentation (5 detailed guides)
+- Config-driven (90%+ of changes need no code)
+- Comprehensive documentation (more detailed guide in docs)
 - Operational health checks (ops_check.py)
 - Clear separation: config.yaml (static), JSON (dynamic)
 
@@ -258,15 +258,15 @@ flask --app app run --debug
 ### Access Points
 
 **Operational Pages (Public):**
-- **Main Interface**: `http://localhost:5000/` - By modality view (CT/MR/XRAY)
-- **Skill View**: `http://localhost:5000/by-skill` - By skill view (Normal/Notfall/Herz/etc.)
-- **Timeline**: `http://localhost:5000/timetable` - Visualize shifts and schedules
+- **Main Interface**: `http://IP:PORT/` - By modality view (CT/MR/XRAY)
+- **Skill View**: `http://IP:PORT/by-skill` - By skill view (Normal/Notfall/Herz/etc.)
+- **Timeline**: `http://IP:PORT/timetable` - Visualize shifts and schedules
 
 **Admin Pages (Password Protected):**
-- **Admin Panel**: `http://localhost:5000/upload` - Upload medweb CSV & system management hub
-- **Skill Roster**: `http://localhost:5000/skill_roster` - Plan skill changes (STAGED mode)
-- **Prep Next Day**: `http://localhost:5000/prep-next-day` - Prepare tomorrow's schedule
-- **Live Edit**: `http://localhost:5000/admin/live-edit` - Emergency same-day edits (⚠️ IMMEDIATE EFFECT)
+- **Admin Panel**: `http://IP:PORT/upload` - Upload medweb CSV & system management hub
+- **Skill Roster**: `http://IP:PORT/skill_roster` - Plan skill changes (STAGED mode)
+- **Prep Next Day**: `http://IP:PORT/prep-next-day` - Prepare tomorrow's schedule
+- **Live Edit**: `http://IP:PORT/admin/live-edit` - Emergency same-day edits (⚠️ IMMEDIATE EFFECT)
 
 ---
 
@@ -292,7 +292,7 @@ medweb_mapping:
 
     # Multi-modality (sub-specialty teams) - NEW
     - match: "MSK Assistent"
-      modalities: ["xray", "ct", "mr"]  # Available in all three modalities
+      modalities: ["xray", "ct", "mr"]  # Available in three modalities
       shift: "Fruehdienst"
       base_skills: {Normal: 0, Notfall: 0, Msk: 1, Privat: 0, Herz: 0, Chest: 0}
 ```
@@ -300,20 +300,20 @@ medweb_mapping:
 **Benefits:**
 - No manual Excel file creation needed
 - Activity → modality/skill mapping in config.yaml
-- **Multi-modality support:** Sub-specialty teams across multiple modalities
+- Multi-modality support: Sub-specialty teams across multiple modalities
 - Extensible: add new activities by updating config
 - Single CSV upload populates all modalities
 
-### 2. **Automatic Daily Preload** ⏰ NEW
+### 2. **Automatic Daily Preload** ⏰
 
-System automatically preloads the next workday schedule at **7:30 AM CET**:
+System automatically preloads the next workday schedule at 7:30 AM (changable) CET:
 
 - **Auto-preload**: Runs daily via APScheduler
 - **Next workday logic**: Friday → Monday, other days → tomorrow
 - **Master CSV**: Last uploaded CSV becomes source for auto-preload
 - **Seamless workflow**: No manual intervention required
 
-### 3. **Next-Day Schedule Preparation** 📝 NEW
+### 3. **Next-Day Schedule Preparation** 📝 
 
 Advanced edit interface for preparing tomorrow's schedule:
 
@@ -328,7 +328,7 @@ Advanced edit interface for preparing tomorrow's schedule:
 - Auto-recalculate shift durations when times change
 - Completely separate from same-day editing (preserves assignment stability)
 
-### 4. **Worker Skill Roster System** 👥 NEW
+### 4. **Worker Skill Roster System** 👥 
 
 Per-worker skill overrides with modality-specific configuration:
 
