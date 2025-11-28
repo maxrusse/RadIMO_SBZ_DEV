@@ -8,7 +8,7 @@ Smart worker assignment system for radiology teams with automatic load balancing
 
 ## 🎯 What is RadIMO SBZ?
 
-RadIMO orchestrates workload distribution for radiology teams across multiple modalities (CT, MR, XRAY) and skills (Normal, Notfall, Privat, Herz, Msk, Chest). It automatically balances assignments to ensure fair distribution while respecting worker availability and skill levels.
+RadIMO orchestrates workload distribution for radiology teams across multiple modalities (CT, MR, XRAY) and skills (Normal, Notfall, Privat, Herz, Msk, Chest). It automatically balances assignments to ensure fair distribution while respecting worker availability, shift timing (including overnight windows), and skill levels.
 
 **Key Capabilities:**
 - 📊 Real-time worker assignment with automatic load balancing
@@ -20,6 +20,8 @@ RadIMO orchestrates workload distribution for radiology teams across multiple mo
 - 📋 **Three-page admin system**: Planning (staged), Prep (tomorrow), Live Edit (immediate)
 - ⚙️ **Worker skill roster admin portal** with JSON-based staged/active workflow
 - ⏱️ **Time exclusion system** for boards, meetings, and teaching activities
+- 🌙 **Overnight shift handling** that keeps availability and work-hour calculations consistent across midnight
+- 📘 **Workflow guide**: see `docs/WORKFLOW.md` for the CSV-to-assignment pipeline
 
 ---
 
@@ -74,7 +76,7 @@ Result: Fair distribution, specialist utilization, real-time visibility
 - No automatic fairness balancing
 - Separate tools for tracking and assignment
 
-**With RadIMO v18:**
+**With RadIMO v19:**
 - **Single CSV source** from existing medweb system
 - **Configuration-based mapping** (add new activities without coding)
 - **Automatic daily updates** (7:30 AM refresh)
@@ -844,6 +846,8 @@ Use force refresh when significant staffing changes occur mid-day (e.g., half th
 
 ## 🔄 Recent Updates
 
+Current state: **v19**. The full changelog is maintained offline; the summaries below remain for historical context.
+
 ### v18 (November 2025)
 - ✨ **Config-driven medweb CSV integration** - Direct CSV ingestion with mapping rules
 - 🔀 **Multi-modality support** - Sub-specialty teams across multiple modalities (e.g., MSK in xray/ct/mr)
@@ -917,7 +921,7 @@ shift_times:
 
 ## 📄 License & Contact
 
-**RadIMO v18** - Radiology: Innovation, Management & Orchestration
+**RadIMO v19** - Radiology: Innovation, Management & Orchestration
 
 For more information, see [EULA.txt](static/EULA.txt) or contact **Dr. M. Russe**.
 
