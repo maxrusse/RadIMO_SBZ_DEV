@@ -185,7 +185,7 @@ medweb_mapping:
       shift: "Fruehdienst"
       base_skills: {Normal: 1, Notfall: 1, Privat: 1, Herz: 0, Msk: 0, Chest: 0}
 
-    # Sub-specialty teams (multi-modality support) - NEW in v18
+    # Sub-specialty teams (multi-modality support)
     # These workers cover multiple modalities for their specialty
     # Use 'modalities' (list) instead of 'modality' (string)
     - match: "MSK Assistent"

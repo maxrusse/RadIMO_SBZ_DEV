@@ -667,17 +667,16 @@ def normalize_skill(skill_value: Optional[str]) -> str:
 def get_available_modalities_for_skill(skill: str) -> dict:
     """Check which modalities have active workers for this skill"""
     available = {}
-    tnow = get_local_berlin_now().time()
+    now = get_local_berlin_now()
 
     for modality in allowed_modalities:
         d = modality_data[modality]
         if d['working_hours_df'] is not None:
-            active_df = d['working_hours_df'][
-                (d['working_hours_df']['start_time'] <= tnow) &
-                (d['working_hours_df']['end_time'] >= tnow)
-            ]
+            active_df = _filter_active_rows(d['working_hours_df'], now)
             available[modality] = bool(
-                (skill in active_df.columns) and (active_df[skill].sum() > 0)
+                active_df is not None
+                and (skill in active_df.columns)
+                and (active_df[skill].sum() > 0)
             )
         else:
             available[modality] = False
@@ -715,6 +714,69 @@ def parse_time_range(time_range: str) -> Tuple[time, time]:
     start_time = datetime.strptime(start_str.strip(), '%H:%M').time()
     end_time   = datetime.strptime(end_str.strip(), '%H:%M').time()
     return start_time, end_time
+
+
+def _compute_shift_window(
+    start_time: time, end_time: time, reference_dt: datetime
+) -> Tuple[datetime, datetime]:
+    """Return normalized start/end datetimes for a shift.
+
+    Handles overnight shifts (e.g., 22:00-06:00) by rolling the end time into
+    the next day and anchoring the start date relative to the provided
+    ``reference_dt`` so checks work for both the evening and early-morning
+    portions of the shift.
+    """
+
+    start_minutes = start_time.hour * 60 + start_time.minute
+    end_minutes = end_time.hour * 60 + end_time.minute
+    ref_minutes = reference_dt.hour * 60 + reference_dt.minute
+
+    overnight = end_minutes <= start_minutes
+    if overnight:
+        end_minutes += 24 * 60  # push end into the next day
+        # If we're in the early-morning portion, the shift actually started
+        # yesterday.
+        reference_date = (
+            reference_dt.date() - timedelta(days=1)
+            if ref_minutes < (end_minutes - 24 * 60)
+            else reference_dt.date()
+        )
+    else:
+        reference_date = reference_dt.date()
+
+    start_dt = datetime.combine(reference_date, start_time)
+    end_dt = start_dt + timedelta(minutes=end_minutes - start_minutes)
+    return start_dt, end_dt
+
+
+def _is_now_in_shift(start_time: time, end_time: time, current_dt: datetime) -> bool:
+    """Check whether ``current_dt`` falls inside the given shift window."""
+
+    start_dt, end_dt = _compute_shift_window(start_time, end_time, current_dt)
+    return start_dt <= current_dt <= end_dt
+
+
+def _filter_active_rows(df: Optional[pd.DataFrame], current_dt: datetime) -> Optional[pd.DataFrame]:
+    """Return only rows active at ``current_dt`` (supports overnight shifts)."""
+
+    if df is None or df.empty:
+        return df
+
+    active_mask = df.apply(
+        lambda row: _is_now_in_shift(row['start_time'], row['end_time'], current_dt),
+        axis=1
+    )
+    return df[active_mask]
+
+
+def _calculate_shift_duration_hours(start_time: time, end_time: time) -> float:
+    """Calculate shift duration in hours, supporting overnight shifts."""
+
+    start_minutes = start_time.hour * 60 + start_time.minute
+    end_minutes = end_time.hour * 60 + end_time.minute
+    if end_minutes <= start_minutes:
+        end_minutes += 24 * 60
+    return (end_minutes - start_minutes) / 60.0
 
 # -----------------------------------------------------------
 # Worker identification helper functions (NEW)
@@ -1383,16 +1445,14 @@ def calculate_work_hours_now(current_dt: datetime, modality: str) -> dict:
     if d['working_hours_df'] is None:
         return {}
     df_copy = d['working_hours_df'].copy()
-    
+
     def _calc(row):
-        start_dt = datetime.combine(current_dt.date(), row['start_time'])
-        end_dt   = datetime.combine(current_dt.date(), row['end_time'])
-        if current_dt.time() < row['start_time']:
+        start_dt, end_dt = _compute_shift_window(row['start_time'], row['end_time'], current_dt)
+        if current_dt < start_dt:
             return 0.0
-        elif current_dt.time() >= row['end_time']:
+        if current_dt >= end_dt:
             return (end_dt - start_dt).total_seconds() / 3600.0
-        else:
-            return (current_dt - start_dt).total_seconds() / 3600.0
+        return (current_dt - start_dt).total_seconds() / 3600.0
 
     df_copy['work_hours_now'] = df_copy.apply(_calc, axis=1)
     
@@ -1458,10 +1518,7 @@ def initialize_data(file_path: str, modality: str):
 
             # Compute shift_duration using the working logic:
             df['shift_duration'] = df.apply(
-                lambda row: (
-                    datetime.combine(datetime.min, row['end_time']) -
-                    datetime.combine(datetime.min, row['start_time'])
-                ).total_seconds() / 3600.0,
+                lambda row: _calculate_shift_duration_hours(row['start_time'], row['end_time']),
                 axis=1
             )
 
@@ -1836,12 +1893,9 @@ def _select_worker_for_modality(
         return None
 
     tnow = current_dt.time()
-    active_df = d['working_hours_df'][
-        (d['working_hours_df']['start_time'] <= tnow) &
-        (d['working_hours_df']['end_time']   >= tnow)
-    ]
+    active_df = _filter_active_rows(d['working_hours_df'], current_dt)
 
-    if active_df.empty:
+    if active_df is None or active_df.empty:
         selection_logger.info(f"No active workers at time {tnow} for modality {modality}")
         return None
 
@@ -2038,13 +2092,9 @@ def _get_worker_modality_priority(
             if d['working_hours_df'] is None:
                 continue
 
-            tnow = current_dt.time()
-            active_df = d['working_hours_df'][
-                (d['working_hours_df']['start_time'] <= tnow) &
-                (d['working_hours_df']['end_time']   >= tnow)
-            ]
+            active_df = _filter_active_rows(d['working_hours_df'], current_dt)
 
-            if active_df.empty:
+            if active_df is None or active_df.empty:
                 continue
 
             # Try this specific skill in this specific modality
@@ -2174,13 +2224,9 @@ def _get_worker_pool_priority(
             if d['working_hours_df'] is None:
                 continue
 
-            tnow = current_dt.time()
-            active_df = d['working_hours_df'][
-                (d['working_hours_df']['start_time'] <= tnow) &
-                (d['working_hours_df']['end_time']   >= tnow)
-            ]
+            active_df = _filter_active_rows(d['working_hours_df'], current_dt)
 
-            if active_df.empty:
+            if active_df is None or active_df.empty:
                 continue
 
             # Try this specific skill in this specific modality
@@ -2426,8 +2472,7 @@ def load_staged_dataframe(modality: str) -> bool:
 
                     # Calculate shift_duration
                     df['shift_duration'] = df.apply(
-                        lambda row: (datetime.combine(datetime.min, row['end_time']) -
-                                   datetime.combine(datetime.min, row['start_time'])).total_seconds() / 3600.0,
+                        lambda row: _calculate_shift_duration_hours(row['start_time'], row['end_time']),
                         axis=1
                     )
 
@@ -2519,15 +2564,13 @@ def index():
     # Determine available specialties based on currently active working hours
     available_specialties = {SKILL_SLUG_MAP[skill]: False for skill in SKILL_COLUMNS}
     if d['working_hours_df'] is not None:
-        tnow = get_local_berlin_now().time()
-        active_df = d['working_hours_df'][
-            (d['working_hours_df']['start_time'] <= tnow) &
-            (d['working_hours_df']['end_time'] >= tnow)
-        ]
+        active_df = _filter_active_rows(d['working_hours_df'], get_local_berlin_now())
         for skill in SKILL_COLUMNS:
             slug = SKILL_SLUG_MAP[skill]
             available_specialties[slug] = bool(
-                (skill in active_df.columns) and (active_df[skill].sum() > 0)
+                active_df is not None
+                and (skill in active_df.columns)
+                and (active_df[skill].sum() > 0)
             )
 
     for entry in SKILL_TEMPLATES:
@@ -3673,7 +3716,7 @@ def edit_entry():
 
         d['working_hours_df']['start_time'], d['working_hours_df']['end_time'] = zip(*d['working_hours_df']['TIME'].map(parse_time_range))
         d['working_hours_df']['shift_duration'] = d['working_hours_df'].apply(
-            lambda row: (datetime.combine(datetime.min, row['end_time']) - datetime.combine(datetime.min, row['start_time'])).total_seconds() / 3600.0,
+            lambda row: _calculate_shift_duration_hours(row['start_time'], row['end_time']),
             axis=1
         )
         d['total_work_hours'] = d['working_hours_df'].groupby('PPL')['shift_duration'].sum().to_dict()
@@ -3692,7 +3735,7 @@ def delete_entry():
             d['working_hours_df'].at[idx, 'TIME'] = '00:00-00:00'
             d['working_hours_df'].at[idx, 'start_time'], d['working_hours_df'].at[idx, 'end_time'] = parse_time_range('00:00-00:00')
             d['working_hours_df']['shift_duration'] = d['working_hours_df'].apply(
-                lambda row: (datetime.combine(datetime.min, row['end_time']) - datetime.combine(datetime.min, row['start_time'])).total_seconds() / 3600.0,
+                lambda row: _calculate_shift_duration_hours(row['start_time'], row['end_time']),
                 axis=1
             )
             d['total_work_hours'] = d['working_hours_df'].groupby('PPL')['shift_duration'].sum().to_dict()
@@ -3761,14 +3804,14 @@ def quick_reload():
     # Determine available buttons based on currently active working hours
     available_buttons = {SKILL_SLUG_MAP[skill]: False for skill in SKILL_COLUMNS}
     if d['working_hours_df'] is not None:
-        tnow = now.time()
-        active_df = d['working_hours_df'][
-            (d['working_hours_df']['start_time'] <= tnow) &
-            (d['working_hours_df']['end_time'] >= tnow)
-        ]
+        active_df = _filter_active_rows(d['working_hours_df'], now)
         for skill in SKILL_COLUMNS:
             slug = SKILL_SLUG_MAP[skill]
-            available_buttons[slug] = bool((skill in active_df.columns) and (active_df[skill].sum() > 0))
+            available_buttons[slug] = bool(
+                active_df is not None
+                and (skill in active_df.columns)
+                and (active_df[skill].sum() > 0)
+            )
 
     for entry in SKILL_TEMPLATES:
         if entry['always_visible']:
