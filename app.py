@@ -429,6 +429,10 @@ def _build_skill_metadata(skills_config: Dict[str, Dict[str, Any]]) -> Tuple[Lis
 
 SKILL_COLUMNS, SKILL_SLUG_MAP, SKILL_FORM_KEYS, SKILL_TEMPLATES, skill_weights = _build_skill_metadata(SKILL_SETTINGS)
 
+# Build dynamic role map from config (slug -> canonical name)
+# This allows URL-friendly lowercase names like 'herz' to map to 'Herz'
+ROLE_MAP = {slug.lower(): name for name, slug in SKILL_SLUG_MAP.items()}
+
 
 def get_skill_modality_weight(skill: str, modality: str) -> float:
     """
@@ -1811,19 +1815,11 @@ def _get_worker_exclusion_based(
       Level 1: Workers with Herz>=0 AND Chest<1 → Pick lowest ratio
       Level 2: Workers with Herz>=0 (any Chest value) → Pick lowest ratio
     """
-    # Build role mapping
-    role_map = {
-        'normal':  'Normal',
-        'notfall': 'Notfall',
-        'herz':    'Herz',
-        'privat':  'Privat',
-        'msk':     'Msk',
-        'chest':   'Chest'
-    }
+    # Map role slug to canonical skill name (e.g., 'herz' -> 'Herz')
     role_lower = role.lower()
-    if role_lower not in role_map:
+    if role_lower not in ROLE_MAP:
         role_lower = 'normal'
-    primary_skill = role_map[role_lower]
+    primary_skill = ROLE_MAP[role_lower]
 
     # Get exclusion rules for this skill
     skill_exclusions = EXCLUSION_RULES.get(primary_skill, {})
