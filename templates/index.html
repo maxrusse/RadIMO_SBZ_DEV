@@ -223,49 +223,27 @@
     }
     .info-item:last-child { margin-bottom: 0; }
     
-    /* Click History Logo as Mini Logos */
-    .click-history-wrapper {
-      margin-top: 20px;
+    /* Footer */
+    .footer {
+      margin-top: 1.5rem;
       text-align: center;
+      font-size: 11px;
+      color: #888;
     }
-    .click-history {
-      display: flex;
-      justify-content: center;
-      gap: 4px;
-      margin-bottom: 10px;
+    .footer a {
+      color: #666;
     }
-    .click-history-box {
-      width: 30px;
-      height: 30px;
+    .last-assignment {
+      font-size: 0.8rem;
+      color: #666;
+      padding: 0.5rem 1rem;
+      background: rgba(255,255,255,0.7);
       border-radius: 4px;
-      background-color: var(--modality-bg);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background-color 0.5s ease, transform 0.5s ease;
+      margin-bottom: 0.5rem;
+      display: none;
     }
-    .click-history-box:first-child {
-      transform: translateY(-2px) rotate(-20deg);
-    }
-    .click-history-box:last-child {
-      transform: translateY(2px) rotate(20deg);
-    }
-    .click-history-text {
-      font-size: 12px;
-      color: #333;
-    }
-    .click-history-text .radimo {
-      font-size: 16px;
-      font-weight: bold;
-      margin-bottom: 4px;
-    }
-    .click-history-text .subtitle {
-      font-size: 12px;
-      margin-bottom: 4px;
-    }
-    .click-history-text .license {
-      font-size: 10px;
-      color: #555;
+    .last-assignment.visible {
+      display: block;
     }
   </style>
 </head>
@@ -337,53 +315,17 @@
     </div>
   </section>
   
-  <!-- Click History Logo as Mini Logos -->
-  <div class="click-history-wrapper">
-    <div id="clickHistory" class="click-history"></div>
-    <div class="click-history-text">
-      <div class="radimo">RadIMO v17</div>
-      <div class="subtitle">Radiology: Innovation, Management & Orchestration</div>
-      <div class="license">
-        <a href="{{ url_for('static', filename='EULA.txt') }}" target="_blank">
-          Impressum und EULA - Kontakt Dr. M. Russe
-        </a>
-      </div>
-    </div>
+  <!-- Footer -->
+  <div class="footer">
+    <div id="lastAssignment" class="last-assignment"></div>
+    <div>RadIMO v17 · <a href="{{ url_for('static', filename='EULA.txt') }}" target="_blank">Impressum & EULA</a></div>
   </div>
   
   <script>
-    const clickHistoryCount = 15;
-    const modalityBg = getComputedStyle(document.body).getPropertyValue('--modality-bg').trim();
-    let clickHistoryColors = new Array(clickHistoryCount).fill({ color: modalityBg });
-    const clickHistoryContainer = document.getElementById('clickHistory');
-    for (let i = 0; i < clickHistoryCount; i++) {
-      const box = document.createElement('div');
-      box.classList.add('click-history-box');
-      box.style.backgroundColor = modalityBg;
-      clickHistoryContainer.appendChild(box);
-    }
-    
-    function updateClickHistory(newColor) {
-      const newEntry = { color: newColor };
-      clickHistoryColors.pop();
-      clickHistoryColors.unshift(newEntry);
-      document.querySelectorAll('#clickHistory .click-history-box').forEach((box, index) => {
-        box.style.backgroundColor = clickHistoryColors[index].color;
-        box.innerHTML = "";
-      });
-    }
-    
-    document.getElementById('buttonGrid').addEventListener('click', function(e) {
-      const button = e.target.closest('button');
-      if (button) {
-        const bgColor = getComputedStyle(button).backgroundColor;
-        updateClickHistory(bgColor);
-      }
-    });
-    
     let requestInProgress = false;
     let timerInterval, lastClickTime, disableTimeout;
     let currentModality = "{{ modality }}";
+    let lastSkillUsed = "";
     
     const skillButtonMap = {};
     document.querySelectorAll('.skill-button-wrapper').forEach(wrapper => {
@@ -412,6 +354,7 @@
 
     function getNextAssignment(skill, forcePrimary = false) {
       if (requestInProgress) return;
+      lastSkillUsed = skill;
       updateButtonsState(true);
       const endpoint = forcePrimary
         ? `/api/${currentModality}/${skill}/strict`
@@ -420,7 +363,7 @@
         .then(response => response.json())
         .then(data => {
           if (data['Assigned Person']) {
-            showResult(data['Assigned Person']);
+            showResult(data['Assigned Person'], skill);
           }
         })
         .catch(e => {
@@ -428,8 +371,8 @@
           alert('Fehler beim Abrufen.');
         });
     }
-    
-    function showResult(person) {
+
+    function showResult(person, skill) {
       const resultDiv = document.getElementById('result');
       if (!person || person === "") {
         person = "Niemand verfügbar";
@@ -443,6 +386,13 @@
       startTimer();
       const match = person.match(/\(([^)]+)\)/);
       if (match && match[1]) copyTextToClipboard(match[1]);
+
+      // Update last assignment footer
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
+      const lastEl = document.getElementById('lastAssignment');
+      lastEl.textContent = `Letzte Zuweisung: ${timeStr} · ${person} · ${skill || lastSkillUsed}`;
+      lastEl.classList.add('visible');
     }
     
     function startTimer() {
