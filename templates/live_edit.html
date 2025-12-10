@@ -7,737 +7,228 @@
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #f0f0f0;
-      padding: 1rem;
-      max-width: 1600px;
-      margin: 0 auto;
-    }
-
-    .header {
-      background: #fff;
-      padding: 1rem 2rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      margin-bottom: 1rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .header h1 {
-      margin: 0;
-      font-size: 1.75rem;
-    }
-
-    .warning-banner {
-      background: #fff3cd;
-      border: 2px solid #ff9800;
-      border-left: 6px solid #ff6b00;
-      padding: 1rem 1.5rem;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-      font-weight: 600;
-      color: #856404;
-      font-size: 1.1rem;
-    }
-
-    .warning-banner span {
-      color: #d32f2f;
-      font-size: 1.3rem;
-    }
-
-    .btn {
-      padding: 0.5rem 1rem;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.95rem;
-      transition: background 0.2s;
-    }
-
-    .btn-secondary {
-      background: #777;
-      color: white;
-    }
-
-    .btn-secondary:hover {
-      background: #555;
-    }
-
-    .btn-danger {
-      background: #dc3545;
-      color: white;
-    }
-
-    .btn-danger:hover {
-      background: #c82333;
-    }
-
-    .btn-primary {
-      background: #004892;
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: #003670;
-    }
-
-    .modality-tabs {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
-    }
-
-    .modality-tab {
-      padding: 0.75rem 1.5rem;
-      background: #e0e0e0;
-      border: none;
-      border-radius: 4px 4px 0 0;
-      cursor: pointer;
-      font-size: 1rem;
-      font-weight: 600;
-      transition: background 0.2s;
-    }
-
-    .modality-tab:hover {
-      background: #d0d0d0;
-    }
-
-    .modality-tab.active {
-      background: #004892;
-      color: white;
-    }
-
-    .modality-content {
-      display: none;
-    }
-
-    .modality-content.active {
-      display: block;
-    }
-
-    .content-box {
-      background: #fff;
-      padding: 1.5rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .workers-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 1.5rem;
-      font-size: 0.9rem;
-    }
-
-    .workers-table th,
-    .workers-table td {
-      padding: 0.75rem;
-      text-align: left;
-      border: 1px solid #ddd;
-    }
-
-    .workers-table th {
-      background: #f8f9fa;
-      font-weight: 600;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    .workers-table tr:hover {
-      background: #f5f5f5;
-    }
-
-    .skill-badge {
-      display: inline-block;
-      padding: 0.2rem 0.5rem;
-      margin: 0.1rem;
-      border-radius: 3px;
-      font-size: 0.85rem;
-      font-weight: 600;
-    }
-
-    .skill-badge.active {
-      background: #d4edda;
-      color: #155724;
-    }
-
-    .skill-badge.passive {
-      background: #fff3cd;
-      color: #856404;
-    }
-
-    .skill-badge.excluded {
-      background: #f8d7da;
-      color: #721c24;
-    }
-
-    .edit-form {
-      display: none;
-      background: #f8f9fa;
-      padding: 1.5rem;
-      border: 2px solid #004892;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-    }
-
-    .edit-form.active {
-      display: block;
-    }
-
-    .edit-form h3 {
-      margin-top: 0;
-      color: #004892;
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .form-group label {
-      font-weight: 600;
-      margin-bottom: 0.3rem;
-      color: #333;
-    }
-
-    .form-group input,
-    .form-group select {
-      padding: 0.5rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 0.95rem;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: #004892;
-      box-shadow: 0 0 3px rgba(0, 72, 146, 0.3);
-    }
-
-    .form-actions {
-      display: flex;
-      gap: 0.5rem;
-      margin-top: 1rem;
-    }
-
-    .status-message {
-      margin-top: 1rem;
-      padding: 1rem;
-      border-radius: 4px;
-      display: none;
-    }
-
-    .status-message.success {
-      background: #d4edda;
-      border: 1px solid #c3e6cb;
-      color: #155724;
-    }
-
-    .status-message.error {
-      background: #f8d7da;
-      border: 1px solid #f5c6cb;
-      color: #721c24;
-    }
-
-    .loading {
-      text-align: center;
-      padding: 2rem;
-      color: #777;
-    }
-
-    /* Utility classes to replace inline styles */
-    .btn-success {
-      background: #28a745;
-      color: white;
-    }
-
-    .btn-success:hover {
-      background: #218838;
-    }
-
-    .btn-sm {
-      padding: 0.3rem 0.6rem;
-      font-size: 0.85rem;
-    }
-
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .section-header h2 {
-      margin: 0;
-    }
-
-    .text-muted {
-      color: #666;
-    }
-
-    .text-danger {
-      color: #d32f2f;
-    }
-
-    .table-empty-state {
-      text-align: center;
-      padding: 2rem;
-      color: #777;
-    }
-
-    .edit-form-add {
-      border-color: #28a745;
-    }
-
-    .edit-form-add h3 {
-      color: #28a745;
-    }
-
-    /* Skill Filter Bar */
-    .skill-filter-bar {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
-      padding: 0.75rem;
-      background: #f8f9fa;
-      border-radius: 4px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .skill-filter-bar label {
-      font-weight: 600;
-      color: #333;
-      margin-right: 0.5rem;
-    }
-
-    .filter-btn {
-      padding: 0.5rem 1rem;
-      border: 2px solid #ddd;
-      background: white;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      transition: all 0.2s;
-      font-weight: 500;
-    }
-
-    .filter-btn:hover {
-      border-color: #004892;
-      background: #f0f0f0;
-    }
-
-    .filter-btn.active {
-      background: #004892;
-      color: white;
-      border-color: #004892;
-    }
-
-    .filter-btn.filter-all {
-      background: #28a745;
-      color: white;
-      border-color: #28a745;
-    }
-
-    .filter-btn.filter-all:hover {
-      background: #218838;
-      border-color: #218838;
-    }
-
-    .filter-btn.filter-all.active {
-      background: #155724;
-      border-color: #155724;
-    }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f0f0; padding: 1rem; max-width: 1600px; margin: 0 auto; }
+    .header { background: #004892; color: white; padding: 1rem 2rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+    .header h1 { margin: 0; font-size: 1.5rem; }
+    .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .header-actions a, .header-actions button { color: white; text-decoration: none; padding: 0.5rem 1rem; background: rgba(255,255,255,0.2); border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+    .header-actions a:hover, .header-actions button:hover { background: rgba(255,255,255,0.3); }
+    .warning-banner { background: #fff3cd; border: 2px solid #ff9800; border-left: 6px solid #ff6b00; padding: 1rem 1.5rem; border-radius: 4px; margin-bottom: 1rem; font-weight: 600; color: #856404; }
+    .btn { padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; transition: background 0.2s; }
+    .btn-primary { background: #004892; color: white; }
+    .btn-primary:hover { background: #003670; }
+    .btn-secondary { background: #777; color: white; }
+    .btn-secondary:hover { background: #555; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-success:hover { background: #218838; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-danger:hover { background: #c82333; }
+    .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.85rem; }
+    .modality-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .modality-tab { padding: 0.75rem 1.5rem; background: #e0e0e0; border: none; border-radius: 4px 4px 0 0; cursor: pointer; font-size: 1rem; font-weight: 600; transition: background 0.2s; }
+    .modality-tab:hover { background: #d0d0d0; }
+    .modality-tab.active { background: #004892; color: white; }
+    .modality-content { display: none; }
+    .modality-content.active { display: block; }
+    .content-box { background: #fff; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .workers-table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.85rem; }
+    .workers-table th, .workers-table td { padding: 0.5rem; text-align: left; border: 1px solid #ddd; }
+    .workers-table th { background: #f8f9fa; font-weight: 600; position: sticky; top: 0; z-index: 10; }
+    .workers-table tr:hover { background: #f5f5f5; }
+    .skill-badge { display: inline-block; padding: 0.15rem 0.4rem; margin: 0.1rem; border-radius: 3px; font-size: 0.75rem; font-weight: 600; }
+    .skill-badge.active { background: #d4edda; color: #155724; }
+    .skill-badge.passive { background: #fff3cd; color: #856404; }
+    .skill-badge.excluded { background: #f8d7da; color: #721c24; }
+    .edit-form { display: none; background: #f8f9fa; padding: 1.5rem; border: 2px solid #004892; border-radius: 4px; margin-bottom: 1rem; }
+    .edit-form.active { display: block; }
+    .edit-form h3 { margin-top: 0; color: #004892; }
+    .edit-form-add { border-color: #28a745; }
+    .edit-form-add h3 { color: #28a745; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group label { font-weight: 600; margin-bottom: 0.2rem; color: #333; font-size: 0.85rem; }
+    .form-group input, .form-group select { padding: 0.4rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: #004892; }
+    .form-actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+    .status-message { margin-top: 1rem; padding: 1rem; border-radius: 4px; display: none; }
+    .status-message.success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+    .status-message.error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+    .loading { text-align: center; padding: 2rem; color: #777; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .section-header h2 { margin: 0; font-size: 1.2rem; }
+    .skill-filter-bar { display: flex; gap: 0.3rem; margin-bottom: 1rem; padding: 0.5rem; background: #f8f9fa; border-radius: 4px; flex-wrap: wrap; align-items: center; }
+    .skill-filter-bar label { font-weight: 600; color: #333; margin-right: 0.5rem; font-size: 0.85rem; }
+    .filter-btn { padding: 0.3rem 0.6rem; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; }
+    .filter-btn:hover { border-color: #004892; background: #f0f0f0; }
+    .filter-btn.active { background: #004892; color: white; border-color: #004892; }
+    .text-muted { color: #666; font-size: 0.85rem; }
+    .table-empty-state { text-align: center; padding: 2rem; color: #777; }
   </style>
 </head>
 <body>
   <div class="header">
     <div>
       <h1>RadIMO Cortex | Day Control</h1>
-      <p>Same-day schedule adjustments</p>
+      <p style="font-size: 0.85rem; opacity: 0.9;">Same-day schedule adjustments - Changes take effect immediately</p>
     </div>
     <div class="header-actions">
       <a href="{{ url_for('index') }}">Dashboard</a>
       <a href="{{ url_for('timetable') }}">Timetable</a>
       <a href="{{ url_for('skill_roster_page') }}">Skill Matrix</a>
-      <a href="{{ url_for('upload_file') }}">Admin</a>
-      <button class="btn btn-primary" onclick="window.location.href='/prep-next-day'" style="margin-left: 1rem;">📝 Prep Next Day</button>
+      <a href="{{ url_for('prep_next_day') }}">Prep Next Day</a>
+      <a href="{{ url_for('upload_file') }}">Upload</a>
+      <a href="{{ url_for('logout') }}">Logout</a>
     </div>
   </div>
 
   <div class="warning-banner">
-    <h2 style="margin: 0 0 1rem 0; font-size: 1.5rem;">📝 Same-Day Editing</h2>
-    <p style="margin-bottom: 1rem; font-size: 1.1rem;">
-      Changes on this page take effect immediately and apply to today's schedule.
-    </p>
-    <p style="margin-bottom: 1rem; background: rgba(255,255,255,0.2); padding: 0.5rem; border-radius: 4px;">
-      <strong>Note:</strong> This page edits the current live schedule.
-      For tomorrow's schedule, use <a href="/prep-next-day" style="color: #fff; text-decoration: underline;">Prep Next Day</a>.
-    </p>
-    <strong>Available actions:</strong>
-    <ul style="margin: 0.5rem 0 0 1.5rem;">
-      <li>✏️ <strong>Edit times</strong> - Worker leaving early? Adjust their end time</li>
-      <li>➕ <strong>Add new entry</strong> - Worker available for 1 hour? Add them back</li>
-      <li>🗑️ <strong>Delete entry</strong> - Take worker out completely (e.g., called in sick)</li>
-      <li>⚙️ <strong>Modify skills</strong> - Adjust skill assignments</li>
-    </ul>
+    <strong>⚠️ Live Editing:</strong> Changes on this page affect TODAY's schedule immediately.
+    For tomorrow's schedule, use <a href="{{ url_for('prep_next_day') }}" style="color: #004892;">Prep Next Day</a>.
   </div>
 
   <div class="modality-tabs">
-    <button class="modality-tab active" onclick="switchModality('ct')">CT</button>
-    <button class="modality-tab" onclick="switchModality('mr')">MR</button>
-    <button class="modality-tab" onclick="switchModality('xray')">X-RAY</button>
+    {% for mod in modalities %}
+    <button class="modality-tab{% if loop.first %} active{% endif %}" onclick="switchModality('{{ mod }}')">{{ mod|upper }}</button>
+    {% endfor %}
   </div>
 
   <div class="content-box">
     <!-- Add New Worker Form -->
     <form id="addForm" class="edit-form edit-form-add" onsubmit="submitAdd(event)">
       <h3>➕ Add New Worker Entry</h3>
-      <p class="text-muted" style="margin: 0 0 1rem 0;">Add a worker for a specific time slot (e.g., worker available for just 1 hour)</p>
       <input type="hidden" id="addModality" name="modality">
-
       <div class="form-grid">
         <div class="form-group">
-          <label for="addPerson">Person (PPL) *</label>
-          <input type="text" id="addPerson" name="person" placeholder="e.g., AAn or Full Name (AAn)" required>
+          <label>Person (PPL) *</label>
+          <input type="text" name="person" placeholder="e.g., MU" required>
         </div>
-
         <div class="form-group">
-          <label for="addTime">Time Range (Start-End) *</label>
-          <input type="text" id="addTime" name="time" placeholder="08:00-16:00" required>
-          <small class="text-muted">Format: HH:MM-HH:MM</small>
+          <label>Time Range *</label>
+          <input type="text" name="time" placeholder="08:00-16:00" required>
         </div>
-
         <div class="form-group">
-          <label for="addModifier">Modifier</label>
-          <input type="number" id="addModifier" name="modifier" step="0.1" value="1.0">
+          <label>Modifier</label>
+          <input type="number" name="modifier" step="0.1" value="1.0">
         </div>
-
+        {% for skill in skills %}
         <div class="form-group">
-          <label for="addNormal">Normal</label>
-          <select id="addNormal" name="normal">
+          <label>{{ skill }}</label>
+          <select name="{{ skill|lower }}">
             <option value="-1">-1 (Excluded)</option>
-            <option value="0">0 (Passive)</option>
-            <option value="1" selected>1 (Active)</option>
+            <option value="0"{% if loop.index > 3 %} selected{% endif %}>0 (Passive)</option>
+            <option value="1"{% if loop.index <= 2 %} selected{% endif %}>1 (Active)</option>
           </select>
         </div>
-
-        <div class="form-group">
-          <label for="addNotfall">Notfall</label>
-          <select id="addNotfall" name="notfall">
-            <option value="-1">-1 (Excluded)</option>
-            <option value="0" selected>0 (Passive)</option>
-            <option value="1">1 (Active)</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="addPrivat">Privat</label>
-          <select id="addPrivat" name="privat">
-            <option value="-1">-1 (Excluded)</option>
-            <option value="0" selected>0 (Passive)</option>
-            <option value="1">1 (Active)</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="addHerz">Herz</label>
-          <select id="addHerz" name="herz">
-            <option value="-1">-1 (Excluded)</option>
-            <option value="0" selected>0 (Passive)</option>
-            <option value="1">1 (Active)</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="addMsk">MSK</label>
-          <select id="addMsk" name="msk">
-            <option value="-1">-1 (Excluded)</option>
-            <option value="0" selected>0 (Passive)</option>
-            <option value="1">1 (Active)</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="addChest">Chest</label>
-          <select id="addChest" name="chest">
-            <option value="-1">-1 (Excluded)</option>
-            <option value="0" selected>0 (Passive)</option>
-            <option value="1">1 (Active)</option>
-          </select>
-        </div>
+        {% endfor %}
       </div>
-
       <div class="form-actions">
         <button type="submit" class="btn btn-success">Add Worker</button>
         <button type="button" class="btn btn-secondary" onclick="cancelAdd()">Cancel</button>
       </div>
     </form>
 
-    <!-- Edit Form (hidden until edit is clicked) -->
+    <!-- Edit Form -->
     <form id="editForm" class="edit-form" onsubmit="submitEdit(event)">
       <h3>✏️ Edit Worker Entry</h3>
       <input type="hidden" id="editIndex" name="index">
       <input type="hidden" id="editModality" name="modality">
-
       <div class="form-grid">
         <div class="form-group">
-          <label for="editPerson">Person (PPL)</label>
+          <label>Person (PPL)</label>
           <input type="text" id="editPerson" name="person" required>
         </div>
-
         <div class="form-group">
-          <label for="editTime">Time Range (Start-End)</label>
+          <label>Time Range</label>
           <input type="text" id="editTime" name="time" placeholder="08:00-16:00" required>
-          <small class="text-muted">Format: HH:MM-HH:MM (adjust end time if leaving early)</small>
         </div>
-
         <div class="form-group">
-          <label for="editModifier">Modifier</label>
+          <label>Modifier</label>
           <input type="number" id="editModifier" name="modifier" step="0.1" value="1.0">
         </div>
-
+        {% for skill in skills %}
         <div class="form-group">
-          <label for="editNormal">Normal</label>
-          <select id="editNormal" name="normal">
+          <label>{{ skill }}</label>
+          <select id="edit{{ skill }}" name="{{ skill|lower }}">
             <option value="-1">-1 (Excluded)</option>
             <option value="0">0 (Passive)</option>
-            <option value="1" selected>1 (Active)</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="editNotfall">Notfall</label>
-          <select id="editNotfall" name="notfall">
-            <option value="-1">-1 (Excluded)</option>
-            <option value="0" selected>0 (Passive)</option>
             <option value="1">1 (Active)</option>
           </select>
         </div>
-
-        <div class="form-group">
-          <label for="editPrivat">Privat</label>
-          <select id="editPrivat" name="privat">
-            <option value="-1">-1 (Excluded)</option>
-            <option value="0" selected>0 (Passive)</option>
-            <option value="1">1 (Active)</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="editHerz">Herz</label>
-          <select id="editHerz" name="herz">
-            <option value="-1">-1 (Excluded)</option>
-            <option value="0" selected>0 (Passive)</option>
-            <option value="1">1 (Active)</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="editMsk">MSK</label>
-          <select id="editMsk" name="msk">
-            <option value="-1">-1 (Excluded)</option>
-            <option value="0" selected>0 (Passive)</option>
-            <option value="1">1 (Active)</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="editChest">Chest</label>
-          <select id="editChest" name="chest">
-            <option value="-1">-1 (Excluded)</option>
-            <option value="0" selected>0 (Passive)</option>
-            <option value="1">1 (Active)</option>
-          </select>
-        </div>
+        {% endfor %}
       </div>
-
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">Save Changes</button>
         <button type="button" class="btn btn-secondary" onclick="cancelEdit()">Cancel</button>
       </div>
     </form>
 
-    <!-- CT Modality -->
-    <div id="ct-content" class="modality-content active">
+    <!-- Modality Content Sections -->
+    {% for mod in modalities %}
+    <div id="{{ mod }}-content" class="modality-content{% if loop.first %} active{% endif %}">
       <div class="section-header">
-        <h2>CT Workers</h2>
-        <button class="btn btn-success" onclick="showAddForm()">➕ Add New Worker</button>
+        <h2>{{ mod|upper }} Workers</h2>
+        <button class="btn btn-success btn-sm" onclick="showAddForm()">➕ Add Worker</button>
       </div>
 
-      <!-- Skill Filter Bar -->
       <div class="skill-filter-bar">
-        <label>Filter by Skill:</label>
-        <button class="filter-btn filter-all active" onclick="filterBySkill('ct', 'all')">All</button>
-        <button class="filter-btn" onclick="filterBySkill('ct', 'Normal')">Normal</button>
-        <button class="filter-btn" onclick="filterBySkill('ct', 'Notfall')">Notfall</button>
-        <button class="filter-btn" onclick="filterBySkill('ct', 'Privat')">Privat</button>
-        <button class="filter-btn" onclick="filterBySkill('ct', 'Herz')">Herz</button>
-        <button class="filter-btn" onclick="filterBySkill('ct', 'Msk')">Msk</button>
-        <button class="filter-btn" onclick="filterBySkill('ct', 'Chest')">Chest</button>
+        <label>Filter:</label>
+        <button class="filter-btn active" onclick="filterBySkill('{{ mod }}', 'all')">All</button>
+        {% for skill in skills %}
+        <button class="filter-btn" onclick="filterBySkill('{{ mod }}', '{{ skill }}')">{{ skill }}</button>
+        {% endfor %}
       </div>
 
-      <div id="ct-loading" class="loading">Loading CT workers...</div>
-      <div id="ct-table-container" style="display: none;">
+      <div id="{{ mod }}-loading" class="loading">Loading {{ mod|upper }} workers...</div>
+      <div id="{{ mod }}-table-container" style="display: none;">
         <table class="workers-table">
           <thead>
             <tr>
               <th>Person</th>
               <th>Start</th>
               <th>End</th>
-              <th>Duration</th>
+              <th>Dur</th>
               <th>Skills</th>
-              <th>Modifier</th>
+              <th>Mod</th>
               <th>Actions</th>
             </tr>
           </thead>
-          <tbody id="ct-tbody">
-          </tbody>
+          <tbody id="{{ mod }}-tbody"></tbody>
         </table>
       </div>
     </div>
-
-    <!-- MR Modality -->
-    <div id="mr-content" class="modality-content">
-      <div class="section-header">
-        <h2>MR Workers</h2>
-        <button class="btn btn-success" onclick="showAddForm()">➕ Add New Worker</button>
-      </div>
-
-      <!-- Skill Filter Bar -->
-      <div class="skill-filter-bar">
-        <label>Filter by Skill:</label>
-        <button class="filter-btn filter-all active" onclick="filterBySkill('mr', 'all')">All</button>
-        <button class="filter-btn" onclick="filterBySkill('mr', 'Normal')">Normal</button>
-        <button class="filter-btn" onclick="filterBySkill('mr', 'Notfall')">Notfall</button>
-        <button class="filter-btn" onclick="filterBySkill('mr', 'Privat')">Privat</button>
-        <button class="filter-btn" onclick="filterBySkill('mr', 'Herz')">Herz</button>
-        <button class="filter-btn" onclick="filterBySkill('mr', 'Msk')">Msk</button>
-        <button class="filter-btn" onclick="filterBySkill('mr', 'Chest')">Chest</button>
-      </div>
-
-      <div id="mr-loading" class="loading">Loading MR workers...</div>
-      <div id="mr-table-container" style="display: none;">
-        <table class="workers-table">
-          <thead>
-            <tr>
-              <th>Person</th>
-              <th>Start</th>
-              <th>End</th>
-              <th>Duration</th>
-              <th>Skills</th>
-              <th>Modifier</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="mr-tbody">
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- XRAY Modality -->
-    <div id="xray-content" class="modality-content">
-      <div class="section-header">
-        <h2>X-RAY Workers</h2>
-        <button class="btn btn-success" onclick="showAddForm()">➕ Add New Worker</button>
-      </div>
-
-      <!-- Skill Filter Bar -->
-      <div class="skill-filter-bar">
-        <label>Filter by Skill:</label>
-        <button class="filter-btn filter-all active" onclick="filterBySkill('xray', 'all')">All</button>
-        <button class="filter-btn" onclick="filterBySkill('xray', 'Normal')">Normal</button>
-        <button class="filter-btn" onclick="filterBySkill('xray', 'Notfall')">Notfall</button>
-        <button class="filter-btn" onclick="filterBySkill('xray', 'Privat')">Privat</button>
-        <button class="filter-btn" onclick="filterBySkill('xray', 'Herz')">Herz</button>
-        <button class="filter-btn" onclick="filterBySkill('xray', 'Msk')">Msk</button>
-        <button class="filter-btn" onclick="filterBySkill('xray', 'Chest')">Chest</button>
-      </div>
-
-      <div id="xray-loading" class="loading">Loading X-RAY workers...</div>
-      <div id="xray-table-container" style="display: none;">
-        <table class="workers-table">
-          <thead>
-            <tr>
-              <th>Person</th>
-              <th>Start</th>
-              <th>End</th>
-              <th>Duration</th>
-              <th>Skills</th>
-              <th>Modifier</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="xray-tbody">
-          </tbody>
-        </table>
-      </div>
-    </div>
+    {% endfor %}
 
     <div id="statusMessage" class="status-message"></div>
   </div>
 
   <script>
-    let currentModality = 'ct';
-    let workersData = {
-      ct: null,
-      mr: null,
-      xray: null
-    };
+    // Dynamic configuration from backend
+    const SKILLS = {{ skills|tojson }};
+    const MODALITIES = {{ modalities|tojson }};
 
-    // Load data on page load
-    document.addEventListener('DOMContentLoaded', function() {
-      loadWorkers('ct');
-    });
+    let currentModality = MODALITIES[0] || 'ct';
+    let workersData = {};
+    MODALITIES.forEach(m => workersData[m] = null);
+
+    document.addEventListener('DOMContentLoaded', () => loadWorkers(currentModality));
 
     function switchModality(modality) {
-      // Update tab styling
-      document.querySelectorAll('.modality-tab').forEach(tab => {
-        tab.classList.remove('active');
-      });
+      document.querySelectorAll('.modality-tab').forEach(tab => tab.classList.remove('active'));
       event.target.classList.add('active');
-
-      // Update content visibility
-      document.querySelectorAll('.modality-content').forEach(content => {
-        content.classList.remove('active');
-      });
+      document.querySelectorAll('.modality-content').forEach(c => c.classList.remove('active'));
       document.getElementById(modality + '-content').classList.add('active');
-
       currentModality = modality;
-
-      // Load data if not already loaded
-      if (!workersData[modality]) {
-        loadWorkers(modality);
-      }
-
-      // Cancel any active edit or add forms
-      cancelEdit();
-      cancelAdd();
+      if (!workersData[modality]) loadWorkers(modality);
+      cancelEdit(); cancelAdd();
     }
 
     async function loadWorkers(modality) {
       try {
         const response = await fetch(`/api/live_edit/workers?modality=${modality}`);
         const data = await response.json();
-
         if (data.success) {
           workersData[modality] = data.workers;
           renderWorkersTable(modality);
-
           document.getElementById(`${modality}-loading`).style.display = 'none';
           document.getElementById(`${modality}-table-container`).style.display = 'block';
         } else {
@@ -751,7 +242,6 @@
     function renderWorkersTable(modality) {
       const tbody = document.getElementById(`${modality}-tbody`);
       tbody.innerHTML = '';
-
       const workers = workersData[modality];
       if (!workers || workers.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="table-empty-state">No workers scheduled</td></tr>';
@@ -760,12 +250,10 @@
 
       workers.forEach((worker, index) => {
         const row = document.createElement('tr');
-
-        // Skills badges and track active skills for filtering
         const skillBadges = [];
         const activeSkills = [];
-        const skills = ['Normal', 'Notfall', 'Privat', 'Herz', 'Msk', 'Chest'];
-        skills.forEach(skill => {
+
+        SKILLS.forEach(skill => {
           const value = worker[skill];
           if (value === 1) {
             skillBadges.push(`<span class="skill-badge active">${skill}</span>`);
@@ -777,9 +265,7 @@
           }
         });
 
-        // Add data attributes for filtering
         row.setAttribute('data-active-skills', activeSkills.join(','));
-
         row.innerHTML = `
           <td><strong>${worker.PPL}</strong></td>
           <td>${worker.start_time || 'N/A'}</td>
@@ -789,63 +275,37 @@
           <td>${worker.Modifier || 1.0}</td>
           <td>
             <button class="btn btn-primary btn-sm" onclick="editWorker('${modality}', ${index})">Edit</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteWorker('${modality}', ${index})">Delete</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteWorker('${modality}', ${index})">Del</button>
           </td>
         `;
-
         tbody.appendChild(row);
       });
     }
 
     function showAddForm() {
-      // Hide edit form if showing
       cancelEdit();
-
-      // Set modality for add form
       document.getElementById('addModality').value = currentModality;
-
-      // Reset form
       document.getElementById('addForm').reset();
       document.getElementById('addModality').value = currentModality;
-
-      // Show form
       document.getElementById('addForm').classList.add('active');
-
-      // Scroll to form
       document.getElementById('addForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    function cancelAdd() {
-      document.getElementById('addForm').classList.remove('active');
-    }
+    function cancelAdd() { document.getElementById('addForm').classList.remove('active'); }
 
     async function submitAdd(event) {
       event.preventDefault();
-
       const formData = new FormData(event.target);
       const modality = formData.get('modality');
-
-      // Remove index field for adding new entry
       formData.delete('index');
-
       try {
-        const response = await fetch('/edit', {
-          method: 'POST',
-          body: formData,
-          headers: { 'Accept': 'application/json' }
-        });
-
+        const response = await fetch('/edit', { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } });
         if (response.ok) {
           showStatus('✅ Worker added successfully', 'success');
-
-          // Reload workers data
           await loadWorkers(modality);
-
-          // Hide add form
           cancelAdd();
         } else {
-          const text = await response.text();
-          showStatus('Failed to add worker: ' + text, 'error');
+          showStatus('Failed to add worker: ' + await response.text(), 'error');
         }
       } catch (error) {
         showStatus('Error adding worker: ' + error.message, 'error');
@@ -854,63 +314,37 @@
 
     function editWorker(modality, index) {
       const worker = workersData[modality][index];
-
-      // Hide add form if showing
       cancelAdd();
-
-      // Format time as "start-end"
-      const timeRange = (worker.start_time && worker.end_time)
-        ? `${worker.start_time}-${worker.end_time}`
-        : '';
-
-      // Populate form
+      const timeRange = (worker.start_time && worker.end_time) ? `${worker.start_time}-${worker.end_time}` : '';
       document.getElementById('editIndex').value = index;
       document.getElementById('editModality').value = modality;
       document.getElementById('editPerson').value = worker.PPL;
       document.getElementById('editTime').value = timeRange;
       document.getElementById('editModifier').value = worker.Modifier || 1.0;
-      document.getElementById('editNormal').value = worker.Normal || 0;
-      document.getElementById('editNotfall').value = worker.Notfall || 0;
-      document.getElementById('editPrivat').value = worker.Privat || 0;
-      document.getElementById('editHerz').value = worker.Herz || 0;
-      document.getElementById('editMsk').value = worker.Msk || 0;
-      document.getElementById('editChest').value = worker.Chest || 0;
 
-      // Show form
+      SKILLS.forEach(skill => {
+        const el = document.getElementById('edit' + skill);
+        if (el) el.value = worker[skill] !== undefined ? worker[skill] : 0;
+      });
+
       document.getElementById('editForm').classList.add('active');
-
-      // Scroll to form
       document.getElementById('editForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    function cancelEdit() {
-      document.getElementById('editForm').classList.remove('active');
-    }
+    function cancelEdit() { document.getElementById('editForm').classList.remove('active'); }
 
     async function submitEdit(event) {
       event.preventDefault();
-
       const formData = new FormData(event.target);
       const modality = formData.get('modality');
-
       try {
-        const response = await fetch('/edit', {
-          method: 'POST',
-          body: formData,
-          headers: { 'Accept': 'application/json' }
-        });
-
+        const response = await fetch('/edit', { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } });
         if (response.ok) {
           showStatus('✅ Worker updated successfully', 'success');
-
-          // Reload workers data
           await loadWorkers(modality);
-
-          // Hide edit form
           cancelEdit();
         } else {
-          const text = await response.text();
-          showStatus('Failed to update worker: ' + text, 'error');
+          showStatus('Failed to update worker: ' + await response.text(), 'error');
         }
       } catch (error) {
         showStatus('Error updating worker: ' + error.message, 'error');
@@ -918,83 +352,43 @@
     }
 
     async function deleteWorker(modality, index) {
-      if (!confirm('Delete this worker entry?\n\nThis will update the current schedule.\n\nContinue?')) {
-        return;
-      }
-
+      if (!confirm('Delete this worker entry? This affects today\'s schedule immediately.')) return;
       try {
         const formData = new FormData();
         formData.append('index', index);
         formData.append('modality', modality);
-
-        const response = await fetch('/delete', {
-          method: 'POST',
-          body: formData,
-          headers: { 'Accept': 'application/json' }
-        });
-
+        const response = await fetch('/delete', { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } });
         if (response.ok) {
-          showStatus('✅ Worker deleted successfully', 'success');
-
-          // Reload workers data
+          showStatus('✅ Worker deleted', 'success');
           await loadWorkers(modality);
         } else {
-          const text = await response.text();
-          showStatus('Failed to delete worker: ' + text, 'error');
+          showStatus('Failed to delete: ' + await response.text(), 'error');
         }
       } catch (error) {
-        showStatus('Error deleting worker: ' + error.message, 'error');
+        showStatus('Error: ' + error.message, 'error');
       }
     }
 
     function showStatus(message, type) {
-      const statusEl = document.getElementById('statusMessage');
-      statusEl.textContent = message;
-      statusEl.className = 'status-message ' + type;
-      statusEl.style.display = 'block';
-
-      setTimeout(() => {
-        statusEl.style.display = 'none';
-      }, 5000);
+      const el = document.getElementById('statusMessage');
+      el.textContent = message;
+      el.className = 'status-message ' + type;
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 5000);
     }
 
-    /**
-     * Filter workers table by skill
-     * @param {string} modality - The modality (ct, mr, xray)
-     * @param {string} skill - The skill to filter by ('all' or skill name)
-     */
     function filterBySkill(modality, skill) {
-      // Update button states
       const filterBar = document.querySelector(`#${modality}-content .skill-filter-bar`);
-      const buttons = filterBar.querySelectorAll('.filter-btn');
-      buttons.forEach(btn => btn.classList.remove('active'));
+      filterBar.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
       event.target.classList.add('active');
-
-      // Get table rows
       const tbody = document.getElementById(`${modality}-tbody`);
-      const rows = tbody.querySelectorAll('tr');
-
-      // Filter rows
-      rows.forEach(row => {
-        // Skip empty state rows
-        if (row.querySelector('.table-empty-state')) {
-          return;
-        }
-
+      tbody.querySelectorAll('tr').forEach(row => {
+        if (row.querySelector('.table-empty-state')) return;
         if (skill === 'all') {
-          // Show all rows
           row.style.display = '';
         } else {
-          // Get active skills for this worker
-          const activeSkills = row.getAttribute('data-active-skills');
-
-          if (activeSkills && activeSkills.includes(skill)) {
-            // Worker has this skill active (value = 1), show row
-            row.style.display = '';
-          } else {
-            // Worker does not have this skill active, hide row
-            row.style.display = 'none';
-          }
+          const activeSkills = row.getAttribute('data-active-skills') || '';
+          row.style.display = activeSkills.includes(skill) ? '' : 'none';
         }
       });
     }

@@ -815,23 +815,53 @@ def apply_roster_overrides(
     modality: str,
     worker_roster: dict
 ) -> dict:
-    """Apply per-worker skill overrides from config.yaml worker_skill_roster."""
+    """
+    Apply per-worker skill overrides from worker_skill_roster.
+
+    Priority (highest to lowest):
+    1. Day Edit (same day / prep next day) - handled separately, always wins
+    2. medweb + roster merge (this function)
+
+    Roster rules:
+    - roster -1 = ALWAYS wins (worker excluded from this skill)
+    - roster 0/1 = NO effect (roster cannot upgrade, only restrict)
+    - medweb defines the assignment, roster can only exclude with -1
+
+    Examples:
+    | medweb | roster | result | reason                              |
+    |--------|--------|--------|-------------------------------------|
+    |   1    |   1    |   1    | assigned                            |
+    |   1    |   0    |   1    | assigned (roster can't downgrade)   |
+    |   1    |  -1    |  -1    | roster -1 ALWAYS wins (excluded)    |
+    |   0    |   1    |   0    | not assigned (roster can't upgrade) |
+    |   0    |   0    |   0    | not assigned                        |
+    |   0    |  -1    |  -1    | roster -1 ALWAYS wins (excluded)    |
+    """
     if canonical_id not in worker_roster:
         return base_skills.copy()
 
     final_skills = base_skills.copy()
 
-    # Apply default overrides
-    if 'default' in worker_roster[canonical_id]:
-        for skill, value in worker_roster[canonical_id]['default'].items():
-            if skill in final_skills:
-                final_skills[skill] = value
+    def merge_skill(base_val: int, roster_val: int) -> int:
+        # -1 from roster ALWAYS wins (worker cannot do this skill)
+        if roster_val == -1:
+            return -1
+        # Roster 0 or 1 cannot change medweb assignment
+        # Only -1 can override, everything else keeps medweb value
+        return base_val
 
-    # Apply modality-specific overrides
-    if modality in worker_roster[canonical_id]:
-        for skill, value in worker_roster[canonical_id][modality].items():
+    # Apply default overrides (only -1 matters)
+    if 'default' in worker_roster[canonical_id]:
+        for skill, roster_val in worker_roster[canonical_id]['default'].items():
             if skill in final_skills:
-                final_skills[skill] = value
+                final_skills[skill] = merge_skill(final_skills[skill], roster_val)
+
+    # Apply modality-specific overrides (only -1 matters, takes precedence)
+    if modality in worker_roster[canonical_id]:
+        for skill, roster_val in worker_roster[canonical_id][modality].items():
+            if skill in final_skills:
+                # Modality-specific -1 can override even if default was different
+                final_skills[skill] = merge_skill(final_skills[skill], roster_val)
 
     return final_skills
 
@@ -2831,7 +2861,10 @@ def prep_next_day():
         'prep_next_day.html',
         target_date=next_day.strftime('%Y-%m-%d'),
         target_date_german=next_day.strftime('%d.%m.%Y'),
-        is_next_day=True
+        is_next_day=True,
+        skills=SKILL_COLUMNS,
+        modalities=list(MODALITY_SETTINGS.keys()),
+        modality_settings=MODALITY_SETTINGS
     )
 
 
@@ -3682,14 +3715,32 @@ def activate_skill_roster():
 @admin_required
 def skill_roster_page():
     """Admin page for managing worker skill roster (planning mode)."""
-    return render_template('skill_roster.html')
+    # Build valid_skills map: modality -> list of valid skills (or all skills if not specified)
+    valid_skills_map = {}
+    for mod, settings in MODALITY_SETTINGS.items():
+        if 'valid_skills' in settings:
+            valid_skills_map[mod] = settings['valid_skills']
+        else:
+            valid_skills_map[mod] = SKILL_COLUMNS  # All skills valid
+
+    return render_template(
+        'skill_roster.html',
+        skills=SKILL_COLUMNS,
+        modalities=list(MODALITY_SETTINGS.keys()),
+        modality_labels={k: v.get('label', k.upper()) for k, v in MODALITY_SETTINGS.items()},
+        valid_skills_map=valid_skills_map
+    )
 
 
 @app.route('/admin/live-edit')
 @admin_required
 def live_edit_page():
     """Admin page for live editing of current workers (IMMEDIATE EFFECT)."""
-    return render_template('live_edit.html')
+    return render_template(
+        'live_edit.html',
+        skills=SKILL_COLUMNS,
+        modalities=list(MODALITY_SETTINGS.keys())
+    )
 
 
 @app.route('/api/live_edit/workers', methods=['GET'])
@@ -3745,7 +3796,14 @@ def timetable():
         debug_data = df_for_json.to_json(orient='records')
     else:
         debug_data = "[]"
-    return render_template('timetable.html', debug_data=debug_data, modality=modality)
+    return render_template(
+        'timetable.html',
+        debug_data=debug_data,
+        modality=modality,
+        skills=SKILL_COLUMNS,
+        modalities=list(MODALITY_SETTINGS.keys()),
+        modality_labels={k: v.get('label', k.upper()) for k, v in MODALITY_SETTINGS.items()}
+    )
 
 
 
