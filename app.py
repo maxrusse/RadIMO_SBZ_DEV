@@ -815,23 +815,56 @@ def apply_roster_overrides(
     modality: str,
     worker_roster: dict
 ) -> dict:
-    """Apply per-worker skill overrides from config.yaml worker_skill_roster."""
+    """
+    Apply per-worker skill overrides from worker_skill_roster.
+
+    Priority rules:
+    - medweb (base_skills) defines skill=1 (assignment requirement)
+    - roster defines worker capabilities:
+      -1 = NOT able (ALWAYS overrides, even base=1)
+       0 = helper/fallback (does NOT override base=1, but adds if base=0)
+       1 = active capability (adds if base=0)
+
+    Examples:
+    - base=1, roster=-1 → -1 (roster -1 always wins)
+    - base=1, roster=0  → 1  (roster 0 doesn't downgrade assignment)
+    - base=1, roster=1  → 1
+    - base=0, roster=-1 → -1
+    - base=0, roster=0  → 0
+    - base=0, roster=1  → 1  (roster can upgrade)
+    """
     if canonical_id not in worker_roster:
         return base_skills.copy()
 
     final_skills = base_skills.copy()
 
+    def merge_skill(base_val: int, roster_val: int) -> int:
+        # -1 from roster ALWAYS wins (worker cannot do this)
+        if roster_val == -1:
+            return -1
+        # If base is 1 (assigned), roster 0 does NOT downgrade
+        if base_val == 1 and roster_val == 0:
+            return 1
+        # Otherwise roster value applies (can upgrade 0→1)
+        return roster_val
+
     # Apply default overrides
     if 'default' in worker_roster[canonical_id]:
-        for skill, value in worker_roster[canonical_id]['default'].items():
+        for skill, roster_val in worker_roster[canonical_id]['default'].items():
             if skill in final_skills:
-                final_skills[skill] = value
+                final_skills[skill] = merge_skill(final_skills[skill], roster_val)
 
-    # Apply modality-specific overrides
+    # Apply modality-specific overrides (takes precedence over default)
     if modality in worker_roster[canonical_id]:
-        for skill, value in worker_roster[canonical_id][modality].items():
+        for skill, roster_val in worker_roster[canonical_id][modality].items():
             if skill in final_skills:
-                final_skills[skill] = value
+                # For modality-specific, we need to recalculate from base
+                base_val = base_skills.get(skill, 0)
+                # First apply default if exists
+                if 'default' in worker_roster[canonical_id] and skill in worker_roster[canonical_id]['default']:
+                    base_val = merge_skill(base_val, worker_roster[canonical_id]['default'][skill])
+                # Then apply modality-specific
+                final_skills[skill] = merge_skill(base_val, roster_val)
 
     return final_skills
 
@@ -2831,7 +2864,10 @@ def prep_next_day():
         'prep_next_day.html',
         target_date=next_day.strftime('%Y-%m-%d'),
         target_date_german=next_day.strftime('%d.%m.%Y'),
-        is_next_day=True
+        is_next_day=True,
+        skills=SKILL_COLUMNS,
+        modalities=list(MODALITY_SETTINGS.keys()),
+        modality_settings=MODALITY_SETTINGS
     )
 
 
@@ -3689,7 +3725,11 @@ def skill_roster_page():
 @admin_required
 def live_edit_page():
     """Admin page for live editing of current workers (IMMEDIATE EFFECT)."""
-    return render_template('live_edit.html')
+    return render_template(
+        'live_edit.html',
+        skills=SKILL_COLUMNS,
+        modalities=list(MODALITY_SETTINGS.keys())
+    )
 
 
 @app.route('/api/live_edit/workers', methods=['GET'])
