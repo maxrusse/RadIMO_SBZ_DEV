@@ -69,6 +69,7 @@ worker_skill_json_roster = {}
 
 # DEFAULT_SKILLS is only used as fallback if config.yaml doesn't define skills
 # These should match the skills defined in config.yaml
+# All skills always_visible: True - never hide skill buttons
 DEFAULT_SKILLS = {
     "Notfall": {
         "label": "Notfall",
@@ -95,7 +96,7 @@ DEFAULT_SKILLS = {
         "weight": 1.0,
         "optional": True,
         "special": True,
-        "always_visible": False,
+        "always_visible": True,
     },
     "Päd": {
         "label": "Päd",
@@ -104,7 +105,7 @@ DEFAULT_SKILLS = {
         "weight": 1.0,
         "optional": True,
         "special": True,
-        "always_visible": False,
+        "always_visible": True,
     },
     "MSK": {
         "label": "MSK",
@@ -113,7 +114,7 @@ DEFAULT_SKILLS = {
         "weight": 0.8,
         "optional": True,
         "special": True,
-        "always_visible": False,
+        "always_visible": True,
     },
     "Abdomen": {
         "label": "Abdomen",
@@ -122,7 +123,7 @@ DEFAULT_SKILLS = {
         "weight": 1.0,
         "optional": True,
         "special": True,
-        "always_visible": False,
+        "always_visible": True,
     },
     "Chest": {
         "label": "Chest",
@@ -131,7 +132,7 @@ DEFAULT_SKILLS = {
         "weight": 0.8,
         "optional": True,
         "special": True,
-        "always_visible": False,
+        "always_visible": True,
     },
     "Cardvask": {
         "label": "Cardvask",
@@ -140,7 +141,7 @@ DEFAULT_SKILLS = {
         "weight": 1.2,
         "optional": True,
         "special": True,
-        "always_visible": False,
+        "always_visible": True,
     },
     "Uro": {
         "label": "Uro",
@@ -149,7 +150,7 @@ DEFAULT_SKILLS = {
         "weight": 1.0,
         "optional": True,
         "special": True,
-        "always_visible": False,
+        "always_visible": True,
     },
 }
 
