@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RadIMO Cortex | Schedule Edit</title>
+  <title>RadIMO Cortex | Master Schedule</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -78,8 +78,8 @@
 <body>
   <div class="header">
     <div>
-      <h1>RadIMO Cortex | Schedule Edit</h1>
-      <p style="font-size: 0.85rem; opacity: 0.9;">Edit schedule, then Activate to go live</p>
+      <h1>RadIMO Cortex | Master Schedule</h1>
+      <p style="font-size: 0.85rem; opacity: 0.9;">Unified schedule view - Load from CSV, edit, then Activate</p>
     </div>
     <div class="header-actions">
       <a href="{{ url_for('index') }}">Dashboard</a>
@@ -171,18 +171,30 @@
             </select>
           </div>
           <div class="form-group">
-            <label>Modality</label>
-            <select id="add-modality-select">
-              {% for mod in modalities %}
-              <option value="{{ mod }}">{{ mod|upper }}</option>
+            <label>Activity/Role</label>
+            <select id="add-activity-select" onchange="onActivityChange()">
+              <option value="">-- Select Activity --</option>
+              {% for rule in medweb_mapping.get('rules', []) %}
+              {% if not rule.get('exclusion') %}
+              <option value="{{ rule.match }}"
+                      data-modality="{{ rule.get('modality', '') }}"
+                      data-modalities="{{ rule.get('modalities', [])|tojson }}"
+                      data-shift="{{ rule.get('shift', 'Fruehdienst') }}"
+                      data-skills="{{ rule.get('base_skills', {})|tojson }}">
+                {{ rule.match }}
+              </option>
+              {% endif %}
               {% endfor %}
             </select>
           </div>
           <div class="form-group">
             <label>Shift</label>
-            <select id="add-shift-select">
-              <option value="Fruehdienst">Frühdienst (07:00-15:00)</option>
-              <option value="Spaetdienst">Spätdienst (13:00-21:00)</option>
+            <select id="add-shift-select" onchange="onShiftChange()">
+              {% for shift_name, shift_data in shift_times.items() %}
+              <option value="{{ shift_name }}" data-times="{{ shift_data|tojson }}">
+                {{ shift_name }} ({{ shift_data.get('default', '') }})
+              </option>
+              {% endfor %}
               <option value="custom">Custom...</option>
             </select>
           </div>
@@ -198,16 +210,17 @@
             <div class="task-dropdown">
               <button type="button" class="btn btn-secondary" onclick="toggleTaskDropdown()">Select Tasks ▼</button>
               <div id="task-dropdown-content" class="task-dropdown-content">
-                <label><input type="checkbox" value="Board"> Board</label>
-                <label><input type="checkbox" value="Besprechung"> Besprechung</label>
-                <label><input type="checkbox" value="Aufklaerung"> Aufklärung</label>
-                <label><input type="checkbox" value="Sono"> Sono</label>
-                <label><input type="checkbox" value="Lehre"> Lehre</label>
+                {% for rule in medweb_mapping.get('rules', []) %}
+                {% if rule.get('exclusion') %}
+                <label><input type="checkbox" value="{{ rule.match }}"> {{ rule.match }}</label>
+                {% endif %}
+                {% endfor %}
               </div>
             </div>
           </div>
           <button class="btn btn-success" onclick="addWorkerFromPanel()">Add</button>
         </div>
+        <div id="activity-info" style="margin-top: 0.5rem; font-size: 0.85rem; color: #666;"></div>
       </div>
 
       <h4 style="margin-bottom: 0.5rem;">Bulk Actions</h4>
@@ -228,6 +241,7 @@
     // Dynamic configuration from backend
     const SKILLS = {{ skills|tojson }};
     const MODALITIES = {{ modalities|tojson }};
+    const SHIFT_TIMES = {{ shift_times|tojson }};
 
     let currentModalityFilter = 'all';  // Filter: 'all' or specific modality
     let currentSkillFilter = 'all';     // Filter: 'all' or specific skill (shows where skill=1)
@@ -236,6 +250,7 @@
     let allData = [];    // Combined data from all modalities
     let pendingChanges = {};
     let skillRosterWorkers = [];  // Workers from skill roster for dropdown
+    let selectedActivityData = null;  // Current selected activity's data
 
     async function loadData() {
       try {
@@ -553,39 +568,95 @@
       }
     });
 
+    // Handle activity selection - auto-set shift and show info
+    function onActivityChange() {
+      const activitySelect = document.getElementById('add-activity-select');
+      const shiftSelect = document.getElementById('add-shift-select');
+      const infoDiv = document.getElementById('activity-info');
+      const selectedOption = activitySelect.options[activitySelect.selectedIndex];
+
+      if (!selectedOption || !selectedOption.value) {
+        selectedActivityData = null;
+        infoDiv.textContent = '';
+        return;
+      }
+
+      // Parse data attributes
+      const modality = selectedOption.dataset.modality;
+      let modalities = [];
+      try {
+        modalities = JSON.parse(selectedOption.dataset.modalities || '[]');
+      } catch (e) {}
+      const shift = selectedOption.dataset.shift || 'Fruehdienst';
+      let skills = {};
+      try {
+        skills = JSON.parse(selectedOption.dataset.skills || '{}');
+      } catch (e) {}
+
+      // Store for use in addWorkerFromPanel
+      selectedActivityData = {
+        modality: modality,
+        modalities: modalities,
+        shift: shift,
+        skills: skills
+      };
+
+      // Auto-select the shift
+      if (shift && shiftSelect) {
+        for (let i = 0; i < shiftSelect.options.length; i++) {
+          if (shiftSelect.options[i].value === shift) {
+            shiftSelect.selectedIndex = i;
+            onShiftChange();  // Update times
+            break;
+          }
+        }
+      }
+
+      // Show info about selected activity
+      const modalityInfo = modality ? modality.toUpperCase() : (modalities.length ? modalities.map(m => m.toUpperCase()).join(', ') : '');
+      const skillInfo = Object.entries(skills).filter(([k, v]) => v === 1).map(([k]) => k).join(', ');
+      infoDiv.innerHTML = `<strong>Modality:</strong> ${modalityInfo || 'Multi'} | <strong>Skills:</strong> ${skillInfo || 'None'}`;
+    }
+
     // Handle shift dropdown change for custom time
-    document.getElementById('add-shift-select')?.addEventListener('change', function() {
+    function onShiftChange() {
+      const shiftSelect = document.getElementById('add-shift-select');
       const customGroup = document.getElementById('custom-time-group');
-      if (this.value === 'custom') {
+      const startInput = document.getElementById('add-start-time');
+      const endInput = document.getElementById('add-end-time');
+
+      if (shiftSelect.value === 'custom') {
         customGroup.style.display = 'block';
       } else {
         customGroup.style.display = 'none';
-        // Set default times based on shift
-        const startInput = document.getElementById('add-start-time');
-        const endInput = document.getElementById('add-end-time');
-        if (this.value === 'Fruehdienst') {
-          startInput.value = '07:00';
-          endInput.value = '15:00';
-        } else if (this.value === 'Spaetdienst') {
-          startInput.value = '13:00';
-          endInput.value = '21:00';
+        // Get times from shift config
+        const shiftConfig = SHIFT_TIMES[shiftSelect.value];
+        if (shiftConfig) {
+          const defaultTime = shiftConfig.default || '';
+          const [start, end] = defaultTime.split('-');
+          if (start) startInput.value = start;
+          if (end) endInput.value = end;
         }
       }
-    });
+    }
 
-    // Add worker from panel (not prompt)
+    // Add worker from panel (activity-based)
     async function addWorkerFromPanel() {
       const workerSelect = document.getElementById('add-worker-select');
-      const modalitySelect = document.getElementById('add-modality-select');
+      const activitySelect = document.getElementById('add-activity-select');
       const shiftSelect = document.getElementById('add-shift-select');
       const startInput = document.getElementById('add-start-time');
       const endInput = document.getElementById('add-end-time');
 
       const workerName = workerSelect.value;
-      const modality = modalitySelect.value;
 
       if (!workerName) {
         showMessage('error', 'Please select a worker');
+        return;
+      }
+
+      if (!selectedActivityData && !activitySelect.value) {
+        showMessage('error', 'Please select an activity/role');
         return;
       }
 
@@ -593,68 +664,82 @@
       let startTime = startInput.value || '07:00';
       let endTime = endInput.value || '15:00';
 
-      if (shiftSelect.value === 'Fruehdienst') {
-        startTime = '07:00';
-        endTime = '15:00';
-      } else if (shiftSelect.value === 'Spaetdienst') {
-        startTime = '13:00';
-        endTime = '21:00';
+      if (shiftSelect.value !== 'custom') {
+        const shiftConfig = SHIFT_TIMES[shiftSelect.value];
+        if (shiftConfig) {
+          const defaultTime = shiftConfig.default || '';
+          const [start, end] = defaultTime.split('-');
+          if (start) startTime = start;
+          if (end) endTime = end;
+        }
       }
 
       // Get selected tasks
       const taskCheckboxes = document.querySelectorAll('#task-dropdown-content input[type="checkbox"]:checked');
       const selectedTasks = Array.from(taskCheckboxes).map(cb => cb.value);
 
-      // Get worker's default skills from skill roster
+      // Use activity skills as base, or default all to 0
       let workerSkills = {};
-      SKILLS.forEach(skill => { workerSkills[skill] = 0; });  // Default all to 0
+      SKILLS.forEach(skill => { workerSkills[skill] = 0; });
 
-      // Fetch worker's skills from skill roster
-      try {
-        const rosterResponse = await fetch('/api/admin/skill_roster');
-        const rosterData = await rosterResponse.json();
-        if (rosterData[workerName] && rosterData[workerName].default) {
-          SKILLS.forEach(skill => {
-            if (rosterData[workerName].default[skill] !== undefined) {
-              workerSkills[skill] = rosterData[workerName].default[skill];
-            }
-          });
-        }
-      } catch (e) {
-        console.log('Could not fetch skill roster defaults');
+      // Apply activity's base_skills if available
+      if (selectedActivityData && selectedActivityData.skills) {
+        Object.assign(workerSkills, selectedActivityData.skills);
       }
 
-      try {
-        const response = await fetch('/api/prep-next-day/add-worker', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            modality: modality,
-            worker_data: {
-              PPL: workerName,
-              start_time: startTime,
-              end_time: endTime,
-              Modifier: 1.0,
-              tasks: selectedTasks,
-              ...workerSkills
-            }
-          })
-        });
-
-        if (response.ok) {
-          showMessage('success', `Worker "${workerName}" added to ${modality.toUpperCase()}`);
-          // Reset form
-          workerSelect.value = '';
-          shiftSelect.value = 'Fruehdienst';
-          document.getElementById('custom-time-group').style.display = 'none';
-          taskCheckboxes.forEach(cb => cb.checked = false);
-          await loadData();  // Refresh table
-        } else {
-          const err = await response.json();
-          showMessage('error', err.error || 'Failed to add worker');
+      // Determine modality (single or first of multi)
+      let modality = 'ct';  // default
+      if (selectedActivityData) {
+        if (selectedActivityData.modality) {
+          modality = selectedActivityData.modality;
+        } else if (selectedActivityData.modalities && selectedActivityData.modalities.length > 0) {
+          modality = selectedActivityData.modalities[0];
         }
-      } catch (error) {
-        showMessage('error', error.message);
+      }
+
+      // Add worker for each modality if multi-modality activity
+      const modalitiesToAdd = selectedActivityData?.modalities?.length > 0
+        ? selectedActivityData.modalities
+        : [modality];
+
+      let successCount = 0;
+      for (const mod of modalitiesToAdd) {
+        try {
+          const response = await fetch('/api/prep-next-day/add-worker', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              modality: mod,
+              worker_data: {
+                PPL: workerName,
+                start_time: startTime,
+                end_time: endTime,
+                Modifier: 1.0,
+                tasks: selectedTasks,
+                activity: activitySelect.value,
+                ...workerSkills
+              }
+            })
+          });
+          if (response.ok) successCount++;
+        } catch (error) {
+          console.log(`Error adding to ${mod}:`, error);
+        }
+      }
+
+      if (successCount > 0) {
+        const modStr = modalitiesToAdd.map(m => m.toUpperCase()).join(', ');
+        showMessage('success', `Worker "${workerName}" added to ${modStr}`);
+        // Reset form
+        workerSelect.value = '';
+        activitySelect.value = '';
+        selectedActivityData = null;
+        document.getElementById('activity-info').textContent = '';
+        document.getElementById('custom-time-group').style.display = 'none';
+        taskCheckboxes.forEach(cb => cb.checked = false);
+        await loadData();  // Refresh table
+      } else {
+        showMessage('error', 'Failed to add worker');
       }
     }
 
