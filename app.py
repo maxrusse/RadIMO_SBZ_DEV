@@ -600,23 +600,9 @@ def normalize_skill(skill_value: Optional[str]) -> str:
 
 
 def get_available_modalities_for_skill(skill: str) -> dict:
-    """Check which modalities have active workers for this skill"""
-    available = {}
-    now = get_local_berlin_now()
-
-    for modality in allowed_modalities:
-        d = modality_data[modality]
-        if d['working_hours_df'] is not None:
-            active_df = _filter_active_rows(d['working_hours_df'], now)
-            available[modality] = bool(
-                active_df is not None
-                and (skill in active_df.columns)
-                and (active_df[skill].sum() > 0)
-            )
-        else:
-            available[modality] = False
-
-    return available
+    """Return all modalities as available (always show all modality buttons)"""
+    # Always show all modalities - user can click and get "no one available" if needed
+    return {modality: True for modality in allowed_modalities}
 
 # -----------------------------------------------------------
 # TIME / DATE HELPERS (unchanged)
