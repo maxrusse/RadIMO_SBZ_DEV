@@ -67,16 +67,9 @@ worker_skill_json_roster = {}
 # Global constants & modality-/skill-specific factors
 # -----------------------------------------------------------
 
+# DEFAULT_SKILLS is only used as fallback if config.yaml doesn't define skills
+# These should match the skills defined in config.yaml
 DEFAULT_SKILLS = {
-    "Normal": {
-        "label": "Normal",
-        "button_color": "#004892",
-        "text_color": "#ffffff",
-        "weight": 1.0,
-        "optional": False,
-        "special": False,
-        "always_visible": True,
-    },
     "Notfall": {
         "label": "Notfall",
         "button_color": "#dc3545",
@@ -95,20 +88,38 @@ DEFAULT_SKILLS = {
         "special": False,
         "always_visible": True,
     },
-    "Herz": {
-        "label": "Herz",
-        "button_color": "#28a745",
+    "Gyn": {
+        "label": "Gyn",
+        "button_color": "#e91e63",
         "text_color": "#ffffff",
-        "weight": 1.2,
+        "weight": 1.0,
         "optional": True,
         "special": True,
         "always_visible": False,
     },
-    "Msk": {
-        "label": "Msk",
+    "Päd": {
+        "label": "Päd",
+        "button_color": "#4caf50",
+        "text_color": "#ffffff",
+        "weight": 1.0,
+        "optional": True,
+        "special": True,
+        "always_visible": False,
+    },
+    "MSK": {
+        "label": "MSK",
         "button_color": "#9c27b0",
         "text_color": "#ffffff",
         "weight": 0.8,
+        "optional": True,
+        "special": True,
+        "always_visible": False,
+    },
+    "Abdomen": {
+        "label": "Abdomen",
+        "button_color": "#2196f3",
+        "text_color": "#ffffff",
+        "weight": 1.0,
         "optional": True,
         "special": True,
         "always_visible": False,
@@ -118,6 +129,24 @@ DEFAULT_SKILLS = {
         "button_color": "#ff9800",
         "text_color": "#ffffff",
         "weight": 0.8,
+        "optional": True,
+        "special": True,
+        "always_visible": False,
+    },
+    "Cardvask": {
+        "label": "Cardvask",
+        "button_color": "#f44336",
+        "text_color": "#ffffff",
+        "weight": 1.2,
+        "optional": True,
+        "special": True,
+        "always_visible": False,
+    },
+    "Uro": {
+        "label": "Uro",
+        "button_color": "#009688",
+        "text_color": "#ffffff",
+        "weight": 1.0,
         "optional": True,
         "special": True,
         "always_visible": False,
@@ -678,7 +707,7 @@ def resolve_modality_from_request() -> str:
 def normalize_skill(skill_value: Optional[str]) -> str:
     """Validate and normalize skill parameter"""
     if not skill_value:
-        return SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Normal'
+        return SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Notfall'
     # Try exact match first
     if skill_value in SKILL_COLUMNS:
         return skill_value
@@ -687,7 +716,7 @@ def normalize_skill(skill_value: Optional[str]) -> str:
     if skill_value_title in SKILL_COLUMNS:
         return skill_value_title
     # Default to first skill
-    return SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Normal'
+    return SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Notfall'
 
 
 def get_available_modalities_for_skill(skill: str) -> dict:
@@ -2427,7 +2456,7 @@ def index_by_skill():
     """
     Skill-based view: navigate by skill, see all modalities as buttons
     """
-    skill = request.args.get('skill', SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Normal')
+    skill = request.args.get('skill', SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Notfall')
     skill = normalize_skill(skill)
 
     # Determine available modalities for this skill (check working hours)
@@ -4040,14 +4069,10 @@ def get_live_edit_workers():
             'start_time': row['start_time'].strftime('%H:%M:%S') if pd.notnull(row.get('start_time')) else '',
             'end_time': row['end_time'].strftime('%H:%M:%S') if pd.notnull(row.get('end_time')) else '',
             'shift_duration': row.get('shift_duration', 0),
-            'Modifier': row.get('Modifier', 1.0),
-            'Normal': int(row.get('Normal', 0)),
-            'Notfall': int(row.get('Notfall', 0)),
-            'Privat': int(row.get('Privat', 0)),
-            'Herz': int(row.get('Herz', 0)),
-            'Msk': int(row.get('Msk', 0)),
-            'Chest': int(row.get('Chest', 0))
         }
+        # Add all skill columns dynamically
+        for skill in SKILL_COLUMNS:
+            worker_dict[skill] = int(row.get(skill, 0))
         workers_list.append(worker_dict)
 
     return jsonify({
