@@ -1092,12 +1092,18 @@ def build_working_hours_from_medweb(
             'xray': DataFrame(...)
         }
     """
-    # Load CSV
+    # Load CSV - try UTF-8 first (modern default), then latin1 (legacy)
     try:
-        medweb_df = pd.read_csv(csv_path, sep=',', encoding='latin1')
+        try:
+            medweb_df = pd.read_csv(csv_path, sep=',', encoding='utf-8')
+        except UnicodeDecodeError:
+            medweb_df = pd.read_csv(csv_path, sep=',', encoding='latin1')
     except Exception:
         try:
-            medweb_df = pd.read_csv(csv_path, sep=';', encoding='latin1')
+            try:
+                medweb_df = pd.read_csv(csv_path, sep=';', encoding='utf-8')
+            except UnicodeDecodeError:
+                medweb_df = pd.read_csv(csv_path, sep=';', encoding='latin1')
         except Exception as e:
             raise ValueError(f"Fehler beim Laden der CSV: {e}")
 
@@ -2886,10 +2892,17 @@ def load_today_from_master():
 
         # Debug: Check CSV content before parsing
         try:
-            debug_df = pd.read_csv(MASTER_CSV_PATH, sep=',', encoding='latin1')
+            # Try UTF-8 first (default for modern CSVs), then latin1
+            try:
+                debug_df = pd.read_csv(MASTER_CSV_PATH, sep=',', encoding='utf-8')
+            except UnicodeDecodeError:
+                debug_df = pd.read_csv(MASTER_CSV_PATH, sep=',', encoding='latin1')
             if 'Datum' not in debug_df.columns:
                 # Try semicolon separator
-                debug_df = pd.read_csv(MASTER_CSV_PATH, sep=';', encoding='latin1')
+                try:
+                    debug_df = pd.read_csv(MASTER_CSV_PATH, sep=';', encoding='utf-8')
+                except UnicodeDecodeError:
+                    debug_df = pd.read_csv(MASTER_CSV_PATH, sep=';', encoding='latin1')
 
             available_dates = debug_df['Datum'].unique().tolist() if 'Datum' in debug_df.columns else []
             available_activities = debug_df['Beschreibung der Aktivität'].unique().tolist() if 'Beschreibung der Aktivität' in debug_df.columns else []
