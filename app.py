@@ -418,6 +418,9 @@ def _build_app_config() -> Dict[str, Any]:
     skill_modality_overrides = raw_config.get('skill_modality_overrides', {})
     config['skill_modality_overrides'] = skill_modality_overrides
 
+    # Include shift_times (from config.yaml)
+    config['shift_times'] = raw_config.get('shift_times', {})
+
     return config
 
 
@@ -3133,7 +3136,9 @@ def prep_next_day():
         is_next_day=True,
         skills=SKILL_COLUMNS,
         modalities=list(MODALITY_SETTINGS.keys()),
-        modality_settings=MODALITY_SETTINGS
+        modality_settings=MODALITY_SETTINGS,
+        shift_times=APP_CONFIG.get('shift_times', {}),
+        medweb_mapping=APP_CONFIG.get('medweb_mapping', {})
     )
 
 
