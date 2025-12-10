@@ -7,363 +7,101 @@
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #f0f0f0;
-      padding: 1rem;
-    }
-
-    .header {
-      background: #004892;
-      color: white;
-      padding: 1.5rem;
-      border-radius: 8px;
-      margin-bottom: 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .header h1 {
-      font-size: 1.8rem;
-    }
-
-    .header-actions a, .header-actions button {
-      color: white;
-      text-decoration: none;
-      margin-left: 1rem;
-      padding: 0.5rem 1rem;
-      background: rgba(255,255,255,0.2);
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background 0.2s;
-      font-size: 1rem;
-    }
-
-    .header-actions a:hover, .header-actions button:hover {
-      background: rgba(255,255,255,0.3);
-    }
-
-    .card {
-      background: white;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      margin-bottom: 2rem;
-    }
-
-    .info-box {
-      background: #e7f3ff;
-      border-left: 4px solid #004892;
-      padding: 1rem;
-      margin-bottom: 2rem;
-      border-radius: 4px;
-    }
-
-    .mode-toggle {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 2rem;
-    }
-
-    .mode-toggle button {
-      padding: 0.75rem 1.5rem;
-      border: 2px solid #004892;
-      background: white;
-      color: #004892;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 1rem;
-      font-weight: 600;
-      transition: all 0.2s;
-    }
-
-    .mode-toggle button.active {
-      background: #004892;
-      color: white;
-    }
-
-    .modality-tabs {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
-      border-bottom: 2px solid #ddd;
-    }
-
-    .modality-tabs button {
-      padding: 0.75rem 1.5rem;
-      border: none;
-      background: transparent;
-      cursor: pointer;
-      font-size: 1rem;
-      font-weight: 600;
-      border-bottom: 3px solid transparent;
-      transition: all 0.2s;
-    }
-
-    .modality-tabs button.active {
-      border-bottom-color: #004892;
-      color: #004892;
-    }
-
-    .edit-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-    }
-
-    .edit-table th, .edit-table td {
-      padding: 0.75rem;
-      text-align: left;
-      border-bottom: 1px solid #ddd;
-    }
-
-    .edit-table th {
-      background: #f8f9fa;
-      font-weight: 600;
-      position: sticky;
-      top: 0;
-    }
-
-    .edit-table td[contenteditable="true"] {
-      background: #fffbf0;
-      cursor: text;
-      position: relative;
-    }
-
-    .edit-table td[contenteditable="true"]:hover {
-      background: #fff4cc;
-    }
-
-    .edit-table td[contenteditable="true"]:focus {
-      outline: 2px solid #004892;
-      background: white;
-    }
-
-    .edit-table tr:hover {
-      background: #f8f9fa;
-    }
-
-    .edit-table td.skill-cell {
-      text-align: center;
-      font-weight: 600;
-    }
-
-    .skill-1 { color: #28a745; }
-    .skill-0 { color: #ffc107; }
-    .skill--1 { color: #dc3545; }
-
-    .action-buttons {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .btn {
-      padding: 0.5rem 1rem;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      transition: all 0.2s;
-    }
-
-    .btn-primary {
-      background: #004892;
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: #003670;
-    }
-
-    .btn-success {
-      background: #28a745;
-      color: white;
-    }
-
-    .btn-success:hover {
-      background: #218838;
-    }
-
-    .btn-danger {
-      background: #dc3545;
-      color: white;
-    }
-
-    .btn-danger:hover {
-      background: #c82333;
-    }
-
-    .btn-small {
-      padding: 0.25rem 0.5rem;
-      font-size: 0.85rem;
-    }
-
-    .message {
-      padding: 1rem;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-      display: none;
-    }
-
-    .message.success {
-      background: #d4edda;
-      color: #155724;
-      border: 1px solid #c3e6cb;
-      display: block;
-    }
-
-    .message.error {
-      background: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
-      display: block;
-    }
-
-    .advanced-tools {
-      display: none;
-      margin-top: 1rem;
-      padding: 1rem;
-      background: #f8f9fa;
-      border-radius: 4px;
-    }
-
-    .advanced-tools.visible {
-      display: block;
-    }
-
-    .table-container {
-      max-height: 600px;
-      overflow-y: auto;
-    }
-
-    .bulk-actions {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .staging-banner {
-      background: #fff3cd;
-      border: 3px solid #ffc107;
-      padding: 1.5rem;
-      border-radius: 8px;
-      margin-bottom: 2rem;
-      text-align: center;
-    }
-
-    .staging-banner h2 {
-      color: #856404;
-      margin-bottom: 0.5rem;
-      font-size: 1.5rem;
-    }
-
-    .staging-banner p {
-      color: #856404;
-      margin: 0.5rem 0;
-    }
-
-    .activate-section {
-      background: #d1ecf1;
-      border: 2px solid #0c5460;
-      padding: 1.5rem;
-      border-radius: 8px;
-      margin-bottom: 2rem;
-      text-align: center;
-    }
-
-    .activate-section h3 {
-      color: #0c5460;
-      margin-bottom: 1rem;
-    }
-
-    .btn-activate {
-      background: #28a745;
-      color: white;
-      border: none;
-      padding: 1rem 2rem;
-      font-size: 1.2rem;
-      font-weight: bold;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .btn-activate:hover {
-      background: #218838;
-      transform: scale(1.05);
-    }
-
-    .btn-activate:active {
-      transform: scale(0.98);
-    }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f0f0; padding: 1rem; max-width: 1600px; margin: 0 auto; }
+    .header { background: #004892; color: white; padding: 1rem 2rem; border-radius: 8px; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+    .header h1 { margin: 0; font-size: 1.5rem; }
+    .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .header-actions a, .header-actions button { color: white; text-decoration: none; padding: 0.5rem 1rem; background: rgba(255,255,255,0.2); border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+    .header-actions a:hover, .header-actions button:hover { background: rgba(255,255,255,0.3); }
+    .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 1rem; }
+    .info-box { background: #e7f3ff; border-left: 4px solid #004892; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; font-size: 0.9rem; }
+    .staging-banner { background: #fff3cd; border: 2px solid #ffc107; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; text-align: center; }
+    .staging-banner h2 { color: #856404; margin-bottom: 0.5rem; font-size: 1.2rem; }
+    .staging-banner p { color: #856404; margin: 0.25rem 0; font-size: 0.9rem; }
+    .activate-section { background: #d1ecf1; border: 2px solid #0c5460; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; text-align: center; }
+    .activate-section h3 { color: #0c5460; margin-bottom: 0.5rem; font-size: 1.1rem; }
+    .btn-activate { background: #28a745; color: white; border: none; padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; }
+    .btn-activate:hover { background: #218838; }
+    .mode-toggle { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .mode-toggle button { padding: 0.5rem 1rem; border: 2px solid #004892; background: white; color: #004892; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
+    .mode-toggle button.active { background: #004892; color: white; }
+    .modality-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 2px solid #ddd; flex-wrap: wrap; }
+    .modality-tabs button { padding: 0.5rem 1rem; border: none; background: transparent; cursor: pointer; font-size: 0.9rem; font-weight: 600; border-bottom: 3px solid transparent; }
+    .modality-tabs button.active { border-bottom-color: #004892; color: #004892; }
+    .table-container { max-height: 500px; overflow: auto; }
+    .edit-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .edit-table th, .edit-table td { padding: 0.4rem; text-align: left; border: 1px solid #ddd; }
+    .edit-table th { background: #f8f9fa; font-weight: 600; position: sticky; top: 0; z-index: 10; white-space: nowrap; }
+    .edit-table td[contenteditable="true"] { background: #fffbf0; cursor: text; }
+    .edit-table td[contenteditable="true"]:hover { background: #fff4cc; }
+    .edit-table td[contenteditable="true"]:focus { outline: 2px solid #004892; background: white; }
+    .edit-table tr:hover { background: #f8f9fa; }
+    .skill-cell { text-align: center; font-weight: 600; }
+    .skill-1 { color: #28a745; background: #e6ffe6; }
+    .skill-0 { color: #856404; background: #fff8e6; }
+    .skill--1 { color: #dc3545; background: #ffe6e6; }
+    .btn { padding: 0.4rem 0.8rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+    .btn-primary { background: #004892; color: white; }
+    .btn-primary:hover { background: #003670; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-success:hover { background: #218838; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-danger:hover { background: #c82333; }
+    .btn-small { padding: 0.2rem 0.4rem; font-size: 0.75rem; }
+    .message { padding: 1rem; border-radius: 4px; margin-bottom: 1rem; display: none; }
+    .message.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; display: block; }
+    .message.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; display: block; }
+    .advanced-tools { display: none; margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px; }
+    .advanced-tools.visible { display: block; }
+    .bulk-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
   </style>
 </head>
 <body>
   <div class="header">
     <div>
       <h1>RadIMO Cortex | Prep Next Day</h1>
-      <p>Preparing schedule for: <strong>{{ target_date_german }}</strong> ({{ target_date }})</p>
+      <p style="font-size: 0.85rem; opacity: 0.9;">Schedule for: <strong>{{ target_date_german }}</strong></p>
     </div>
     <div class="header-actions">
-      <a href="{{ url_for('index', modality='ct') }}">Dashboard</a>
+      <a href="{{ url_for('index') }}">Dashboard</a>
       <a href="{{ url_for('timetable') }}">Timetable</a>
       <a href="{{ url_for('skill_roster_page') }}">Skill Matrix</a>
-      <a href="{{ url_for('live_edit_page') }}">← Back to Day Control</a>
+      <a href="{{ url_for('live_edit_page') }}">Day Control</a>
       <a href="{{ url_for('upload_file') }}">Admin</a>
     </div>
   </div>
 
   <div id="message-container"></div>
 
-  <!-- Staging Banner -->
   <div class="staging-banner">
-    <h2>🔶 STAGING MODE - Kein Live-Effekt</h2>
-    <p><strong>Wichtig:</strong> Alle Änderungen auf dieser Seite werden im <strong>STAGED-Bereich</strong> gespeichert.</p>
-    <p>Diese Änderungen betreffen <strong>NICHT</strong> die laufenden Live-Zuteilungen!</p>
-    <p>Um diese Änderungen zu aktivieren, verwenden Sie die Schaltfläche "Aktivieren" unten.</p>
+    <h2>STAGING MODE - No Live Effect</h2>
+    <p>Changes are saved to STAGED area. Use "Activate" to apply to live schedule.</p>
   </div>
 
-  <!-- Activation Section -->
   <div class="activate-section">
-    <h3>⚡ Staged Schedule aktivieren</h3>
-    <p>Wenn Sie bereit sind, den vorbereiteten Plan zu aktivieren, klicken Sie hier:</p>
-    <p><strong>⚠️ WARNUNG:</strong> Dies kopiert den Staged-Plan → Live und setzt alle Zähler zurück!</p>
+    <h3>Activate Staged Schedule</h3>
+    <p style="font-size: 0.85rem; margin-bottom: 0.5rem;">This copies Staged → Live and resets all counters!</p>
     <button class="btn-activate" onclick="activateStagedSchedule()">
-      🚀 JETZT AKTIVIEREN (Staged → Live)
+      ACTIVATE (Staged → Live)
     </button>
-    <p style="margin-top: 1rem; font-size: 0.9rem; color: #0c5460;">
-      Normalerweise wird dies automatisch um 7:30 Uhr morgens durchgeführt.
-    </p>
   </div>
 
   <div class="card">
     <div class="info-box">
-      <strong>ℹ️ Nächsten Tag bearbeiten (Staging)</strong>
-      <p>Hier können Sie den Dienstplan für morgen anpassen. <strong>Keine Zuteilungen vorhanden</strong> - Sie arbeiten mit einem sauberen Zustand.</p>
-      <p><strong>Änderungen werden im STAGED-Bereich gespeichert</strong> und müssen explizit aktiviert werden.</p>
+      <strong>Next Day Editing (Staging)</strong> - Adjust tomorrow's schedule here. Changes saved to STAGED area.
     </div>
 
-    <!-- Mode Toggle -->
     <div class="mode-toggle">
-      <button id="mode-simple" class="active" onclick="setMode('simple')">
-        ✏️ Einfach (Zellen Editieren)
-      </button>
-      <button id="mode-advanced" onclick="setMode('advanced')">
-        🔧 Erweitert (Hinzufügen/Löschen)
-      </button>
+      <button id="mode-simple" class="active" onclick="setMode('simple')">Simple (Edit Cells)</button>
+      <button id="mode-advanced" onclick="setMode('advanced')">Advanced (Add/Delete)</button>
     </div>
 
-    <!-- Modality Tabs -->
     <div class="modality-tabs">
-      <button class="active" onclick="switchModality('ct')">CT</button>
-      <button onclick="switchModality('mr')">MR</button>
-      <button onclick="switchModality('xray')">XRAY</button>
+      {% for mod in modalities %}
+      <button{% if loop.first %} class="active"{% endif %} onclick="switchModality('{{ mod }}')">{{ mod|upper }}</button>
+      {% endfor %}
     </div>
 
-    <!-- Edit Table -->
     <div class="table-container">
       <table class="edit-table" id="edit-table">
         <thead>
@@ -371,51 +109,44 @@
             <th>Worker</th>
             <th>Von</th>
             <th>Bis</th>
-            <th>Normal</th>
-            <th>Notfall</th>
-            <th>Privat</th>
-            <th>Herz</th>
-            <th>Msk</th>
-            <th>Chest</th>
-            <th>Modifier</th>
-            <th id="actions-header" style="display:none;">Aktionen</th>
+            {% for skill in skills %}
+            <th>{{ skill }}</th>
+            {% endfor %}
+            <th>Mod</th>
+            <th id="actions-header" style="display:none;">Actions</th>
           </tr>
         </thead>
         <tbody id="table-body">
-          <!-- Rows loaded dynamically -->
         </tbody>
       </table>
     </div>
 
-    <!-- Advanced Tools -->
     <div id="advanced-tools" class="advanced-tools">
-      <h3>Erweiterte Funktionen</h3>
+      <h4 style="margin-bottom: 0.5rem;">Advanced Tools</h4>
       <div class="bulk-actions">
-        <button class="btn btn-success" onclick="addWorkerRow()">
-          ➕ Worker Hinzufügen
-        </button>
-        <button class="btn btn-primary" onclick="bulkSetSkill()">
-          🔄 Bulk Skill Setzen
-        </button>
+        <button class="btn btn-success" onclick="addWorkerRow()">+ Add Worker</button>
+        <button class="btn btn-primary" onclick="bulkSetSkill()">Bulk Set Skill</button>
       </div>
     </div>
 
-    <!-- Save Button -->
-    <div style="margin-top: 2rem;">
-      <button class="btn btn-success" onclick="saveAllChanges()" style="font-size: 1.1rem; padding: 1rem 2rem;">
-        💾 Alle Änderungen Speichern
+    <div style="margin-top: 1rem;">
+      <button class="btn btn-success" onclick="saveAllChanges()" style="font-size: 1rem; padding: 0.75rem 1.5rem;">
+        Save All Changes
       </button>
       <span id="save-status" style="margin-left: 1rem; color: #666;"></span>
     </div>
   </div>
 
   <script>
-    let currentModality = 'ct';
+    // Dynamic configuration from backend
+    const SKILLS = {{ skills|tojson }};
+    const MODALITIES = {{ modalities|tojson }};
+
+    let currentModality = MODALITIES[0] || 'ct';
     let currentMode = 'simple';
     let tableData = {};
     let pendingChanges = {};
 
-    // Load data on page load
     async function loadData() {
       try {
         const response = await fetch('/api/prep-next-day/data');
@@ -423,11 +154,10 @@
         tableData = data;
         renderTable();
       } catch (error) {
-        showMessage('error', `Fehler beim Laden: ${error.message}`);
+        showMessage('error', `Error loading: ${error.message}`);
       }
     }
 
-    // Set editing mode
     function setMode(mode) {
       currentMode = mode;
       document.getElementById('mode-simple').classList.toggle('active', mode === 'simple');
@@ -437,69 +167,59 @@
       renderTable();
     }
 
-    // Switch modality
     function switchModality(modality) {
       currentModality = modality;
       document.querySelectorAll('.modality-tabs button').forEach(btn => {
-        btn.classList.toggle('active', btn.textContent.toLowerCase().includes(modality));
+        btn.classList.toggle('active', btn.textContent.toLowerCase() === modality);
       });
       renderTable();
     }
 
-    // Render table
     function renderTable() {
       const tbody = document.getElementById('table-body');
       tbody.innerHTML = '';
-
       const data = tableData[currentModality] || [];
 
       if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 2rem; color: #666;">Keine Daten vorhanden. Bitte zuerst CSV hochladen.</td></tr>';
+        const colSpan = 4 + SKILLS.length + (currentMode === 'advanced' ? 1 : 0);
+        tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; padding: 2rem; color: #666;">No data. Upload CSV first.</td></tr>`;
         return;
       }
 
-      data.forEach((row, idx) => {
+      data.forEach((row) => {
         const tr = document.createElement('tr');
         tr.dataset.rowIndex = row.row_index;
 
         // Worker name
         tr.innerHTML += `<td contenteditable="${currentMode === 'simple'}" data-col="PPL">${row.PPL}</td>`;
-
         // Times
         tr.innerHTML += `<td contenteditable="${currentMode === 'simple'}" data-col="start_time">${row.start_time}</td>`;
         tr.innerHTML += `<td contenteditable="${currentMode === 'simple'}" data-col="end_time">${row.end_time}</td>`;
 
         // Skills
-        ['Normal', 'Notfall', 'Privat', 'Herz', 'Msk', 'Chest'].forEach(skill => {
-          const value = row[skill];
+        SKILLS.forEach(skill => {
+          const value = row[skill] !== undefined ? row[skill] : 0;
           const className = `skill-cell skill-${value}`;
           tr.innerHTML += `<td contenteditable="${currentMode === 'simple'}" data-col="${skill}" class="${className}">${value}</td>`;
         });
 
         // Modifier
-        tr.innerHTML += `<td contenteditable="${currentMode === 'simple'}" data-col="Modifier">${row.Modifier}</td>`;
+        tr.innerHTML += `<td contenteditable="${currentMode === 'simple'}" data-col="Modifier">${row.Modifier || 1.0}</td>`;
 
-        // Actions (advanced mode only)
+        // Actions (advanced mode)
         if (currentMode === 'advanced') {
-          tr.innerHTML += `
-            <td>
-              <div class="action-buttons">
-                <button class="btn btn-danger btn-small" onclick="deleteWorkerRow(${row.row_index})">🗑️</button>
-              </div>
-            </td>
-          `;
+          tr.innerHTML += `<td><button class="btn btn-danger btn-small" onclick="deleteWorkerRow(${row.row_index})">Del</button></td>`;
         }
 
         tbody.appendChild(tr);
       });
 
-      // Add event listeners for contenteditable cells
+      // Add event listeners
       document.querySelectorAll('td[contenteditable="true"]').forEach(cell => {
         cell.addEventListener('blur', handleCellEdit);
       });
     }
 
-    // Handle cell edit
     function handleCellEdit(event) {
       const cell = event.target;
       const row = cell.parentElement;
@@ -507,84 +227,48 @@
       const col = cell.dataset.col;
       const newValue = cell.textContent.trim();
 
-      // Track change
-      if (!pendingChanges[currentModality]) {
-        pendingChanges[currentModality] = {};
-      }
-      if (!pendingChanges[currentModality][rowIndex]) {
-        pendingChanges[currentModality][rowIndex] = {};
-      }
+      if (!pendingChanges[currentModality]) pendingChanges[currentModality] = {};
+      if (!pendingChanges[currentModality][rowIndex]) pendingChanges[currentModality][rowIndex] = {};
       pendingChanges[currentModality][rowIndex][col] = newValue;
 
-      // Update local data
       const dataRow = tableData[currentModality].find(r => r.row_index === rowIndex);
-      if (dataRow) {
-        dataRow[col] = newValue;
-      }
+      if (dataRow) dataRow[col] = newValue;
 
-      // Visual feedback
       cell.style.background = '#d4edda';
-      setTimeout(() => {
-        cell.style.background = '';
-      }, 500);
+      setTimeout(() => { cell.style.background = ''; }, 500);
     }
 
-    // Save all changes
     async function saveAllChanges() {
       const saveStatus = document.getElementById('save-status');
-      saveStatus.textContent = '💾 Speichere...';
-
-      let successCount = 0;
-      let errorCount = 0;
+      saveStatus.textContent = 'Saving...';
+      let successCount = 0, errorCount = 0;
 
       for (const modality in pendingChanges) {
         for (const rowIndex in pendingChanges[modality]) {
-          const updates = pendingChanges[modality][rowIndex];
-
           try {
             const response = await fetch('/api/prep-next-day/update-row', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                modality: modality,
-                row_index: parseInt(rowIndex),
-                updates: updates
-              })
+              body: JSON.stringify({ modality, row_index: parseInt(rowIndex), updates: pendingChanges[modality][rowIndex] })
             });
-
-            if (response.ok) {
-              successCount++;
-            } else {
-              errorCount++;
-            }
-          } catch (error) {
-            errorCount++;
-          }
+            response.ok ? successCount++ : errorCount++;
+          } catch { errorCount++; }
         }
       }
 
-      // Clear pending changes
       pendingChanges = {};
-
-      if (errorCount === 0) {
-        saveStatus.textContent = `✅ ${successCount} Änderungen gespeichert`;
-        saveStatus.style.color = '#28a745';
-        showMessage('success', `✅ Erfolgreich ${successCount} Änderungen gespeichert`);
-      } else {
-        saveStatus.textContent = `⚠️ ${successCount} gespeichert, ${errorCount} Fehler`;
-        saveStatus.style.color = '#dc3545';
-        showMessage('error', `Fehler beim Speichern einiger Änderungen`);
-      }
-
-      setTimeout(() => {
-        saveStatus.textContent = '';
-      }, 3000);
+      saveStatus.textContent = errorCount === 0 ? `${successCount} saved` : `${successCount} saved, ${errorCount} errors`;
+      saveStatus.style.color = errorCount === 0 ? '#28a745' : '#dc3545';
+      showMessage(errorCount === 0 ? 'success' : 'error', saveStatus.textContent);
+      setTimeout(() => { saveStatus.textContent = ''; }, 3000);
     }
 
-    // Add worker row
     async function addWorkerRow() {
-      const workerName = prompt('Worker Name (z.B. "Müller (AM)"):', 'Neuer Worker (NW)');
+      const workerName = prompt('Worker Name:', 'New Worker');
       if (!workerName) return;
+
+      const defaultSkills = {};
+      SKILLS.forEach((skill, i) => { defaultSkills[skill] = i < 2 ? 1 : 0; });
 
       try {
         const response = await fetch('/api/prep-next-day/add-worker', {
@@ -592,139 +276,73 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             modality: currentModality,
-            worker_data: {
-              PPL: workerName,
-              start_time: '07:00',
-              end_time: '15:00',
-              Normal: 1,
-              Notfall: 1,
-              Privat: 0,
-              Herz: 0,
-              Msk: 0,
-              Chest: 0,
-              Modifier: 1.0
-            }
+            worker_data: { PPL: workerName, start_time: '07:00', end_time: '15:00', Modifier: 1.0, ...defaultSkills }
           })
         });
-
-        if (response.ok) {
-          showMessage('success', `Worker "${workerName}" hinzugefügt`);
-          await loadData();
-        } else {
-          showMessage('error', 'Fehler beim Hinzufügen');
-        }
-      } catch (error) {
-        showMessage('error', `Fehler: ${error.message}`);
-      }
+        if (response.ok) { showMessage('success', `Worker "${workerName}" added`); await loadData(); }
+        else showMessage('error', 'Failed to add');
+      } catch (error) { showMessage('error', error.message); }
     }
 
-    // Delete worker row
     async function deleteWorkerRow(rowIndex) {
-      if (!confirm('Worker wirklich löschen?')) return;
-
+      if (!confirm('Delete this worker?')) return;
       try {
         const response = await fetch('/api/prep-next-day/delete-worker', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            modality: currentModality,
-            row_index: rowIndex
-          })
+          body: JSON.stringify({ modality: currentModality, row_index: rowIndex })
         });
-
-        if (response.ok) {
-          showMessage('success', 'Worker gelöscht');
-          await loadData();
-        } else {
-          showMessage('error', 'Fehler beim Löschen');
-        }
-      } catch (error) {
-        showMessage('error', `Fehler: ${error.message}`);
-      }
+        if (response.ok) { showMessage('success', 'Deleted'); await loadData(); }
+        else showMessage('error', 'Failed');
+      } catch (error) { showMessage('error', error.message); }
     }
 
-    // Bulk set skill
     function bulkSetSkill() {
-      const skill = prompt('Skill Name (Normal, Notfall, Privat, Herz, Msk, Chest):', 'Normal');
-      if (!skill) return;
+      const skillList = SKILLS.join(', ');
+      const skill = prompt(`Skill Name (${skillList}):`, SKILLS[0]);
+      if (!skill || !SKILLS.includes(skill)) { alert('Invalid skill'); return; }
 
-      const value = prompt(`Wert für ${skill} (-1 = ausgeschlossen, 0 = passiv, 1 = aktiv):`, '1');
+      const value = prompt(`Value for ${skill} (-1=excluded, 0=passive, 1=active):`, '1');
       if (value === null) return;
-
       const parsedValue = parseInt(value);
-      if (![- 1, 0, 1].includes(parsedValue)) {
-        alert('Ungültiger Wert! Erlaubt: -1, 0, 1');
-        return;
-      }
+      if (![-1, 0, 1].includes(parsedValue)) { alert('Invalid value! Use -1, 0, or 1'); return; }
 
-      // Update all rows for current modality
-      tableData[currentModality].forEach((row, idx) => {
+      tableData[currentModality].forEach(row => {
         row[skill] = parsedValue;
-
-        // Track as pending change
-        if (!pendingChanges[currentModality]) {
-          pendingChanges[currentModality] = {};
-        }
-        if (!pendingChanges[currentModality][row.row_index]) {
-          pendingChanges[currentModality][row.row_index] = {};
-        }
+        if (!pendingChanges[currentModality]) pendingChanges[currentModality] = {};
+        if (!pendingChanges[currentModality][row.row_index]) pendingChanges[currentModality][row.row_index] = {};
         pendingChanges[currentModality][row.row_index][skill] = parsedValue;
       });
 
       renderTable();
-      showMessage('success', `Skill "${skill}" auf ${parsedValue} gesetzt für alle Workers in ${currentModality.toUpperCase()}`);
+      showMessage('success', `Set ${skill}=${parsedValue} for all workers in ${currentModality.toUpperCase()}`);
     }
 
-    // Show message
     function showMessage(type, message) {
       const container = document.getElementById('message-container');
       container.innerHTML = `<div class="message ${type}">${message}</div>`;
-      container.scrollIntoView({ behavior: 'smooth' });
-
-      setTimeout(() => {
-        container.innerHTML = '';
-      }, 5000);
+      setTimeout(() => { container.innerHTML = ''; }, 5000);
     }
 
-    // Activate staged schedule (staged → live)
     async function activateStagedSchedule() {
-      if (!confirm('⚠️ WARNUNG!\n\nDies wird den STAGED-Plan zum LIVE-Plan machen und alle Zähler zurücksetzen!\n\nSind Sie sicher?')) {
-        return;
-      }
-
-      if (!confirm('Letzte Bestätigung: Alle laufenden Zuteilungszähler werden auf 0 zurückgesetzt. Wirklich aktivieren?')) {
-        return;
-      }
+      if (!confirm('WARNING!\n\nThis copies STAGED → LIVE and resets all counters!\n\nContinue?')) return;
+      if (!confirm('Final confirmation: All assignment counters will be reset. Activate?')) return;
 
       try {
         const response = await fetch('/api/prep-next-day/activate', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            modalities: ['ct', 'mr', 'xray']  // Activate all modalities
-          })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ modalities: MODALITIES })
         });
-
         const result = await response.json();
-
         if (result.success) {
-          showMessage('success',
-            `✅ Erfolg! Staged → Live aktiviert!\n\n` +
-            `Modalitäten: ${result.activated_modalities.join(', ')}\n` +
-            `Gesamt Workers: ${result.total_workers}\n\n` +
-            `⚠️ ${result.warning}`
-          );
+          showMessage('success', `Activated! Modalities: ${result.activated_modalities.join(', ')}, Workers: ${result.total_workers}`);
         } else {
-          showMessage('error', `Fehler: ${result.error || 'Unbekannter Fehler'}`);
+          showMessage('error', result.error || 'Unknown error');
         }
-      } catch (error) {
-        showMessage('error', `Fehler beim Aktivieren: ${error.message}`);
-      }
+      } catch (error) { showMessage('error', error.message); }
     }
 
-    // Load data on page load
     loadData();
   </script>
 </body>

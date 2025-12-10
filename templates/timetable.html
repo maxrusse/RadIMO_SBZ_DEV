@@ -220,12 +220,9 @@
   <div class="skill-filter-bar">
     <label>Filter by Skill:</label>
     <button class="filter-btn filter-all active" onclick="filterTimeline('all')">All</button>
-    <button class="filter-btn" onclick="filterTimeline('Normal')">Normal</button>
-    <button class="filter-btn" onclick="filterTimeline('Notfall')">Notfall</button>
-    <button class="filter-btn" onclick="filterTimeline('Privat')">Privat</button>
-    <button class="filter-btn" onclick="filterTimeline('Herz')">Herz</button>
-    <button class="filter-btn" onclick="filterTimeline('Msk')">Msk</button>
-    <button class="filter-btn" onclick="filterTimeline('Chest')">Chest</button>
+    {% for skill in skills %}
+    <button class="filter-btn" onclick="filterTimeline('{{ skill }}')">{{ skill }}</button>
+    {% endfor %}
   </div>
 
   <div class="card timeline-card">

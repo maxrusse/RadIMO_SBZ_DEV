@@ -3785,7 +3785,14 @@ def timetable():
         debug_data = df_for_json.to_json(orient='records')
     else:
         debug_data = "[]"
-    return render_template('timetable.html', debug_data=debug_data, modality=modality)
+    return render_template(
+        'timetable.html',
+        debug_data=debug_data,
+        modality=modality,
+        skills=SKILL_COLUMNS,
+        modalities=list(MODALITY_SETTINGS.keys()),
+        modality_labels={k: v.get('label', k.upper()) for k, v in MODALITY_SETTINGS.items()}
+    )
 
 
 
