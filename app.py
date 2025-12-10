@@ -67,92 +67,7 @@ worker_skill_json_roster = {}
 # Global constants & modality-/skill-specific factors
 # -----------------------------------------------------------
 
-# DEFAULT_SKILLS is only used as fallback if config.yaml doesn't define skills
-# These should match the skills defined in config.yaml
-# All skills always_visible: True - never hide skill buttons
-DEFAULT_SKILLS = {
-    "Notfall": {
-        "label": "Notfall",
-        "button_color": "#dc3545",
-        "text_color": "#ffffff",
-        "weight": 1.1,
-        "optional": False,
-        "special": False,
-        "always_visible": True,
-    },
-    "Privat": {
-        "label": "Privat",
-        "button_color": "#ffc107",
-        "text_color": "#333333",
-        "weight": 1.2,
-        "optional": True,
-        "special": False,
-        "always_visible": True,
-    },
-    "Gyn": {
-        "label": "Gyn",
-        "button_color": "#e91e63",
-        "text_color": "#ffffff",
-        "weight": 1.0,
-        "optional": True,
-        "special": True,
-        "always_visible": True,
-    },
-    "Päd": {
-        "label": "Päd",
-        "button_color": "#4caf50",
-        "text_color": "#ffffff",
-        "weight": 1.0,
-        "optional": True,
-        "special": True,
-        "always_visible": True,
-    },
-    "MSK": {
-        "label": "MSK",
-        "button_color": "#9c27b0",
-        "text_color": "#ffffff",
-        "weight": 0.8,
-        "optional": True,
-        "special": True,
-        "always_visible": True,
-    },
-    "Abdomen": {
-        "label": "Abdomen",
-        "button_color": "#2196f3",
-        "text_color": "#ffffff",
-        "weight": 1.0,
-        "optional": True,
-        "special": True,
-        "always_visible": True,
-    },
-    "Chest": {
-        "label": "Chest",
-        "button_color": "#ff9800",
-        "text_color": "#ffffff",
-        "weight": 0.8,
-        "optional": True,
-        "special": True,
-        "always_visible": True,
-    },
-    "Cardvask": {
-        "label": "Cardvask",
-        "button_color": "#f44336",
-        "text_color": "#ffffff",
-        "weight": 1.2,
-        "optional": True,
-        "special": True,
-        "always_visible": True,
-    },
-    "Uro": {
-        "label": "Uro",
-        "button_color": "#009688",
-        "text_color": "#ffffff",
-        "weight": 1.0,
-        "optional": True,
-        "special": True,
-        "always_visible": True,
-    },
-}
+# Skills are loaded entirely from config.yaml - no hardcoded defaults
 
 DEFAULT_MODALITIES = {
     'ct': {
@@ -181,7 +96,7 @@ DEFAULT_MODALITIES = {
 DEFAULT_CONFIG = {
     'admin_password': 'change_pw_for_live',
     'modalities': DEFAULT_MODALITIES,
-    'skills': DEFAULT_SKILLS,
+    'skills': {},  # Skills loaded from config.yaml
     'modality_fallbacks': {},
     'balancer': {}
 }
@@ -391,18 +306,15 @@ def _build_app_config() -> Dict[str, Any]:
 
     config['modalities'] = merged_modalities
 
-    merged_skills: Dict[str, Dict[str, Any]] = {
-        key: dict(values)
-        for key, values in DEFAULT_SKILLS.items()
-    }
+    # Load skills directly from config.yaml (no hardcoded defaults)
+    merged_skills: Dict[str, Dict[str, Any]] = {}
     user_skills = raw_config.get('skills') or {}
     if isinstance(user_skills, dict):
-        for key, override in user_skills.items():
-            base = merged_skills.get(key, {}).copy()
-            if isinstance(override, dict):
-                base.update(override)
-            merged_skills[key] = base
+        for key, skill_data in user_skills.items():
+            if isinstance(skill_data, dict):
+                merged_skills[key] = dict(skill_data)
 
+    # Set sensible defaults for any missing properties
     for key, values in merged_skills.items():
         values.setdefault('label', key)
         values.setdefault('button_color', '#004892')
@@ -410,7 +322,7 @@ def _build_app_config() -> Dict[str, Any]:
         values['weight'] = _coerce_float(values.get('weight', 1.0))
         values.setdefault('optional', False)
         values.setdefault('special', False)
-        values.setdefault('always_visible', False)
+        values.setdefault('always_visible', True)  # Default: always visible
         values['display_order'] = _coerce_int(values.get('display_order', 0))
         slug = values.get('slug') or key.lower().replace(' ', '_')
         values['slug'] = slug
