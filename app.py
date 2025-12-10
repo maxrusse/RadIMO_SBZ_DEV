@@ -4075,7 +4075,7 @@ def timetable():
         debug_data=debug_data,
         modality=modality,
         skills=SKILL_COLUMNS,
-        modalities=list(MODALITY_SETTINGS.keys()),
+        modalities=MODALITY_SETTINGS,
         modality_labels={k: v.get('label', k.upper()) for k, v in MODALITY_SETTINGS.items()}
     )
 
