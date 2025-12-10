@@ -98,8 +98,9 @@
     </div>
 
     <div class="modality-tabs">
+      <button class="active" onclick="switchModality('master')">MASTER</button>
       {% for mod in modalities %}
-      <button{% if loop.first %} class="active"{% endif %} onclick="switchModality('{{ mod }}')">{{ mod|upper }}</button>
+      <button onclick="switchModality('{{ mod }}')">{{ mod|upper }}</button>
       {% endfor %}
     </div>
 
@@ -114,6 +115,7 @@
             <th>{{ skill }}</th>
             {% endfor %}
             <th>Mod</th>
+            <th id="modality-header">Modality</th>
             <th id="actions-header" style="display:none;">Actions</th>
           </tr>
         </thead>
@@ -143,7 +145,7 @@
     const SKILLS = {{ skills|tojson }};
     const MODALITIES = {{ modalities|tojson }};
 
-    let currentModality = MODALITIES[0] || 'ct';
+    let currentModality = 'master';  // Start with master view
     let currentMode = 'simple';
     let tableData = {};
     let pendingChanges = {};
@@ -171,7 +173,8 @@
     function switchModality(modality) {
       currentModality = modality;
       document.querySelectorAll('.modality-tabs button').forEach(btn => {
-        btn.classList.toggle('active', btn.textContent.toLowerCase() === modality);
+        const btnText = btn.textContent.toLowerCase();
+        btn.classList.toggle('active', btnText === modality || (modality === 'master' && btnText === 'master'));
       });
       renderTable();
     }
@@ -179,10 +182,26 @@
     function renderTable() {
       const tbody = document.getElementById('table-body');
       tbody.innerHTML = '';
-      const data = tableData[currentModality] || [];
+
+      // Show/hide modality header based on view
+      const modHeader = document.getElementById('modality-header');
+      modHeader.style.display = currentModality === 'master' ? '' : 'none';
+
+      // For master view, combine all modalities
+      let data = [];
+      if (currentModality === 'master') {
+        MODALITIES.forEach(mod => {
+          const modData = tableData[mod] || [];
+          modData.forEach(row => {
+            data.push({ ...row, _modality: mod });
+          });
+        });
+      } else {
+        data = (tableData[currentModality] || []).map(row => ({ ...row, _modality: currentModality }));
+      }
 
       if (data.length === 0) {
-        const colSpan = 4 + SKILLS.length + (currentMode === 'advanced' ? 1 : 0);
+        const colSpan = 5 + SKILLS.length + (currentMode === 'advanced' ? 1 : 0);
         tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; padding: 2rem; color: #666;">No data. Upload CSV first.</td></tr>`;
         return;
       }
@@ -190,6 +209,7 @@
       data.forEach((row) => {
         const tr = document.createElement('tr');
         tr.dataset.rowIndex = row.row_index;
+        tr.dataset.modality = row._modality;
 
         // Worker name
         tr.innerHTML += `<td contenteditable="${currentMode === 'simple'}" data-col="PPL">${row.PPL}</td>`;
@@ -206,10 +226,13 @@
 
         // Modifier
         tr.innerHTML += `<td contenteditable="${currentMode === 'simple'}" data-col="Modifier">${row.Modifier || 1.0}</td>`;
+        // Modality column (visible only in master view)
+        const modColStyle = currentModality === 'master' ? '' : 'display: none;';
+        tr.innerHTML += `<td style="font-weight: bold; text-transform: uppercase; ${modColStyle}">${row._modality}</td>`;
 
         // Actions (advanced mode)
         if (currentMode === 'advanced') {
-          tr.innerHTML += `<td><button class="btn btn-danger btn-small" onclick="deleteWorkerRow(${row.row_index})">Del</button></td>`;
+          tr.innerHTML += `<td><button class="btn btn-danger btn-small" onclick="deleteWorkerRow('${row._modality}', ${row.row_index})">Del</button></td>`;
         }
 
         tbody.appendChild(tr);
@@ -225,14 +248,15 @@
       const cell = event.target;
       const row = cell.parentElement;
       const rowIndex = parseInt(row.dataset.rowIndex);
+      const rowModality = row.dataset.modality || currentModality;  // Use row's modality for master view
       const col = cell.dataset.col;
       const newValue = cell.textContent.trim();
 
-      if (!pendingChanges[currentModality]) pendingChanges[currentModality] = {};
-      if (!pendingChanges[currentModality][rowIndex]) pendingChanges[currentModality][rowIndex] = {};
-      pendingChanges[currentModality][rowIndex][col] = newValue;
+      if (!pendingChanges[rowModality]) pendingChanges[rowModality] = {};
+      if (!pendingChanges[rowModality][rowIndex]) pendingChanges[rowModality][rowIndex] = {};
+      pendingChanges[rowModality][rowIndex][col] = newValue;
 
-      const dataRow = tableData[currentModality].find(r => r.row_index === rowIndex);
+      const dataRow = tableData[rowModality]?.find(r => r.row_index === rowIndex);
       if (dataRow) dataRow[col] = newValue;
 
       cell.style.background = '#d4edda';
@@ -265,6 +289,17 @@
     }
 
     async function addWorkerRow() {
+      // In master view, ask which modality
+      let targetModality = currentModality;
+      if (currentModality === 'master') {
+        targetModality = prompt(`Which modality? (${MODALITIES.join(', ')}):`, MODALITIES[0]);
+        if (!targetModality || !MODALITIES.includes(targetModality.toLowerCase())) {
+          showMessage('error', 'Invalid modality');
+          return;
+        }
+        targetModality = targetModality.toLowerCase();
+      }
+
       const workerName = prompt('Worker Name:', 'New Worker');
       if (!workerName) return;
 
@@ -276,22 +311,22 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            modality: currentModality,
+            modality: targetModality,
             worker_data: { PPL: workerName, start_time: '07:00', end_time: '15:00', Modifier: 1.0, ...defaultSkills }
           })
         });
-        if (response.ok) { showMessage('success', `Worker "${workerName}" added`); await loadData(); }
+        if (response.ok) { showMessage('success', `Worker "${workerName}" added to ${targetModality.toUpperCase()}`); await loadData(); }
         else showMessage('error', 'Failed to add');
       } catch (error) { showMessage('error', error.message); }
     }
 
-    async function deleteWorkerRow(rowIndex) {
+    async function deleteWorkerRow(modality, rowIndex) {
       if (!confirm('Delete this worker?')) return;
       try {
         const response = await fetch('/api/prep-next-day/delete-worker', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ modality: currentModality, row_index: rowIndex })
+          body: JSON.stringify({ modality: modality, row_index: rowIndex })
         });
         if (response.ok) { showMessage('success', 'Deleted'); await loadData(); }
         else showMessage('error', 'Failed');
