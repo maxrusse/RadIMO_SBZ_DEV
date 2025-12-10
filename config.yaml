@@ -24,6 +24,8 @@ modalities:
     hover_color: '#c2185b'
     background_color: '#fce4ec'
     factor: 0.5
+    # Only these skills are valid for Mammo (others hidden in UI)
+    valid_skills: [Allgemein, Notfall, Privat, Gyn]
 modality_fallbacks:
   xray:
     - - ct

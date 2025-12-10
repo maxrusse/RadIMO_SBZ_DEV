@@ -373,6 +373,14 @@
     let skills = [];
     let modalities = [];
     let selectedWorker = null;
+    // Valid skill combinations per modality (from config.yaml)
+    const validSkillsMap = {{ valid_skills_map|tojson }};
+
+    // Helper to check if skill is valid for a modality
+    function isValidCombination(modality, skill) {
+      if (!validSkillsMap[modality]) return true;  // No restriction = all valid
+      return validSkillsMap[modality].includes(skill);
+    }
 
     document.addEventListener('DOMContentLoaded', loadRoster);
 
@@ -482,10 +490,19 @@
 
         // Modality overrides
         modalities.forEach(mod => {
+          const cell = document.createElement('td');
+
+          // Skip invalid combinations (show empty/grayed cell)
+          if (!isValidCombination(mod, skill)) {
+            cell.style.background = '#f0f0f0';
+            cell.innerHTML = '<span style="color:#999">—</span>';
+            row.appendChild(cell);
+            return;
+          }
+
           const modOverrides = workerData[mod] || {};
           const hasOverride = modOverrides[skill] !== undefined;
 
-          const cell = document.createElement('td');
           cell.className = 'override-cell';
 
           const input = createSkillInput(

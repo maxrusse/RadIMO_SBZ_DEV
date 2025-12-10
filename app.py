@@ -3715,7 +3715,21 @@ def activate_skill_roster():
 @admin_required
 def skill_roster_page():
     """Admin page for managing worker skill roster (planning mode)."""
-    return render_template('skill_roster.html')
+    # Build valid_skills map: modality -> list of valid skills (or all skills if not specified)
+    valid_skills_map = {}
+    for mod, settings in MODALITY_SETTINGS.items():
+        if 'valid_skills' in settings:
+            valid_skills_map[mod] = settings['valid_skills']
+        else:
+            valid_skills_map[mod] = SKILL_COLUMNS  # All skills valid
+
+    return render_template(
+        'skill_roster.html',
+        skills=SKILL_COLUMNS,
+        modalities=list(MODALITY_SETTINGS.keys()),
+        modality_labels={k: v.get('label', k.upper()) for k, v in MODALITY_SETTINGS.items()},
+        valid_skills_map=valid_skills_map
+    )
 
 
 @app.route('/admin/live-edit')
