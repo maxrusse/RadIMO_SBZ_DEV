@@ -247,7 +247,16 @@
           `;
           setTimeout(() => location.reload(), 2000);
         } else {
-          msgContainer.innerHTML = `<div class="message error">${result.error}</div>`;
+          let errorHtml = `<div class="message error">${result.error}`;
+          if (result.debug) {
+            errorHtml += `<br><br><strong>Debug Info:</strong><br>`;
+            errorHtml += `Target: ${result.debug.target_date}<br>`;
+            errorHtml += `Dates in CSV: ${result.debug.dates_in_csv?.join(', ') || 'none'}<br>`;
+            errorHtml += `Activities: ${result.debug.activities_in_csv?.join(', ') || 'none'}<br>`;
+            errorHtml += `<em>${result.debug.hint || ''}</em>`;
+          }
+          errorHtml += `</div>`;
+          msgContainer.innerHTML = errorHtml;
         }
       } catch (error) {
         msgContainer.innerHTML = `<div class="message error">Error: ${error.message}</div>`;

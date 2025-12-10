@@ -268,6 +268,50 @@ def save_worker_skill_json(roster_data: Dict[str, Any], use_staged: bool = False
         return False
 
 
+def auto_populate_skill_roster(modality_dfs: Dict[str, pd.DataFrame]) -> int:
+    """
+    Auto-populate skill roster with workers from loaded CSV data.
+    Only adds new workers, doesn't modify existing entries.
+
+    Args:
+        modality_dfs: Dict of modality -> DataFrame with worker data
+
+    Returns:
+        Number of new workers added
+    """
+    # Load current staged roster
+    roster = load_worker_skill_json(use_staged=True)
+    added_count = 0
+
+    for modality, df in modality_dfs.items():
+        if df is None or df.empty:
+            continue
+
+        for _, row in df.iterrows():
+            worker_id = row.get('canonical_id', row.get('PPL', ''))
+            if not worker_id or worker_id in roster:
+                continue  # Skip if no ID or already exists
+
+            # Create new roster entry with skills from CSV
+            default_skills = {}
+            for skill in SKILL_COLUMNS:
+                if skill in row:
+                    default_skills[skill] = int(row[skill])
+
+            roster[worker_id] = {
+                'default': default_skills,
+                # Modality-specific overrides can be added manually later
+            }
+            added_count += 1
+            selection_logger.info(f"Auto-added worker {worker_id} to skill roster with skills: {default_skills}")
+
+    # Save updated roster
+    if added_count > 0:
+        save_worker_skill_json(roster, use_staged=True)
+
+    return added_count
+
+
 def get_merged_worker_roster(config: Dict[str, Any]) -> Dict[str, Any]:
     """
     Get merged worker skill roster from YAML config and JSON overrides.
@@ -2318,11 +2362,16 @@ def index():
         if entry['always_visible']:
             available_specialties[entry['slug']] = True
 
+    # Get valid skills for this modality (for hiding irrelevant buttons)
+    modality_config = MODALITY_SETTINGS.get(modality, {})
+    valid_skills = modality_config.get('valid_skills', SKILL_COLUMNS)  # All skills if not specified
+
     return render_template(
         'index.html',
         available_specialties=available_specialties,
         info_texts=d.get('info_texts', []),
-        modality=modality
+        modality=modality,
+        valid_skills=valid_skills
     )
 
 
@@ -2835,6 +2884,18 @@ def load_today_from_master():
         # Use TODAY's date
         target_date = get_local_berlin_now()
 
+        # Debug: Check CSV content before parsing
+        try:
+            debug_df = pd.read_csv(MASTER_CSV_PATH, sep=',', encoding='latin1')
+            if 'Datum' not in debug_df.columns:
+                # Try semicolon separator
+                debug_df = pd.read_csv(MASTER_CSV_PATH, sep=';', encoding='latin1')
+
+            available_dates = debug_df['Datum'].unique().tolist() if 'Datum' in debug_df.columns else []
+            available_activities = debug_df['Beschreibung der Aktivität'].unique().tolist() if 'Beschreibung der Aktivität' in debug_df.columns else []
+        except Exception as e:
+            return jsonify({"error": f"CSV-Lesefehler: {str(e)}"}), 400
+
         # Parse medweb CSV
         modality_dfs = build_working_hours_from_medweb(
             MASTER_CSV_PATH,
@@ -2843,8 +2904,15 @@ def load_today_from_master():
         )
 
         if not modality_dfs:
+            # Better error message with debug info
             return jsonify({
-                "error": f"Keine Cortex-Daten für {target_date.strftime('%d.%m.%Y')} in Master-CSV gefunden"
+                "error": f"Keine Cortex-Daten für {target_date.strftime('%d.%m.%Y')} gefunden",
+                "debug": {
+                    "target_date": target_date.strftime('%d.%m.%Y'),
+                    "dates_in_csv": available_dates[:10],  # First 10 dates
+                    "activities_in_csv": available_activities[:10],  # First 10 activities
+                    "hint": "Prüfen Sie ob Datum im Format DD.MM.YYYY und Aktivitäten wie 'CT Assistent', 'MR Assistent' vorhanden sind"
+                }
             }), 400
 
         # Reset counters and apply to modality_data
@@ -2876,16 +2944,20 @@ def load_today_from_master():
 
             save_state()
 
+        # Auto-populate skill roster with workers from CSV
+        workers_added = auto_populate_skill_roster(modality_dfs)
+
         selection_logger.info(
             f"Loaded today ({target_date.strftime('%d.%m.%Y')}) from master CSV. "
-            f"Modalities: {list(modality_dfs.keys())}"
+            f"Modalities: {list(modality_dfs.keys())}, New workers in roster: {workers_added}"
         )
 
         return jsonify({
             "success": True,
             "message": f"Heute ({target_date.strftime('%d.%m.%Y')}) aus Master-CSV geladen",
             "modalities_loaded": list(modality_dfs.keys()),
-            "total_workers": sum(len(df) for df in modality_dfs.values())
+            "total_workers": sum(len(df) for df in modality_dfs.values()),
+            "workers_added_to_roster": workers_added
         })
 
     except Exception as e:
