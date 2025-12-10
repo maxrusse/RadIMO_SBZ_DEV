@@ -67,94 +67,9 @@ worker_skill_json_roster = {}
 # Global constants & modality-/skill-specific factors
 # -----------------------------------------------------------
 
-DEFAULT_SKILLS = {
-    "Normal": {
-        "label": "Normal",
-        "button_color": "#004892",
-        "text_color": "#ffffff",
-        "weight": 1.0,
-        "optional": False,
-        "special": False,
-        "always_visible": True,
-    },
-    "Notfall": {
-        "label": "Notfall",
-        "button_color": "#dc3545",
-        "text_color": "#ffffff",
-        "weight": 1.1,
-        "optional": False,
-        "special": False,
-        "always_visible": True,
-    },
-    "Privat": {
-        "label": "Privat",
-        "button_color": "#ffc107",
-        "text_color": "#333333",
-        "weight": 1.2,
-        "optional": True,
-        "special": False,
-        "always_visible": True,
-    },
-    "Herz": {
-        "label": "Herz",
-        "button_color": "#28a745",
-        "text_color": "#ffffff",
-        "weight": 1.2,
-        "optional": True,
-        "special": True,
-        "always_visible": False,
-    },
-    "Msk": {
-        "label": "Msk",
-        "button_color": "#9c27b0",
-        "text_color": "#ffffff",
-        "weight": 0.8,
-        "optional": True,
-        "special": True,
-        "always_visible": False,
-    },
-    "Chest": {
-        "label": "Chest",
-        "button_color": "#ff9800",
-        "text_color": "#ffffff",
-        "weight": 0.8,
-        "optional": True,
-        "special": True,
-        "always_visible": False,
-    },
-}
+# Modalities and skills are loaded entirely from config.yaml - no hardcoded defaults
 
-DEFAULT_MODALITIES = {
-    'ct': {
-        'label': 'CT',
-        'nav_color': '#1a5276',
-        'hover_color': '#153f5b',
-        'background_color': '#e6f2fa',
-        'factor': 1.0,
-    },
-    'mr': {
-        'label': 'MR',
-        'nav_color': '#777777',
-        'hover_color': '#555555',
-        'background_color': '#f9f9f9',
-        'factor': 1.2,
-    },
-    'xray': {
-        'label': 'XRAY',
-        'nav_color': '#239b56',
-        'hover_color': '#1d7a48',
-        'background_color': '#e0f2e9',
-        'factor': 0.33,
-    },
-}
-
-DEFAULT_CONFIG = {
-    'admin_password': 'change_pw_for_live',
-    'modalities': DEFAULT_MODALITIES,
-    'skills': DEFAULT_SKILLS,
-    'modality_fallbacks': {},
-    'balancer': {}
-}
+DEFAULT_ADMIN_PASSWORD = 'change_pw_for_live'
 
 DEFAULT_BALANCER = {
     'enabled': True,
@@ -337,21 +252,18 @@ def get_merged_worker_roster(config: Dict[str, Any]) -> Dict[str, Any]:
 def _build_app_config() -> Dict[str, Any]:
     raw_config = _load_raw_config()
     config: Dict[str, Any] = {
-        'admin_password': raw_config.get('admin_password', DEFAULT_CONFIG['admin_password'])
+        'admin_password': raw_config.get('admin_password', DEFAULT_ADMIN_PASSWORD)
     }
 
-    merged_modalities: Dict[str, Dict[str, Any]] = {
-        key: dict(values)
-        for key, values in DEFAULT_MODALITIES.items()
-    }
+    # Load modalities directly from config.yaml (no hardcoded defaults)
+    merged_modalities: Dict[str, Dict[str, Any]] = {}
     user_modalities = raw_config.get('modalities') or {}
     if isinstance(user_modalities, dict):
-        for key, override in user_modalities.items():
-            base = merged_modalities.get(key, {}).copy()
-            if isinstance(override, dict):
-                base.update(override)
-            merged_modalities[key] = base
+        for key, mod_data in user_modalities.items():
+            if isinstance(mod_data, dict):
+                merged_modalities[key] = dict(mod_data)
 
+    # Set sensible defaults for any missing modality properties
     for key, values in merged_modalities.items():
         values.setdefault('label', key.upper())
         values.setdefault('nav_color', '#004892')
@@ -361,18 +273,15 @@ def _build_app_config() -> Dict[str, Any]:
 
     config['modalities'] = merged_modalities
 
-    merged_skills: Dict[str, Dict[str, Any]] = {
-        key: dict(values)
-        for key, values in DEFAULT_SKILLS.items()
-    }
+    # Load skills directly from config.yaml (no hardcoded defaults)
+    merged_skills: Dict[str, Dict[str, Any]] = {}
     user_skills = raw_config.get('skills') or {}
     if isinstance(user_skills, dict):
-        for key, override in user_skills.items():
-            base = merged_skills.get(key, {}).copy()
-            if isinstance(override, dict):
-                base.update(override)
-            merged_skills[key] = base
+        for key, skill_data in user_skills.items():
+            if isinstance(skill_data, dict):
+                merged_skills[key] = dict(skill_data)
 
+    # Set sensible defaults for any missing properties
     for key, values in merged_skills.items():
         values.setdefault('label', key)
         values.setdefault('button_color', '#004892')
@@ -380,7 +289,7 @@ def _build_app_config() -> Dict[str, Any]:
         values['weight'] = _coerce_float(values.get('weight', 1.0))
         values.setdefault('optional', False)
         values.setdefault('special', False)
-        values.setdefault('always_visible', False)
+        values.setdefault('always_visible', True)  # Default: always visible
         values['display_order'] = _coerce_int(values.get('display_order', 0))
         slug = values.get('slug') or key.lower().replace(' ', '_')
         values['slug'] = slug
@@ -427,7 +336,7 @@ def _build_app_config() -> Dict[str, Any]:
 APP_CONFIG = _build_app_config()
 MODALITY_SETTINGS = APP_CONFIG['modalities']
 SKILL_SETTINGS = APP_CONFIG['skills']
-allowed_modalities = list(MODALITY_SETTINGS.keys()) or list(DEFAULT_MODALITIES.keys())
+allowed_modalities = list(MODALITY_SETTINGS.keys())
 default_modality = allowed_modalities[0] if allowed_modalities else 'ct'
 modality_labels = {
     mod: settings.get('label', mod.upper())
@@ -678,7 +587,7 @@ def resolve_modality_from_request() -> str:
 def normalize_skill(skill_value: Optional[str]) -> str:
     """Validate and normalize skill parameter"""
     if not skill_value:
-        return SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Normal'
+        return SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Notfall'
     # Try exact match first
     if skill_value in SKILL_COLUMNS:
         return skill_value
@@ -687,7 +596,7 @@ def normalize_skill(skill_value: Optional[str]) -> str:
     if skill_value_title in SKILL_COLUMNS:
         return skill_value_title
     # Default to first skill
-    return SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Normal'
+    return SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Notfall'
 
 
 def get_available_modalities_for_skill(skill: str) -> dict:
@@ -2427,7 +2336,7 @@ def index_by_skill():
     """
     Skill-based view: navigate by skill, see all modalities as buttons
     """
-    skill = request.args.get('skill', SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Normal')
+    skill = request.args.get('skill', SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Notfall')
     skill = normalize_skill(skill)
 
     # Determine available modalities for this skill (check working hours)
@@ -3175,12 +3084,20 @@ def get_prep_data():
                     'PPL': row['PPL'],
                     'start_time': row['start_time'].strftime('%H:%M') if pd.notnull(row['start_time']) else '',
                     'end_time': row['end_time'].strftime('%H:%M') if pd.notnull(row['end_time']) else '',
-                    'Modifier': float(row.get('Modifier', 1.0)),
                 }
 
                 # Add all skill columns
                 for skill in SKILL_COLUMNS:
                     worker_data[skill] = int(row.get(skill, 0))
+
+                # Add tasks (stored as comma-separated string or list)
+                tasks_val = row.get('tasks', '')
+                if isinstance(tasks_val, list):
+                    worker_data['tasks'] = tasks_val
+                elif isinstance(tasks_val, str) and tasks_val:
+                    worker_data['tasks'] = [t.strip() for t in tasks_val.split(',') if t.strip()]
+                else:
+                    worker_data['tasks'] = []
 
                 data.append(worker_data)
 
@@ -3226,6 +3143,12 @@ def update_prep_row():
                 # Update worker name and canonical_id
                 df.at[row_index, col] = value
                 df.at[row_index, 'canonical_id'] = get_canonical_worker_id(value)
+            elif col == 'tasks':
+                # Tasks stored as comma-separated string
+                if isinstance(value, list):
+                    df.at[row_index, 'tasks'] = ', '.join(value)
+                else:
+                    df.at[row_index, 'tasks'] = value
 
         # Recalculate shift_duration if times changed
         if 'start_time' in updates or 'end_time' in updates:
@@ -3286,6 +3209,13 @@ def add_prep_worker():
         # Add skill columns
         for skill in SKILL_COLUMNS:
             new_row[skill] = int(worker_data.get(skill, 0))
+
+        # Add tasks (stored as comma-separated string)
+        tasks = worker_data.get('tasks', [])
+        if isinstance(tasks, list):
+            new_row['tasks'] = ', '.join(tasks)
+        else:
+            new_row['tasks'] = tasks or ''
 
         # Calculate shift_duration
         start_dt = datetime.combine(datetime.today(), new_row['start_time'])
@@ -3981,59 +3911,6 @@ def skill_roster_page():
         modality_labels={k: v.get('label', k.upper()) for k, v in MODALITY_SETTINGS.items()},
         valid_skills_map=valid_skills_map
     )
-
-
-@app.route('/admin/live-edit')
-@admin_required
-def live_edit_page():
-    """Admin page for live editing of current workers (IMMEDIATE EFFECT)."""
-    return render_template(
-        'live_edit.html',
-        skills=SKILL_COLUMNS,
-        modalities=list(MODALITY_SETTINGS.keys())
-    )
-
-
-@app.route('/api/live_edit/workers', methods=['GET'])
-@admin_required
-def get_live_edit_workers():
-    """Get current workers for a modality (for live editing)."""
-    modality = request.args.get('modality', 'ct')
-    modality = normalize_modality(modality)
-
-    d = modality_data[modality]
-
-    if d['working_hours_df'] is None or d['working_hours_df'].empty:
-        return jsonify({
-            'success': True,
-            'workers': [],
-            'modality': modality
-        })
-
-    # Convert DataFrame to list of dicts
-    workers_list = []
-    for idx, row in d['working_hours_df'].iterrows():
-        worker_dict = {
-            'index': idx,
-            'PPL': row.get('PPL', ''),
-            'start_time': row['start_time'].strftime('%H:%M:%S') if pd.notnull(row.get('start_time')) else '',
-            'end_time': row['end_time'].strftime('%H:%M:%S') if pd.notnull(row.get('end_time')) else '',
-            'shift_duration': row.get('shift_duration', 0),
-            'Modifier': row.get('Modifier', 1.0),
-            'Normal': int(row.get('Normal', 0)),
-            'Notfall': int(row.get('Notfall', 0)),
-            'Privat': int(row.get('Privat', 0)),
-            'Herz': int(row.get('Herz', 0)),
-            'Msk': int(row.get('Msk', 0)),
-            'Chest': int(row.get('Chest', 0))
-        }
-        workers_list.append(worker_dict)
-
-    return jsonify({
-        'success': True,
-        'workers': workers_list,
-        'modality': modality
-    })
 
 
 @app.route('/timetable')

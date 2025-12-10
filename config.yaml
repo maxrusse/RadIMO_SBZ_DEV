@@ -64,7 +64,7 @@ skills:
     weight: 1.0
     optional: true
     special: true
-    always_visible: false
+    always_visible: true
     display_order: 2
     slug: gyn
     form_key: gyn
@@ -75,7 +75,7 @@ skills:
     weight: 1.0
     optional: true
     special: true
-    always_visible: false
+    always_visible: true
     display_order: 3
     slug: paed
     form_key: paed
@@ -86,7 +86,7 @@ skills:
     weight: 0.8
     optional: true
     special: true
-    always_visible: false
+    always_visible: true
     display_order: 4
     slug: msk
     form_key: msk
@@ -97,7 +97,7 @@ skills:
     weight: 1.0
     optional: true
     special: true
-    always_visible: false
+    always_visible: true
     display_order: 5
     slug: abdomen
     form_key: abdomen
@@ -108,7 +108,7 @@ skills:
     weight: 0.8
     optional: true
     special: true
-    always_visible: false
+    always_visible: true
     display_order: 6
     slug: chest
     form_key: chest
@@ -119,7 +119,7 @@ skills:
     weight: 1.2
     optional: true
     special: true
-    always_visible: false
+    always_visible: true
     display_order: 7
     slug: cardvask
     form_key: cardvask
@@ -130,7 +130,7 @@ skills:
     weight: 1.0
     optional: true
     special: true
-    always_visible: false
+    always_visible: true
     display_order: 8
     slug: uro
     form_key: uro

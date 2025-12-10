@@ -147,7 +147,7 @@
             {% for skill in skills %}
             <th>{{ skill }}</th>
             {% endfor %}
-            <th>Mod</th>
+            <th>Tasks</th>
             <th id="actions-header" style="display:none;">Actions</th>
           </tr>
         </thead>
@@ -162,10 +162,8 @@
         <h4>+ Add Worker</h4>
         <div class="add-worker-row">
           <div class="form-group">
-            <label>Worker (from Skill Matrix)</label>
-            <select id="add-worker-select">
-              <option value="">-- Select Worker --</option>
-            </select>
+            <label>Worker Name</label>
+            <input type="text" id="add-worker-input" placeholder="e.g. Dr. Müller" style="width: 150px;">
           </div>
           <div class="form-group">
             <label>Activity/Role</label>
@@ -246,7 +244,6 @@
     let tableData = {};  // {modality: [rows]}
     let allData = [];    // Combined data from all modalities
     let pendingChanges = {};
-    let skillRosterWorkers = [];  // Workers from skill roster for dropdown
     let selectedActivityData = null;  // Current selected activity's data
 
     async function loadData() {
@@ -268,28 +265,6 @@
       } catch (error) {
         showMessage('error', `Error loading: ${error.message}`);
       }
-    }
-
-    async function loadSkillRosterWorkers() {
-      try {
-        const response = await fetch('/api/admin/skill_roster');
-        const data = await response.json();
-        skillRosterWorkers = Object.keys(data);
-        populateWorkerDropdown();
-      } catch (error) {
-        console.log('Could not load skill roster:', error.message);
-      }
-    }
-
-    function populateWorkerDropdown() {
-      const select = document.getElementById('add-worker-select');
-      select.innerHTML = '<option value="">-- Select Worker --</option>';
-      skillRosterWorkers.forEach(worker => {
-        const opt = document.createElement('option');
-        opt.value = worker;
-        opt.textContent = worker;
-        select.appendChild(opt);
-      });
     }
 
     function setMode(mode) {
@@ -366,8 +341,10 @@
           tr.innerHTML += `<td contenteditable="${currentMode === 'simple'}" data-col="${skill}" class="${className}">${value}</td>`;
         });
 
-        // Modifier
-        tr.innerHTML += `<td contenteditable="${currentMode === 'simple'}" data-col="Modifier">${row.Modifier || 1.0}</td>`;
+        // Tasks (array displayed as comma-separated, editable)
+        const tasks = row.tasks || [];
+        const tasksStr = Array.isArray(tasks) ? tasks.join(', ') : (tasks || '');
+        tr.innerHTML += `<td contenteditable="${currentMode === 'simple'}" data-col="tasks" style="font-size: 0.75rem; max-width: 150px;">${tasksStr}</td>`;
 
         // Actions (advanced mode)
         if (currentMode === 'advanced') {
@@ -609,16 +586,16 @@
 
     // Add worker from panel (activity-based)
     async function addWorkerFromPanel() {
-      const workerSelect = document.getElementById('add-worker-select');
+      const workerInput = document.getElementById('add-worker-input');
       const activitySelect = document.getElementById('add-activity-select');
       const shiftSelect = document.getElementById('add-shift-select');
       const startInput = document.getElementById('add-start-time');
       const endInput = document.getElementById('add-end-time');
 
-      const workerName = workerSelect.value;
+      const workerName = workerInput.value.trim();
 
       if (!workerName) {
-        showMessage('error', 'Please select a worker');
+        showMessage('error', 'Please enter a worker name');
         return;
       }
 
@@ -698,7 +675,7 @@
         const modStr = modalitiesToAdd.map(m => m.toUpperCase()).join(', ');
         showMessage('success', `Worker "${workerName}" added to ${modStr}`);
         // Reset form
-        workerSelect.value = '';
+        workerInput.value = '';
         activitySelect.value = '';
         selectedActivityData = null;
         document.getElementById('activity-info').textContent = '';
@@ -712,7 +689,6 @@
 
     // Initialize
     loadData();
-    loadSkillRosterWorkers();
   </script>
 </body>
 </html>
