@@ -3175,12 +3175,20 @@ def get_prep_data():
                     'PPL': row['PPL'],
                     'start_time': row['start_time'].strftime('%H:%M') if pd.notnull(row['start_time']) else '',
                     'end_time': row['end_time'].strftime('%H:%M') if pd.notnull(row['end_time']) else '',
-                    'Modifier': float(row.get('Modifier', 1.0)),
                 }
 
                 # Add all skill columns
                 for skill in SKILL_COLUMNS:
                     worker_data[skill] = int(row.get(skill, 0))
+
+                # Add tasks (stored as comma-separated string or list)
+                tasks_val = row.get('tasks', '')
+                if isinstance(tasks_val, list):
+                    worker_data['tasks'] = tasks_val
+                elif isinstance(tasks_val, str) and tasks_val:
+                    worker_data['tasks'] = [t.strip() for t in tasks_val.split(',') if t.strip()]
+                else:
+                    worker_data['tasks'] = []
 
                 data.append(worker_data)
 
@@ -3226,6 +3234,12 @@ def update_prep_row():
                 # Update worker name and canonical_id
                 df.at[row_index, col] = value
                 df.at[row_index, 'canonical_id'] = get_canonical_worker_id(value)
+            elif col == 'tasks':
+                # Tasks stored as comma-separated string
+                if isinstance(value, list):
+                    df.at[row_index, 'tasks'] = ', '.join(value)
+                else:
+                    df.at[row_index, 'tasks'] = value
 
         # Recalculate shift_duration if times changed
         if 'start_time' in updates or 'end_time' in updates:
@@ -3286,6 +3300,13 @@ def add_prep_worker():
         # Add skill columns
         for skill in SKILL_COLUMNS:
             new_row[skill] = int(worker_data.get(skill, 0))
+
+        # Add tasks (stored as comma-separated string)
+        tasks = worker_data.get('tasks', [])
+        if isinstance(tasks, list):
+            new_row['tasks'] = ', '.join(tasks)
+        else:
+            new_row['tasks'] = tasks or ''
 
         # Calculate shift_duration
         start_dt = datetime.combine(datetime.today(), new_row['start_time'])
