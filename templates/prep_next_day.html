@@ -177,14 +177,6 @@
               {% endfor %}
             </select>
           </div>
-          <div class="form-group">
-            <label>Shift</label>
-            <select id="add-shift-today" style="min-width: 150px;">
-              {% for shift_name, shift_data in shift_times.items() %}
-              <option value="{{ shift_name }}" data-default="{{ shift_data.get('default', '07:00-15:00') }}">{{ shift_name }} ({{ shift_data.get('default', '') }})</option>
-              {% endfor %}
-            </select>
-          </div>
           <button class="btn btn-success" onclick="addWorker('today')">Add</button>
         </div>
       </div>
@@ -251,14 +243,6 @@
             <select id="add-modality-tomorrow">
               {% for mod in modalities %}
               <option value="{{ mod }}">{{ mod|upper }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Shift</label>
-            <select id="add-shift-tomorrow" style="min-width: 150px;">
-              {% for shift_name, shift_data in shift_times.items() %}
-              <option value="{{ shift_name }}" data-default="{{ shift_data.get('default', '07:00-15:00') }}">{{ shift_name }} ({{ shift_data.get('default', '') }})</option>
               {% endfor %}
             </select>
           </div>
@@ -358,17 +342,42 @@
       try {
         // Load today's LIVE data
         const todayResponse = await fetch('/api/live-schedule/data');
-        rawData.today = await todayResponse.json();
+        if (!todayResponse.ok) {
+          const text = await todayResponse.text();
+          console.error('Today API error:', text);
+          rawData.today = {};
+        } else {
+          const contentType = todayResponse.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            rawData.today = await todayResponse.json();
+          } else {
+            console.error('Today API returned non-JSON');
+            rawData.today = {};
+          }
+        }
         groupedData.today = groupByWorker(rawData.today);
 
         // Load tomorrow's STAGED data
         const tomorrowResponse = await fetch('/api/prep-next-day/data');
-        rawData.tomorrow = await tomorrowResponse.json();
+        if (!tomorrowResponse.ok) {
+          const text = await tomorrowResponse.text();
+          console.error('Tomorrow API error:', text);
+          rawData.tomorrow = {};
+        } else {
+          const contentType = tomorrowResponse.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            rawData.tomorrow = await tomorrowResponse.json();
+          } else {
+            console.error('Tomorrow API returned non-JSON');
+            rawData.tomorrow = {};
+          }
+        }
         groupedData.tomorrow = groupByWorker(rawData.tomorrow);
 
         renderTable('today');
         renderTable('tomorrow');
       } catch (error) {
+        console.error('Load error:', error);
         showMessage('error', `Error loading data: ${error.message}`);
       }
     }
@@ -490,12 +499,11 @@
       });
     }
 
-    // Task dropdown change - auto-select modality and shift
+    // Task dropdown change - auto-select modality (shift comes from task config)
     function onTaskChange(tab) {
       const taskSelect = document.getElementById(`add-task-${tab}`);
       const modalityGroup = document.getElementById(`modality-select-${tab}`);
       const modalitySelect = document.getElementById(`add-modality-${tab}`);
-      const shiftSelect = document.getElementById(`add-shift-${tab}`);
 
       const option = taskSelect.options[taskSelect.selectedIndex];
       if (!option || !option.value) {
@@ -505,7 +513,6 @@
 
       // Get modalities from data attribute
       const modalities = JSON.parse(option.dataset.modalities || '[]');
-      const shift = option.dataset.shift;
 
       // Show modality dropdown if multiple options
       if (modalities.length > 1) {
@@ -515,35 +522,38 @@
         modalityGroup.style.display = 'none';
         modalitySelect.innerHTML = `<option value="${modalities[0]}">${modalities[0].toUpperCase()}</option>`;
       }
-
-      // Auto-select shift
-      if (shift && SHIFT_TIMES[shift]) {
-        shiftSelect.value = shift;
-      }
     }
 
     // Add worker
     async function addWorker(tab) {
+      // Get worker name - handle both select and input
+      let workerName;
       const workerSelect = document.getElementById(`add-worker-${tab}`);
+      const workerInput = document.getElementById('add-worker-input');
+      if (workerSelect) {
+        workerName = workerSelect.value;
+      } else if (workerInput) {
+        workerName = workerInput.value;
+      }
+
       const taskSelect = document.getElementById(`add-task-${tab}`);
       const modalitySelect = document.getElementById(`add-modality-${tab}`);
-      const shiftSelect = document.getElementById(`add-shift-${tab}`);
 
-      const workerName = workerSelect.value;
       const taskName = taskSelect.value;
       const modality = modalitySelect.value;
-      const shiftOption = shiftSelect.options[shiftSelect.selectedIndex];
 
-      if (!workerName) { showMessage('error', 'Please select a worker'); return; }
+      if (!workerName) { showMessage('error', 'Please enter/select a worker'); return; }
       if (!taskName) { showMessage('error', 'Please select a task/role'); return; }
 
-      // Get times from shift
-      const shiftDefault = shiftOption.dataset.default || '07:00-15:00';
-      const [startTime, endTime] = shiftDefault.split('-');
-
-      // Get skills from task
+      // Get task config
       const taskOption = taskSelect.options[taskSelect.selectedIndex];
       const taskSkills = JSON.parse(taskOption.dataset.skills || '{}');
+      const shiftName = taskOption.dataset.shift || 'Fruehdienst';
+
+      // Get times from shift config
+      const shiftConfig = SHIFT_TIMES[shiftName] || {};
+      const shiftDefault = shiftConfig.default || '07:00-15:00';
+      const [startTime, endTime] = shiftDefault.split('-');
 
       const endpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
 
@@ -569,12 +579,15 @@
 
         if (response.ok) {
           showMessage('success', `${workerName} added as ${taskName}`);
-          workerSelect.value = '';
+          // Reset form
+          if (workerSelect) workerSelect.value = '';
+          if (workerInput) workerInput.value = '';
           taskSelect.value = '';
           document.getElementById(`modality-select-${tab}`).style.display = 'none';
           await loadData();
         } else {
-          showMessage('error', 'Failed to add worker');
+          const errData = await response.json().catch(() => ({}));
+          showMessage('error', errData.error || 'Failed to add worker');
         }
       } catch (error) {
         showMessage('error', error.message);
