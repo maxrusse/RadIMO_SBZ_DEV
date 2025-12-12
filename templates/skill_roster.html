@@ -131,6 +131,7 @@
     let skills = [];
     let modalities = [];
     let selectedWorker = null;
+    let isDirty = false;  // Track unsaved changes
     const validSkillsMap = {{ valid_skills_map|tojson }};
 
     function isValidCombination(modality, skill) {
@@ -138,11 +139,46 @@
       return validSkillsMap[modality].includes(skill);
     }
 
+    // Mark data as dirty (unsaved changes)
+    function markDirty() {
+      if (!isDirty) {
+        isDirty = true;
+        updateSaveButtonState();
+      }
+    }
+
+    // Mark data as clean (saved)
+    function markClean() {
+      isDirty = false;
+      updateSaveButtonState();
+    }
+
+    // Update save button to show unsaved state
+    function updateSaveButtonState() {
+      const saveBtn = document.querySelector('.btn-success');
+      if (saveBtn) {
+        saveBtn.textContent = isDirty ? 'Save *' : 'Save';
+        saveBtn.style.boxShadow = isDirty ? '0 0 0 2px #ffc107' : '';
+      }
+    }
+
+    // Warn before leaving with unsaved changes
+    window.addEventListener('beforeunload', function(e) {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    });
+
     document.addEventListener('DOMContentLoaded', loadRoster);
 
     async function loadRoster() {
       try {
         const response = await fetch('/api/admin/skill_roster');
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status}`);
+        }
         const data = await response.json();
         if (data.success) {
           rosterData = data.roster;
@@ -152,8 +188,9 @@
           if (selectedWorker && rosterData[selectedWorker]) {
             renderWorkerMatrix();
           }
+          markClean();
         } else {
-          showStatus('Load failed: ' + data.error, 'error');
+          showStatus('Load failed: ' + (data.error || 'Unknown error'), 'error');
         }
       } catch (error) {
         showStatus('Error: ' + error.message, 'error');
@@ -234,9 +271,14 @@
           applyValueColor(input, value);
 
           input.addEventListener('change', function() {
-            const val = parseInt(this.value) || 0;
+            // Clamp value to [-1, 1] range
+            let val = parseInt(this.value, 10);
+            if (isNaN(val)) val = 0;
+            val = Math.max(-1, Math.min(1, val));
+            this.value = val;
             updateSkill(mod, skill, val);
             applyValueColor(this, val);
+            markDirty();
           });
 
           cell.appendChild(input);
@@ -288,6 +330,7 @@
       input.value = '';
       renderWorkerList();
       selectWorker(workerId);
+      markDirty();
       showStatus('Worker added (save to keep)', 'success');
     }
 
@@ -300,6 +343,7 @@
       renderWorkerList();
       document.getElementById('noWorkerSelected').style.display = 'block';
       document.getElementById('workerDetailContent').style.display = 'none';
+      markDirty();
       showStatus('Worker deleted (save to keep)', 'success');
     }
 
@@ -310,11 +354,15 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ roster: rosterData })
         });
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status}`);
+        }
         const result = await response.json();
         if (result.success) {
+          markClean();
           showStatus('Saved!', 'success');
         } else {
-          showStatus('Save failed: ' + result.error, 'error');
+          showStatus('Save failed: ' + (result.error || 'Unknown error'), 'error');
         }
       } catch (error) {
         showStatus('Error: ' + error.message, 'error');
