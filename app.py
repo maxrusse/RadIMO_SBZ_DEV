@@ -3042,8 +3042,7 @@ def prep_next_day():
         modality_settings=MODALITY_SETTINGS,
         shift_times=APP_CONFIG.get('shift_times', {}),
         medweb_mapping=APP_CONFIG.get('medweb_mapping', {}),
-        worker_list=worker_list,
-        worker_skills=roster  # Full skill matrix for worker dropdowns
+        worker_list=worker_list
     )
 
 
