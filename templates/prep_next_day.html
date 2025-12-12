@@ -7,14 +7,13 @@
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f0f0; padding: 1rem; max-width: 1600px; margin: 0 auto; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f0f0; padding: 1rem; max-width: 1800px; margin: 0 auto; }
     .header { background: #004892; color: white; padding: 1rem 2rem; border-radius: 8px; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
     .header h1 { margin: 0; font-size: 1.5rem; }
     .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
     .header-actions a, .header-actions button { color: white; text-decoration: none; padding: 0.5rem 1rem; background: rgba(255,255,255,0.2); border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
     .header-actions a:hover, .header-actions button:hover { background: rgba(255,255,255,0.3); }
     .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 1rem; }
-    .info-box { background: #e7f3ff; border-left: 4px solid #004892; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; font-size: 0.9rem; }
 
     /* Tab Styles */
     .tab-container { display: flex; gap: 0; margin-bottom: 0; }
@@ -35,19 +34,40 @@
     .tomorrow-banner h2 { color: #856404; margin-bottom: 0.5rem; font-size: 1.2rem; }
     .tomorrow-banner p { color: #856404; margin: 0.25rem 0; font-size: 0.9rem; }
 
-    .table-container { max-height: 500px; overflow: auto; }
+    /* Table Styles */
+    .table-container { max-height: 600px; overflow: auto; }
     .edit-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-    .edit-table th, .edit-table td { padding: 0.4rem; text-align: left; border: 1px solid #ddd; }
+    .edit-table th, .edit-table td { padding: 0.5rem; text-align: left; border: 1px solid #ddd; vertical-align: top; }
     .edit-table th { background: #f8f9fa; font-weight: 600; position: sticky; top: 0; z-index: 10; white-space: nowrap; }
-    .edit-table td[contenteditable="true"] { background: #fffbf0; cursor: text; }
-    .edit-table td[contenteditable="true"]:hover { background: #fff4cc; }
-    .edit-table td[contenteditable="true"]:focus { outline: 2px solid #004892; background: white; }
     .edit-table tr:hover { background: #f8f9fa; }
-    .skill-cell { text-align: center; font-weight: 600; }
-    .skill-1 { background: #d4edda; color: #155724; }
-    .skill-0 { background: #fff3cd; color: #856404; }
-    .skill--1 { background: #f8d7da; color: #721c24; }
-    .btn { padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
+
+    /* Badges */
+    .badge { display: inline-block; padding: 0.2rem 0.4rem; margin: 0.1rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; }
+    .badge-ct { background: #17a2b8; color: white; }
+    .badge-mr { background: #6f42c1; color: white; }
+    .badge-xray { background: #fd7e14; color: white; }
+    .badge-mammo { background: #e83e8c; color: white; }
+    .badge-default { background: #6c757d; color: white; }
+
+    /* Shift display */
+    .shift-item { display: block; font-size: 0.75rem; padding: 0.15rem 0; border-bottom: 1px dotted #ddd; }
+    .shift-item:last-child { border-bottom: none; }
+    .shift-modality { font-weight: 600; color: #666; }
+
+    /* Skill cells */
+    .skill-cell { text-align: center; font-size: 0.7rem; }
+    .skill-values { display: flex; flex-direction: column; gap: 0.1rem; }
+    .skill-val { padding: 0.1rem 0.2rem; border-radius: 2px; }
+    .skill-val-1 { background: #d4edda; color: #155724; }
+    .skill-val-0 { background: #fff3cd; color: #856404; }
+    .skill-val--1 { background: #f8d7da; color: #721c24; }
+
+    /* Task badges */
+    .task-badge { display: inline-block; padding: 0.15rem 0.4rem; margin: 0.1rem; border-radius: 3px; font-size: 0.7rem; background: #e9ecef; color: #495057; }
+    .task-badge.exclusion { background: #f8d7da; color: #721c24; }
+
+    /* Buttons */
+    .btn { padding: 0.4rem 0.8rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
     .btn-primary { background: #004892; color: white; }
     .btn-primary:hover { background: #003670; }
     .btn-secondary { background: #6c757d; color: white; }
@@ -58,38 +78,36 @@
     .btn-warning:hover { background: #e0a800; }
     .btn-danger { background: #dc3545; color: white; }
     .btn-danger:hover { background: #c82333; }
-    .btn-small { padding: 0.2rem 0.4rem; font-size: 0.75rem; }
+    .btn-small { padding: 0.2rem 0.4rem; font-size: 0.7rem; }
+
+    /* Message */
     .message { padding: 1rem; border-radius: 4px; margin-bottom: 1rem; display: none; }
     .message.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; display: block; }
     .message.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; display: block; }
-    .filter-row { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
-    .filter-group { display: flex; gap: 0.25rem; align-items: center; }
-    .filter-group label { font-weight: 600; color: #666; font-size: 0.85rem; margin-right: 0.5rem; }
-    .filter-btn { padding: 0.3rem 0.6rem; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
-    .filter-btn:hover { border-color: #004892; }
-    .filter-btn.active { background: #004892; color: white; border-color: #004892; }
 
-    /* Add Worker Panel */
-    .add-worker-panel { background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 2px solid #28a745; }
-    .add-worker-panel.tomorrow { border-color: #ffc107; }
-    .add-worker-panel h4 { margin: 0 0 1rem 0; color: #28a745; }
-    .add-worker-panel.tomorrow h4 { color: #856404; }
-    .add-worker-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end; }
-    .add-worker-row .form-group { display: flex; flex-direction: column; }
-    .add-worker-row .form-group label { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem; }
-    .add-worker-row select, .add-worker-row input { padding: 0.4rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
-    .task-dropdown { position: relative; display: inline-block; }
-    .task-dropdown-content { display: none; position: absolute; background: white; min-width: 200px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 100; border-radius: 4px; padding: 0.5rem; max-height: 200px; overflow-y: auto; }
-    .task-dropdown-content.show { display: block; }
-    .task-dropdown-content label { display: block; padding: 0.3rem 0.5rem; cursor: pointer; font-size: 0.85rem; }
-    .task-dropdown-content label:hover { background: #f0f0f0; }
+    /* Add Panel */
+    .add-panel { background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 2px solid #28a745; }
+    .add-panel.tomorrow { border-color: #ffc107; }
+    .add-panel h4 { margin: 0 0 0.75rem 0; color: #28a745; font-size: 1rem; }
+    .add-panel.tomorrow h4 { color: #856404; }
+    .add-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; }
+    .add-row .form-group { display: flex; flex-direction: column; }
+    .add-row .form-group label { font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem; color: #666; }
+    .add-row select, .add-row input { padding: 0.4rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; }
 
-    /* Skill display in add panel */
-    .worker-skills-preview { margin-top: 0.5rem; font-size: 0.8rem; color: #666; }
-    .worker-skills-preview .skill-badge { display: inline-block; padding: 0.15rem 0.4rem; margin: 0.1rem; border-radius: 3px; font-size: 0.75rem; }
-    .worker-skills-preview .skill-badge.active { background: #d4edda; color: #155724; }
-    .worker-skills-preview .skill-badge.passive { background: #fff3cd; color: #856404; }
-    .worker-skills-preview .skill-badge.excluded { background: #f8d7da; color: #721c24; }
+    /* Modal */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: white; padding: 1.5rem; border-radius: 8px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
+    .modal h3 { margin: 0 0 1rem 0; }
+    .modal-actions { margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
+
+    /* Dropdown select */
+    .worker-select { padding: 0.3rem; border: 1px solid #ccc; border-radius: 3px; font-size: 0.8rem; max-width: 150px; }
+
+    /* Action buttons cell */
+    .action-cell { white-space: nowrap; }
+    .action-cell .btn { margin: 0.1rem; }
   </style>
 </head>
 <body>
@@ -119,8 +137,7 @@
   <div id="content-today" class="tab-content active">
     <div class="today-banner">
       <h2>LIVE CHANGES - Immediate Effect</h2>
-      <p>Changes here apply IMMEDIATELY to today's schedule.</p>
-      <p><strong>Counters are NOT reset</strong> - existing assignment counts preserved.</p>
+      <p>Changes here apply IMMEDIATELY to today's schedule. <strong>Counters are NOT reset.</strong></p>
     </div>
 
     <div class="card" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
@@ -130,13 +147,13 @@
     </div>
 
     <div class="card">
-      <!-- Add Worker Panel for Today -->
-      <div class="add-worker-panel">
-        <h4>+ Add Worker to Today</h4>
-        <div class="add-worker-row">
+      <!-- Add Worker Panel -->
+      <div class="add-panel">
+        <h4>+ Add Worker</h4>
+        <div class="add-row">
           <div class="form-group">
-            <label>Worker Name</label>
-            <select id="add-worker-today" onchange="onWorkerSelectChange('today')">
+            <label>Worker</label>
+            <select id="add-worker-today" style="min-width: 180px;">
               <option value="">-- Select Worker --</option>
               {% for worker in worker_list %}
               <option value="{{ worker }}">{{ worker }}</option>
@@ -145,14 +162,14 @@
           </div>
           <div class="form-group">
             <label>Task/Role</label>
-            <select id="add-task-today" onchange="onTaskRoleChange('today')">
+            <select id="add-task-today" onchange="onTaskChange('today')" style="min-width: 180px;">
               <option value="">-- Select Task --</option>
-              {% for task in task_roles %}
-              <option value="{{ task.name }}">{{ task.name }}</option>
+              {% for task in task_roles|default([]) %}
+              <option value="{{ task.name }}" data-modalities="{{ task.modalities|tojson }}" data-shift="{{ task.shift }}" data-skills="{{ task.base_skills|tojson }}">{{ task.name }}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="form-group" id="modality-group-today" style="display: none;">
+          <div class="form-group" id="modality-select-today" style="display: none;">
             <label>Modality</label>
             <select id="add-modality-today">
               {% for mod in modalities %}
@@ -161,99 +178,34 @@
             </select>
           </div>
           <div class="form-group">
-            <label>Shift Time</label>
-            <select id="add-shift-today" onchange="onShiftChange('today')">
+            <label>Shift</label>
+            <select id="add-shift-today" style="min-width: 150px;">
               {% for shift_name, shift_data in shift_times.items() %}
-              <option value="{{ shift_name }}" data-times="{{ shift_data|tojson }}">
-                {{ shift_name }} ({{ shift_data.get('default', '') }})
-              </option>
-              {% endfor %}
-              <option value="custom">Custom...</option>
-            </select>
-          </div>
-          <div class="form-group" id="custom-time-group-today" style="display: none;">
-            <label>Von - Bis</label>
-            <div style="display: flex; gap: 0.25rem;">
-              <input type="time" id="add-start-today" value="07:00" style="width: 100px;">
-              <input type="time" id="add-end-today" value="15:00" style="width: 100px;">
-            </div>
-          </div>
-          <button class="btn btn-success" onclick="addWorker('today')">Add to Today</button>
-        </div>
-        <div id="worker-skills-today" class="worker-skills-preview"></div>
-      </div>
-
-      <!-- Add Gap Panel for Today -->
-      <div class="add-worker-panel" style="border-color: #dc3545; margin-top: 1rem;">
-        <h4 style="color: #dc3545;">+ Add Gap (Remove Time)</h4>
-        <div class="add-worker-row">
-          <div class="form-group">
-            <label>Worker</label>
-            <select id="gap-worker-today">
-              <option value="">-- Select Worker --</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Gap Type</label>
-            <select id="gap-type-today" onchange="onGapTypeChange('today')">
-              <option value="custom">Custom Time</option>
-              {% for rule in exclusion_rules %}
-              <option value="{{ rule.match }}">{{ rule.match }}</option>
+              <option value="{{ shift_name }}" data-default="{{ shift_data.get('default', '07:00-15:00') }}">{{ shift_name }} ({{ shift_data.get('default', '') }})</option>
               {% endfor %}
             </select>
           </div>
-          <div class="form-group" id="gap-time-group-today">
-            <label>Gap Von - Bis</label>
-            <div style="display: flex; gap: 0.25rem;">
-              <input type="time" id="gap-start-today" value="12:00" style="width: 100px;">
-              <input type="time" id="gap-end-today" value="13:00" style="width: 100px;">
-            </div>
-          </div>
-          <button class="btn btn-danger" onclick="addGap('today')">Add Gap</button>
+          <button class="btn btn-success" onclick="addWorker('today')">Add</button>
         </div>
       </div>
 
-      <div class="filter-row">
-        <div class="filter-group">
-          <label>Modality:</label>
-          <button class="filter-btn active" onclick="setFilter('today', 'modality', 'all')">ALL</button>
-          {% for mod in modalities %}
-          <button class="filter-btn" onclick="setFilter('today', 'modality', '{{ mod }}')">{{ mod|upper }}</button>
-          {% endfor %}
-        </div>
-        <div class="filter-group">
-          <label>Skill:</label>
-          <button class="filter-btn active" onclick="setFilter('today', 'skill', 'all')">ALL</button>
-          {% for skill in skills %}
-          <button class="filter-btn" onclick="setFilter('today', 'skill', '{{ skill }}')">{{ skill }}</button>
-          {% endfor %}
-        </div>
-      </div>
-
+      <!-- Worker Table -->
       <div class="table-container">
         <table class="edit-table">
           <thead>
             <tr>
               <th>Worker</th>
-              <th>Modality</th>
-              <th>Von</th>
-              <th>Bis</th>
+              <th>Modalities</th>
+              <th>Shifts</th>
               {% for skill in skills %}
-              <th>{{ skill }}</th>
+              <th class="skill-cell">{{ skill }}</th>
               {% endfor %}
-              <th>Tasks</th>
+              <th>Tasks / Gaps</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="table-body-today"></tbody>
         </table>
-      </div>
-
-      <div style="margin-top: 1rem;">
-        <button class="btn btn-success" onclick="saveAllChanges('today')" style="font-size: 1rem; padding: 0.75rem 1.5rem;">
-          Apply Changes (No Counter Reset)
-        </button>
-        <span id="save-status-today" style="margin-left: 1rem; color: #666;"></span>
       </div>
     </div>
   </div>
@@ -262,8 +214,7 @@
   <div id="content-tomorrow" class="tab-content">
     <div class="tomorrow-banner">
       <h2>STAGING MODE - Prep for Tomorrow</h2>
-      <p>Changes are saved to STAGED area for tomorrow.</p>
-      <p><strong>Counter reset happens on CSV import</strong> - when you load a new day's schedule.</p>
+      <p>Changes are saved to STAGED area for tomorrow. <strong>Counter reset happens on CSV import.</strong></p>
     </div>
 
     <div class="card" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
@@ -273,10 +224,10 @@
     </div>
 
     <div class="card">
-      <!-- Add Worker Panel for Tomorrow -->
-      <div class="add-worker-panel tomorrow">
-        <h4>+ Add Worker to Tomorrow</h4>
-        <div class="add-worker-row">
+      <!-- Add Worker Panel -->
+      <div class="add-panel tomorrow">
+        <h4>+ Add Worker</h4>
+        <div class="add-row">
           <div class="form-group">
             <label>Worker Name</label>
             <input type="text" id="add-worker-input" placeholder="e.g. Dr. Müller" style="width: 200px;" list="worker-list-datalist" autocomplete="off">
@@ -288,14 +239,14 @@
           </div>
           <div class="form-group">
             <label>Task/Role</label>
-            <select id="add-task-tomorrow" onchange="onTaskRoleChange('tomorrow')">
+            <select id="add-task-tomorrow" onchange="onTaskChange('tomorrow')" style="min-width: 180px;">
               <option value="">-- Select Task --</option>
-              {% for task in task_roles %}
-              <option value="{{ task.name }}">{{ task.name }}</option>
+              {% for task in task_roles|default([]) %}
+              <option value="{{ task.name }}" data-modalities="{{ task.modalities|tojson }}" data-shift="{{ task.shift }}" data-skills="{{ task.base_skills|tojson }}">{{ task.name }}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="form-group" id="modality-group-tomorrow" style="display: none;">
+          <div class="form-group" id="modality-select-tomorrow" style="display: none;">
             <label>Modality</label>
             <select id="add-modality-tomorrow">
               {% for mod in modalities %}
@@ -304,99 +255,76 @@
             </select>
           </div>
           <div class="form-group">
-            <label>Shift Time</label>
-            <select id="add-shift-tomorrow" onchange="onShiftChange('tomorrow')">
+            <label>Shift</label>
+            <select id="add-shift-tomorrow" style="min-width: 150px;">
               {% for shift_name, shift_data in shift_times.items() %}
-              <option value="{{ shift_name }}" data-times="{{ shift_data|tojson }}">
-                {{ shift_name }} ({{ shift_data.get('default', '') }})
-              </option>
-              {% endfor %}
-              <option value="custom">Custom...</option>
-            </select>
-          </div>
-          <div class="form-group" id="custom-time-group-tomorrow" style="display: none;">
-            <label>Von - Bis</label>
-            <div style="display: flex; gap: 0.25rem;">
-              <input type="time" id="add-start-tomorrow" value="07:00" style="width: 100px;">
-              <input type="time" id="add-end-tomorrow" value="15:00" style="width: 100px;">
-            </div>
-          </div>
-          <button class="btn btn-warning" onclick="addWorker('tomorrow')">Add to Tomorrow</button>
-        </div>
-        <div id="worker-skills-tomorrow" class="worker-skills-preview"></div>
-      </div>
-
-      <!-- Add Gap Panel for Tomorrow -->
-      <div class="add-worker-panel tomorrow" style="border-color: #dc3545; margin-top: 1rem;">
-        <h4 style="color: #dc3545;">+ Add Gap (Remove Time)</h4>
-        <div class="add-worker-row">
-          <div class="form-group">
-            <label>Worker</label>
-            <select id="gap-worker-tomorrow">
-              <option value="">-- Select Worker --</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Gap Type</label>
-            <select id="gap-type-tomorrow" onchange="onGapTypeChange('tomorrow')">
-              <option value="custom">Custom Time</option>
-              {% for rule in exclusion_rules %}
-              <option value="{{ rule.match }}">{{ rule.match }}</option>
+              <option value="{{ shift_name }}" data-default="{{ shift_data.get('default', '07:00-15:00') }}">{{ shift_name }} ({{ shift_data.get('default', '') }})</option>
               {% endfor %}
             </select>
           </div>
-          <div class="form-group" id="gap-time-group-tomorrow">
-            <label>Gap Von - Bis</label>
-            <div style="display: flex; gap: 0.25rem;">
-              <input type="time" id="gap-start-tomorrow" value="12:00" style="width: 100px;">
-              <input type="time" id="gap-end-tomorrow" value="13:00" style="width: 100px;">
-            </div>
-          </div>
-          <button class="btn btn-danger" onclick="addGap('tomorrow')">Add Gap</button>
+          <button class="btn btn-warning" onclick="addWorker('tomorrow')">Add</button>
         </div>
       </div>
 
-      <div class="filter-row">
-        <div class="filter-group">
-          <label>Modality:</label>
-          <button class="filter-btn active" onclick="setFilter('tomorrow', 'modality', 'all')">ALL</button>
-          {% for mod in modalities %}
-          <button class="filter-btn" onclick="setFilter('tomorrow', 'modality', '{{ mod }}')">{{ mod|upper }}</button>
-          {% endfor %}
-        </div>
-        <div class="filter-group">
-          <label>Skill:</label>
-          <button class="filter-btn active" onclick="setFilter('tomorrow', 'skill', 'all')">ALL</button>
-          {% for skill in skills %}
-          <button class="filter-btn" onclick="setFilter('tomorrow', 'skill', '{{ skill }}')">{{ skill }}</button>
-          {% endfor %}
-        </div>
-      </div>
-
+      <!-- Worker Table -->
       <div class="table-container">
         <table class="edit-table">
           <thead>
             <tr>
               <th>Worker</th>
-              <th>Modality</th>
-              <th>Von</th>
-              <th>Bis</th>
+              <th>Modalities</th>
+              <th>Shifts</th>
               {% for skill in skills %}
-              <th>{{ skill }}</th>
+              <th class="skill-cell">{{ skill }}</th>
               {% endfor %}
-              <th>Tasks</th>
+              <th>Tasks / Gaps</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="table-body-tomorrow"></tbody>
         </table>
       </div>
+    </div>
+  </div>
 
-      <div style="margin-top: 1rem;">
-        <button class="btn btn-warning" onclick="saveAllChanges('tomorrow')" style="font-size: 1rem; padding: 0.75rem 1.5rem;">
-          Save Tomorrow's Schedule
-        </button>
-        <span id="save-status-tomorrow" style="margin-left: 1rem; color: #666;"></span>
+  <!-- Edit Modal -->
+  <div class="modal-overlay" id="edit-modal">
+    <div class="modal">
+      <h3 id="modal-title">Edit Worker</h3>
+      <div id="modal-content"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveModalChanges()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gap Modal -->
+  <div class="modal-overlay" id="gap-modal">
+    <div class="modal">
+      <h3>Add Gap / Exclusion</h3>
+      <div style="margin-bottom: 1rem;">
+        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Gap Type:</label>
+        <select id="gap-type-select" onchange="onGapTypeSelect()" style="width: 100%; padding: 0.5rem;">
+          <option value="custom">Custom Time</option>
+          {% for rule in exclusion_rules|default([]) %}
+          <option value="{{ rule.match }}" data-schedule="{{ rule.schedule|tojson if rule.schedule else '{}' }}">{{ rule.match }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="margin-bottom: 1rem;">
+        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Time:</label>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <input type="time" id="gap-start" value="12:00" style="padding: 0.5rem;">
+          <span>-</span>
+          <input type="time" id="gap-end" value="13:00" style="padding: 0.5rem;">
+        </div>
+      </div>
+      <input type="hidden" id="gap-worker-key">
+      <input type="hidden" id="gap-tab">
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeGapModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="saveGap()">Add Gap</button>
       </div>
     </div>
   </div>
@@ -406,28 +334,15 @@
     const SKILLS = {{ skills|default([])|tojson }};
     const MODALITIES = {{ modalities|default([])|tojson }};
     const SHIFT_TIMES = {{ shift_times|default({})|tojson }};
-    const WORKER_SKILLS = {{ worker_skills|default({})|tojson }};  // Full skill matrix from roster
-    const TASK_ROLES = {{ task_roles|default([])|tojson }};  // Roles like CT Assistent, MR Spätdienst, etc.
-    const EXCLUSION_RULES = {{ exclusion_rules|default([])|tojson }};  // Boards, meetings, etc.
+    const WORKER_SKILLS = {{ worker_skills|default({})|tojson }};
+    const TASK_ROLES = {{ task_roles|default([])|tojson }};
+    const EXCLUSION_RULES = {{ exclusion_rules|default([])|tojson }};
 
-    // State management
+    // State
     let currentTab = 'today';
-    let filters = {
-      today: { modality: 'all', skill: 'all' },
-      tomorrow: { modality: 'all', skill: 'all' }
-    };
-    let tableData = {
-      today: {},   // {modality: [rows]}
-      tomorrow: {}
-    };
-    let allData = {
-      today: [],
-      tomorrow: []
-    };
-    let pendingChanges = {
-      today: {},
-      tomorrow: {}
-    };
+    let rawData = { today: {}, tomorrow: {} };  // Raw modality data
+    let groupedData = { today: {}, tomorrow: {} };  // Grouped by worker
+    let currentEditWorker = null;
 
     // Tab switching
     function switchTab(tab) {
@@ -438,435 +353,168 @@
       document.getElementById('content-tomorrow').className = tab === 'tomorrow' ? 'tab-content active' : 'tab-content';
     }
 
-    // Load data for both tabs
+    // Load and group data
     async function loadData() {
       try {
         // Load today's LIVE data
         const todayResponse = await fetch('/api/live-schedule/data');
-        const todayData = await todayResponse.json();
-        tableData.today = todayData;
-        allData.today = combineModalityData(todayData);
+        rawData.today = await todayResponse.json();
+        groupedData.today = groupByWorker(rawData.today);
 
         // Load tomorrow's STAGED data
         const tomorrowResponse = await fetch('/api/prep-next-day/data');
-        const tomorrowData = await tomorrowResponse.json();
-        tableData.tomorrow = tomorrowData;
-        allData.tomorrow = combineModalityData(tomorrowData);
+        rawData.tomorrow = await tomorrowResponse.json();
+        groupedData.tomorrow = groupByWorker(rawData.tomorrow);
 
         renderTable('today');
         renderTable('tomorrow');
-
-        // Populate gap worker dropdowns with current workers
-        populateGapWorkerDropdowns();
       } catch (error) {
         showMessage('error', `Error loading data: ${error.message}`);
       }
     }
 
-    function combineModalityData(data) {
-      const combined = [];
+    // Group rows by worker (PPL) - one row per worker with all their shifts/modalities
+    function groupByWorker(data) {
+      const workers = {};
+
       MODALITIES.forEach(mod => {
         const modData = data[mod] || [];
         modData.forEach(row => {
-          combined.push({ ...row, _modality: mod });
+          const workerName = row.PPL;
+          if (!workers[workerName]) {
+            workers[workerName] = {
+              name: workerName,
+              entries: [],  // All shift entries
+              modalities: new Set(),
+              tasks: new Set()
+            };
+          }
+
+          workers[workerName].entries.push({
+            modality: mod,
+            row_index: row.row_index,
+            start_time: row.start_time,
+            end_time: row.end_time,
+            skills: SKILLS.reduce((acc, skill) => {
+              acc[skill] = row[skill] !== undefined ? row[skill] : 0;
+              return acc;
+            }, {}),
+            tasks: row.tasks || ''
+          });
+
+          workers[workerName].modalities.add(mod);
+
+          // Parse tasks
+          const taskStr = row.tasks || '';
+          if (taskStr) {
+            taskStr.split(',').map(t => t.trim()).filter(t => t).forEach(t => {
+              workers[workerName].tasks.add(t);
+            });
+          }
         });
       });
-      return combined;
+
+      return workers;
     }
 
-    // Set filter and update UI
-    function setFilter(tab, filterType, value) {
-      filters[tab][filterType] = value;
-
-      // Update button states
-      const container = document.getElementById(`content-${tab}`);
-      const groupIndex = filterType === 'modality' ? 0 : 1;
-      const buttons = container.querySelectorAll(`.filter-row .filter-group:nth-child(${groupIndex + 1}) .filter-btn`);
-      buttons.forEach(btn => {
-        const btnValue = btn.textContent.trim().toLowerCase() === 'all' ? 'all' :
-                        (filterType === 'modality' ? btn.textContent.trim().toLowerCase() : btn.textContent.trim());
-        btn.classList.toggle('active', btnValue === value);
-      });
-
-      renderTable(tab);
-    }
-
-    // Render table for specified tab
+    // Render grouped table
     function renderTable(tab) {
       const tbody = document.getElementById(`table-body-${tab}`);
       tbody.innerHTML = '';
 
-      let data = allData[tab];
+      const workers = groupedData[tab];
+      const workerNames = Object.keys(workers).sort();
 
-      // Apply filters
-      if (filters[tab].modality !== 'all') {
-        data = data.filter(row => row._modality === filters[tab].modality);
-      }
-      if (filters[tab].skill !== 'all') {
-        data = data.filter(row => row[filters[tab].skill] === 1 || row[filters[tab].skill] === '1');
-      }
-
-      if (data.length === 0) {
-        const colSpan = 5 + SKILLS.length + 1;
-        let emptyMsg = allData[tab].length > 0
-          ? `No workers match current filters`
-          : `No data. Load from CSV first.`;
-        tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; padding: 2rem; color: #666;">${emptyMsg}</td></tr>`;
+      if (workerNames.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${6 + SKILLS.length}" style="text-align: center; padding: 2rem; color: #666;">No data. Load from CSV first.</td></tr>`;
         return;
       }
 
-      data.forEach(row => {
+      workerNames.forEach(workerName => {
+        const worker = workers[workerName];
         const tr = document.createElement('tr');
-        tr.dataset.rowIndex = row.row_index;
-        tr.dataset.modality = row._modality;
-        tr.dataset.tab = tab;
 
-        // Worker name - dropdown from skill matrix
+        // Worker name (dropdown to change)
         tr.innerHTML += `
           <td>
-            <select class="worker-select" data-col="PPL" onchange="handleSelectChange(this, '${tab}')">
-              <option value="${row.PPL}">${row.PPL}</option>
-              ${Object.keys(WORKER_SKILLS).filter(w => w !== row.PPL).map(w =>
+            <select class="worker-select" data-worker="${workerName}" onchange="changeWorkerName('${tab}', '${workerName}', this.value)">
+              <option value="${workerName}" selected>${workerName}</option>
+              ${Object.keys(WORKER_SKILLS).filter(w => w !== workerName && !workers[w]).map(w =>
                 `<option value="${w}">${w}</option>`
               ).join('')}
             </select>
           </td>`;
 
-        // Modality (readonly display)
-        tr.innerHTML += `<td style="font-weight: bold; text-transform: uppercase;">${row._modality}</td>`;
+        // Modalities (badges)
+        const modBadges = Array.from(worker.modalities).map(mod => {
+          const badgeClass = `badge-${mod}` || 'badge-default';
+          return `<span class="badge ${badgeClass}">${mod.toUpperCase()}</span>`;
+        }).join('');
+        tr.innerHTML += `<td>${modBadges}</td>`;
 
-        // Times
-        tr.innerHTML += `<td contenteditable="true" data-col="start_time">${row.start_time}</td>`;
-        tr.innerHTML += `<td contenteditable="true" data-col="end_time">${row.end_time}</td>`;
+        // Shifts (grouped by modality)
+        const shiftsHtml = worker.entries.map(e => {
+          return `<span class="shift-item"><span class="shift-modality">${e.modality.toUpperCase()}:</span> ${e.start_time}-${e.end_time}</span>`;
+        }).join('');
+        tr.innerHTML += `<td>${shiftsHtml}</td>`;
 
-        // Skills from roster (based on worker + modality)
+        // Skills (show value per modality entry)
         SKILLS.forEach(skill => {
-          const value = row[skill] !== undefined ? row[skill] : 0;
-          const className = `skill-cell skill-${value}`;
-          tr.innerHTML += `<td contenteditable="true" data-col="${skill}" class="${className}">${value}</td>`;
+          const skillVals = worker.entries.map(e => {
+            const val = e.skills[skill];
+            const valClass = `skill-val-${val}`;
+            return `<span class="skill-val ${valClass}" title="${e.modality.toUpperCase()}">${val}</span>`;
+          }).join('');
+          tr.innerHTML += `<td class="skill-cell"><div class="skill-values">${skillVals}</div></td>`;
         });
 
-        // Tasks
-        const tasks = row.tasks || [];
-        const tasksStr = Array.isArray(tasks) ? tasks.join(', ') : (tasks || '');
-        tr.innerHTML += `<td contenteditable="true" data-col="tasks" style="font-size: 0.75rem; max-width: 150px;">${tasksStr}</td>`;
+        // Tasks (badges with edit button)
+        const taskBadges = Array.from(worker.tasks).map(t => {
+          const isExclusion = EXCLUSION_RULES.some(r => r.match === t);
+          return `<span class="task-badge ${isExclusion ? 'exclusion' : ''}">${t}</span>`;
+        }).join('') || '<span style="color: #999; font-size: 0.75rem;">No tasks</span>';
+        tr.innerHTML += `<td>${taskBadges} <button class="btn btn-small btn-secondary" onclick="editTasks('${tab}', '${workerName}')">Edit</button></td>`;
 
         // Actions
-        tr.innerHTML += `<td><button class="btn btn-danger btn-small" onclick="deleteWorker('${tab}', '${row._modality}', ${row.row_index})">Del</button></td>`;
+        tr.innerHTML += `
+          <td class="action-cell">
+            <button class="btn btn-small btn-warning" onclick="openGapModal('${tab}', '${workerName}')" title="Add Gap">+Gap</button>
+            <button class="btn btn-small btn-danger" onclick="deleteWorker('${tab}', '${workerName}')" title="Delete">Del</button>
+          </td>`;
 
         tbody.appendChild(tr);
       });
-
-      // Add blur event listeners for contenteditable cells
-      tbody.querySelectorAll('td[contenteditable="true"]').forEach(cell => {
-        cell.addEventListener('blur', (e) => handleCellEdit(e, tab));
-      });
     }
 
-    // Handle Task/Role dropdown change - auto-set modality and shift
-    function onTaskRoleChange(tab) {
+    // Task dropdown change - auto-select modality and shift
+    function onTaskChange(tab) {
       const taskSelect = document.getElementById(`add-task-${tab}`);
-      const modalityGroup = document.getElementById(`modality-group-${tab}`);
+      const modalityGroup = document.getElementById(`modality-select-${tab}`);
       const modalitySelect = document.getElementById(`add-modality-${tab}`);
       const shiftSelect = document.getElementById(`add-shift-${tab}`);
-      const previewDiv = document.getElementById(`worker-skills-${tab}`);
 
-      const taskName = taskSelect.value;
-      if (!taskName) {
+      const option = taskSelect.options[taskSelect.selectedIndex];
+      if (!option || !option.value) {
         modalityGroup.style.display = 'none';
-        previewDiv.innerHTML = '';
         return;
       }
 
-      // Find the task in TASK_ROLES
-      const task = TASK_ROLES.find(t => t.name === taskName);
-      if (!task) return;
+      // Get modalities from data attribute
+      const modalities = JSON.parse(option.dataset.modalities || '[]');
+      const shift = option.dataset.shift;
 
-      // Handle modality: show dropdown only if multiple modalities
-      if (task.modalities && task.modalities.length > 1) {
-        // Multiple modalities - show dropdown with only valid options
+      // Show modality dropdown if multiple options
+      if (modalities.length > 1) {
         modalityGroup.style.display = 'block';
-        modalitySelect.innerHTML = task.modalities.map(m =>
-          `<option value="${m}">${m.toUpperCase()}</option>`
-        ).join('');
-      } else if (task.modalities && task.modalities.length === 1) {
-        // Single modality - auto-select and hide dropdown
+        modalitySelect.innerHTML = modalities.map(m => `<option value="${m}">${m.toUpperCase()}</option>`).join('');
+      } else if (modalities.length === 1) {
         modalityGroup.style.display = 'none';
-        modalitySelect.innerHTML = `<option value="${task.modalities[0]}" selected>${task.modalities[0].toUpperCase()}</option>`;
+        modalitySelect.innerHTML = `<option value="${modalities[0]}">${modalities[0].toUpperCase()}</option>`;
       }
 
-      // Auto-select shift from task config
-      if (task.shift && SHIFT_TIMES[task.shift]) {
-        shiftSelect.value = task.shift;
-        onShiftChange(tab);  // Trigger time update
-      }
-
-      // Show task's base_skills as preview
-      if (task.base_skills) {
-        let html = `<strong>Task Skills (${taskName}):</strong> `;
-        SKILLS.forEach(skill => {
-          const value = task.base_skills[skill] !== undefined ? task.base_skills[skill] : 0;
-          let badgeClass = 'passive';
-          if (value === 1) badgeClass = 'active';
-          else if (value === -1) badgeClass = 'excluded';
-          html += `<span class="skill-badge ${badgeClass}">${skill}: ${value}</span>`;
-        });
-        previewDiv.innerHTML = html;
-      }
-    }
-
-    // Handle worker dropdown change - update skills preview
-    function onWorkerSelectChange(tab) {
-      const workerSelect = document.getElementById(`add-worker-${tab}`);
-      const taskSelect = document.getElementById(`add-task-${tab}`);
-      const previewDiv = document.getElementById(`worker-skills-${tab}`);
-
-      const worker = workerSelect.value;
-      const taskName = taskSelect.value;
-
-      if (!worker) {
-        // If task is selected, keep showing task skills
-        if (taskName) {
-          onTaskRoleChange(tab);
-        } else {
-          previewDiv.innerHTML = '';
-        }
-        return;
-      }
-
-      // If task is selected, get modality from task
-      if (taskName) {
-        const task = TASK_ROLES.find(t => t.name === taskName);
-        if (task && task.base_skills) {
-          // Show combined view: task skills + worker info
-          let html = `<strong>Worker: ${worker} | Task: ${taskName}</strong><br>`;
-          html += '<span style="font-size: 0.75rem; color: #666;">Skills from task config:</span> ';
-          SKILLS.forEach(skill => {
-            const value = task.base_skills[skill] !== undefined ? task.base_skills[skill] : 0;
-            let badgeClass = 'passive';
-            if (value === 1) badgeClass = 'active';
-            else if (value === -1) badgeClass = 'excluded';
-            html += `<span class="skill-badge ${badgeClass}">${skill}: ${value}</span>`;
-          });
-          previewDiv.innerHTML = html;
-          return;
-        }
-      }
-
-      // Fallback: no task selected, show worker skills if available
-      if (WORKER_SKILLS[worker]) {
-        const workerData = WORKER_SKILLS[worker];
-        const defaultSkills = workerData['default'] || {};
-        let html = `<strong>Worker: ${worker}</strong><br>`;
-        SKILLS.forEach(skill => {
-          const value = defaultSkills[skill] !== undefined ? defaultSkills[skill] : 0;
-          let badgeClass = 'passive';
-          if (value === 1) badgeClass = 'active';
-          else if (value === -1) badgeClass = 'excluded';
-          html += `<span class="skill-badge ${badgeClass}">${skill}: ${value}</span>`;
-        });
-        previewDiv.innerHTML = html;
-      }
-    }
-
-    // Handle Gap Type change - show/hide custom time inputs
-    function onGapTypeChange(tab) {
-      const gapTypeSelect = document.getElementById(`gap-type-${tab}`);
-      const gapTimeGroup = document.getElementById(`gap-time-group-${tab}`);
-      const gapStartInput = document.getElementById(`gap-start-${tab}`);
-      const gapEndInput = document.getElementById(`gap-end-${tab}`);
-
-      const gapType = gapTypeSelect.value;
-
-      if (gapType === 'custom') {
-        gapTimeGroup.style.display = 'block';
-      } else {
-        // Find exclusion rule and get predefined time if available
-        const rule = EXCLUSION_RULES.find(r => r.match === gapType);
-        if (rule && rule.schedule) {
-          // Get today's day name in German
-          const days = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-          const today = days[new Date().getDay()];
-          const timeRange = rule.schedule[today];
-          if (timeRange) {
-            const [start, end] = timeRange.split('-');
-            gapStartInput.value = start;
-            gapEndInput.value = end;
-          }
-        }
-        gapTimeGroup.style.display = 'block';  // Always show for confirmation
-      }
-    }
-
-    // Add gap (time exclusion) to worker
-    async function addGap(tab) {
-      const gapWorkerSelect = document.getElementById(`gap-worker-${tab}`);
-      const gapTypeSelect = document.getElementById(`gap-type-${tab}`);
-      const gapStartInput = document.getElementById(`gap-start-${tab}`);
-      const gapEndInput = document.getElementById(`gap-end-${tab}`);
-
-      const workerInfo = gapWorkerSelect.value;
-      const gapType = gapTypeSelect.value;
-      const gapStart = gapStartInput.value;
-      const gapEnd = gapEndInput.value;
-
-      if (!workerInfo) {
-        showMessage('error', 'Please select a worker');
-        return;
-      }
-      if (!gapStart || !gapEnd) {
-        showMessage('error', 'Please specify gap times');
-        return;
-      }
-
-      // Parse worker info (format: "modality|rowIndex|workerName")
-      const [modality, rowIndex, workerName] = workerInfo.split('|');
-
-      const endpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
-
-      try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            modality,
-            row_index: parseInt(rowIndex),
-            gap_type: gapType,
-            gap_start: gapStart,
-            gap_end: gapEnd
-          })
-        });
-
-        if (response.ok) {
-          showMessage('success', `Gap added to ${workerName} (${gapStart}-${gapEnd})`);
-          await loadData();
-        } else {
-          const result = await response.json();
-          showMessage('error', result.error || 'Failed to add gap');
-        }
-      } catch (error) {
-        showMessage('error', error.message);
-      }
-    }
-
-    // Populate gap worker dropdowns from current data
-    function populateGapWorkerDropdowns() {
-      ['today', 'tomorrow'].forEach(tab => {
-        const gapWorkerSelect = document.getElementById(`gap-worker-${tab}`);
-        gapWorkerSelect.innerHTML = '<option value="">-- Select Worker --</option>';
-
-        allData[tab].forEach(row => {
-          const value = `${row._modality}|${row.row_index}|${row.PPL}`;
-          const label = `${row.PPL} (${row._modality.toUpperCase()}) ${row.start_time}-${row.end_time}`;
-          gapWorkerSelect.innerHTML += `<option value="${value}">${label}</option>`;
-        });
-      });
-    }
-
-    // Handle select change in table row
-    function handleSelectChange(selectEl, tab) {
-      const row = selectEl.closest('tr');
-      const rowIndex = parseInt(row.dataset.rowIndex);
-      const modality = row.dataset.modality;
-      const col = selectEl.dataset.col;
-      const newValue = selectEl.value;
-
-      if (!pendingChanges[tab][modality]) pendingChanges[tab][modality] = {};
-      if (!pendingChanges[tab][modality][rowIndex]) pendingChanges[tab][modality][rowIndex] = {};
-      pendingChanges[tab][modality][rowIndex][col] = newValue;
-
-      // If worker changed, update skills from roster
-      if (col === 'PPL' && WORKER_SKILLS[newValue]) {
-        const workerData = WORKER_SKILLS[newValue];
-        const modalitySkills = workerData[modality] || workerData['default'] || {};
-
-        SKILLS.forEach(skill => {
-          const value = modalitySkills[skill] !== undefined ? modalitySkills[skill] : 0;
-          pendingChanges[tab][modality][rowIndex][skill] = value;
-        });
-      }
-
-      selectEl.style.background = '#d4edda';
-      setTimeout(() => { selectEl.style.background = ''; }, 500);
-    }
-
-    // Handle cell edit
-    function handleCellEdit(event, tab) {
-      const cell = event.target;
-      const row = cell.parentElement;
-      const rowIndex = parseInt(row.dataset.rowIndex);
-      const modality = row.dataset.modality;
-      const col = cell.dataset.col;
-      const newValue = cell.textContent.trim();
-
-      if (!pendingChanges[tab][modality]) pendingChanges[tab][modality] = {};
-      if (!pendingChanges[tab][modality][rowIndex]) pendingChanges[tab][modality][rowIndex] = {};
-      pendingChanges[tab][modality][rowIndex][col] = newValue;
-
-      // Update local data
-      const dataRow = tableData[tab][modality]?.find(r => r.row_index === rowIndex);
-      if (dataRow) dataRow[col] = newValue;
-
-      cell.style.background = '#d4edda';
-      setTimeout(() => { cell.style.background = ''; }, 500);
-    }
-
-    // Save all changes
-    async function saveAllChanges(tab) {
-      const saveStatus = document.getElementById(`save-status-${tab}`);
-      saveStatus.textContent = 'Saving...';
-      let successCount = 0, errorCount = 0;
-
-      const endpoint = tab === 'today' ? '/api/live-schedule/update-row' : '/api/prep-next-day/update-row';
-
-      for (const modality in pendingChanges[tab]) {
-        for (const rowIndex in pendingChanges[tab][modality]) {
-          try {
-            const response = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                modality,
-                row_index: parseInt(rowIndex),
-                updates: pendingChanges[tab][modality][rowIndex]
-              })
-            });
-            response.ok ? successCount++ : errorCount++;
-          } catch { errorCount++; }
-        }
-      }
-
-      pendingChanges[tab] = {};
-      const msgType = errorCount === 0 ? 'success' : 'error';
-      const msg = errorCount === 0 ? `${successCount} changes saved` : `${successCount} saved, ${errorCount} errors`;
-      saveStatus.textContent = msg;
-      saveStatus.style.color = errorCount === 0 ? '#28a745' : '#dc3545';
-      showMessage(msgType, msg + (tab === 'today' ? ' - Applied immediately!' : ' - Saved for tomorrow'));
-
-      await loadData();
-      setTimeout(() => { saveStatus.textContent = ''; }, 3000);
-    }
-
-    // Delete worker
-    async function deleteWorker(tab, modality, rowIndex) {
-      if (!confirm('Delete this worker?')) return;
-
-      const endpoint = tab === 'today' ? '/api/live-schedule/delete-worker' : '/api/prep-next-day/delete-worker';
-
-      try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ modality, row_index: rowIndex })
-        });
-        if (response.ok) {
-          showMessage('success', 'Worker deleted');
-          await loadData();
-        } else {
-          showMessage('error', 'Failed to delete');
-        }
-      } catch (error) {
-        showMessage('error', error.message);
+      // Auto-select shift
+      if (shift && SHIFT_TIMES[shift]) {
+        shiftSelect.value = shift;
       }
     }
 
@@ -876,48 +524,22 @@
       const taskSelect = document.getElementById(`add-task-${tab}`);
       const modalitySelect = document.getElementById(`add-modality-${tab}`);
       const shiftSelect = document.getElementById(`add-shift-${tab}`);
-      const startInput = document.getElementById(`add-start-${tab}`);
-      const endInput = document.getElementById(`add-end-${tab}`);
 
       const workerName = workerSelect.value;
       const taskName = taskSelect.value;
       const modality = modalitySelect.value;
+      const shiftOption = shiftSelect.options[shiftSelect.selectedIndex];
 
-      if (!workerName) {
-        showMessage('error', 'Please select a worker');
-        return;
-      }
-      if (!taskName) {
-        showMessage('error', 'Please select a task/role');
-        return;
-      }
+      if (!workerName) { showMessage('error', 'Please select a worker'); return; }
+      if (!taskName) { showMessage('error', 'Please select a task/role'); return; }
 
-      // Get the task config
-      const task = TASK_ROLES.find(t => t.name === taskName);
-      if (!task) {
-        showMessage('error', 'Invalid task selected');
-        return;
-      }
+      // Get times from shift
+      const shiftDefault = shiftOption.dataset.default || '07:00-15:00';
+      const [startTime, endTime] = shiftDefault.split('-');
 
-      // Get times from shift selection
-      let startTime, endTime;
-      if (shiftSelect.value === 'custom') {
-        startTime = startInput.value || '07:00';
-        endTime = endInput.value || '15:00';
-      } else {
-        const shiftConfig = SHIFT_TIMES[shiftSelect.value];
-        if (shiftConfig) {
-          const [start, end] = (shiftConfig.default || '07:00-15:00').split('-');
-          startTime = start;
-          endTime = end;
-        }
-      }
-
-      // Get skills from task's base_skills (not from worker roster)
-      let workerSkills = {};
-      SKILLS.forEach(skill => {
-        workerSkills[skill] = task.base_skills && task.base_skills[skill] !== undefined ? task.base_skills[skill] : 0;
-      });
+      // Get skills from task
+      const taskOption = taskSelect.options[taskSelect.selectedIndex];
+      const taskSkills = JSON.parse(taskOption.dataset.skills || '{}');
 
       const endpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
 
@@ -932,20 +554,20 @@
               start_time: startTime,
               end_time: endTime,
               Modifier: 1.0,
-              tasks: [taskName],  // Task/role name from config
-              ...workerSkills
+              tasks: taskName,
+              ...SKILLS.reduce((acc, skill) => {
+                acc[skill] = taskSkills[skill] !== undefined ? taskSkills[skill] : 0;
+                return acc;
+              }, {})
             }
           })
         });
 
         if (response.ok) {
-          showMessage('success', `${workerName} added as ${taskName} (${modality.toUpperCase()})`);
-          // Reset form
+          showMessage('success', `${workerName} added as ${taskName}`);
           workerSelect.value = '';
           taskSelect.value = '';
-          document.getElementById(`worker-skills-${tab}`).innerHTML = '';
-          document.getElementById(`custom-time-group-${tab}`).style.display = 'none';
-          document.getElementById(`modality-group-${tab}`).style.display = 'none';
+          document.getElementById(`modality-select-${tab}`).style.display = 'none';
           await loadData();
         } else {
           showMessage('error', 'Failed to add worker');
@@ -955,24 +577,226 @@
       }
     }
 
-    // Shift change handler
-    function onShiftChange(tab) {
-      const shiftSelect = document.getElementById(`add-shift-${tab}`);
-      const customGroup = document.getElementById(`custom-time-group-${tab}`);
-      const startInput = document.getElementById(`add-start-${tab}`);
-      const endInput = document.getElementById(`add-end-${tab}`);
+    // Change worker name (rename all entries)
+    async function changeWorkerName(tab, oldName, newName) {
+      if (oldName === newName) return;
 
-      if (shiftSelect.value === 'custom') {
-        customGroup.style.display = 'block';
-      } else {
-        customGroup.style.display = 'none';
-        const shiftConfig = SHIFT_TIMES[shiftSelect.value];
-        if (shiftConfig) {
-          const [start, end] = (shiftConfig.default || '').split('-');
-          if (start) startInput.value = start;
-          if (end) endInput.value = end;
+      const worker = groupedData[tab][oldName];
+      if (!worker) return;
+
+      const endpoint = tab === 'today' ? '/api/live-schedule/update-row' : '/api/prep-next-day/update-row';
+
+      try {
+        // Update all entries for this worker
+        for (const entry of worker.entries) {
+          await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              modality: entry.modality,
+              row_index: entry.row_index,
+              updates: { PPL: newName }
+            })
+          });
+        }
+        showMessage('success', `Renamed ${oldName} to ${newName}`);
+        await loadData();
+      } catch (error) {
+        showMessage('error', error.message);
+        await loadData();  // Reload to reset dropdown
+      }
+    }
+
+    // Delete worker (all entries)
+    async function deleteWorker(tab, workerName) {
+      if (!confirm(`Delete all entries for ${workerName}?`)) return;
+
+      const worker = groupedData[tab][workerName];
+      if (!worker) return;
+
+      const endpoint = tab === 'today' ? '/api/live-schedule/delete-worker' : '/api/prep-next-day/delete-worker';
+
+      try {
+        // Delete entries in reverse order (highest index first) to avoid index shifting issues
+        const entries = [...worker.entries].sort((a, b) => b.row_index - a.row_index);
+        for (const entry of entries) {
+          await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ modality: entry.modality, row_index: entry.row_index })
+          });
+        }
+        showMessage('success', `Deleted ${workerName}`);
+        await loadData();
+      } catch (error) {
+        showMessage('error', error.message);
+      }
+    }
+
+    // Edit tasks modal
+    function editTasks(tab, workerName) {
+      currentEditWorker = { tab, workerName };
+      const worker = groupedData[tab][workerName];
+
+      let html = '<div style="margin-bottom: 1rem;">';
+      html += '<label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Current Tasks:</label>';
+      html += '<div id="current-tasks">';
+      worker.tasks.forEach(task => {
+        html += `<span class="task-badge" style="margin: 0.2rem;">${task} <span style="cursor: pointer; color: #dc3545;" onclick="removeTask('${task}')">&times;</span></span>`;
+      });
+      if (worker.tasks.size === 0) {
+        html += '<span style="color: #999;">No tasks</span>';
+      }
+      html += '</div></div>';
+
+      html += '<div style="margin-bottom: 1rem;">';
+      html += '<label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Add Task:</label>';
+      html += '<select id="add-task-modal" style="width: 100%; padding: 0.5rem;">';
+      html += '<option value="">-- Select Task --</option>';
+      TASK_ROLES.forEach(task => {
+        if (!worker.tasks.has(task.name)) {
+          html += `<option value="${task.name}">${task.name}</option>`;
+        }
+      });
+      html += '</select>';
+      html += '</div>';
+
+      document.getElementById('modal-title').textContent = `Edit Tasks - ${workerName}`;
+      document.getElementById('modal-content').innerHTML = html;
+      document.getElementById('edit-modal').classList.add('show');
+    }
+
+    function removeTask(taskName) {
+      const tasksDiv = document.getElementById('current-tasks');
+      const badges = tasksDiv.querySelectorAll('.task-badge');
+      badges.forEach(badge => {
+        if (badge.textContent.includes(taskName)) {
+          badge.remove();
+        }
+      });
+      if (tasksDiv.children.length === 0) {
+        tasksDiv.innerHTML = '<span style="color: #999;">No tasks</span>';
+      }
+    }
+
+    async function saveModalChanges() {
+      if (!currentEditWorker) return;
+
+      const { tab, workerName } = currentEditWorker;
+      const worker = groupedData[tab][workerName];
+
+      // Get current tasks from modal
+      const tasksDiv = document.getElementById('current-tasks');
+      const badges = tasksDiv.querySelectorAll('.task-badge');
+      const tasks = Array.from(badges).map(b => b.textContent.replace('×', '').trim());
+
+      // Add newly selected task
+      const addTaskSelect = document.getElementById('add-task-modal');
+      if (addTaskSelect && addTaskSelect.value) {
+        tasks.push(addTaskSelect.value);
+      }
+
+      const endpoint = tab === 'today' ? '/api/live-schedule/update-row' : '/api/prep-next-day/update-row';
+
+      try {
+        // Update first entry with tasks (tasks are shared across all entries)
+        if (worker.entries.length > 0) {
+          const entry = worker.entries[0];
+          await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              modality: entry.modality,
+              row_index: entry.row_index,
+              updates: { tasks: tasks.join(', ') }
+            })
+          });
+        }
+        closeModal();
+        showMessage('success', 'Tasks updated');
+        await loadData();
+      } catch (error) {
+        showMessage('error', error.message);
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('edit-modal').classList.remove('show');
+      currentEditWorker = null;
+    }
+
+    // Gap modal
+    function openGapModal(tab, workerName) {
+      document.getElementById('gap-worker-key').value = workerName;
+      document.getElementById('gap-tab').value = tab;
+      document.getElementById('gap-type-select').value = 'custom';
+      document.getElementById('gap-start').value = '12:00';
+      document.getElementById('gap-end').value = '13:00';
+      document.getElementById('gap-modal').classList.add('show');
+    }
+
+    function onGapTypeSelect() {
+      const select = document.getElementById('gap-type-select');
+      const option = select.options[select.selectedIndex];
+
+      if (option.value !== 'custom' && option.dataset.schedule) {
+        const schedule = JSON.parse(option.dataset.schedule);
+        const days = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+        const today = days[new Date().getDay()];
+
+        if (schedule[today]) {
+          const [start, end] = schedule[today].split('-');
+          document.getElementById('gap-start').value = start;
+          document.getElementById('gap-end').value = end;
         }
       }
+    }
+
+    async function saveGap() {
+      const workerName = document.getElementById('gap-worker-key').value;
+      const tab = document.getElementById('gap-tab').value;
+      const gapType = document.getElementById('gap-type-select').value;
+      const gapStart = document.getElementById('gap-start').value;
+      const gapEnd = document.getElementById('gap-end').value;
+
+      const worker = groupedData[tab][workerName];
+      if (!worker || worker.entries.length === 0) {
+        showMessage('error', 'Worker not found');
+        return;
+      }
+
+      // Apply gap to first entry (or could be all entries)
+      const entry = worker.entries[0];
+      const endpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modality: entry.modality,
+            row_index: entry.row_index,
+            gap_type: gapType,
+            gap_start: gapStart,
+            gap_end: gapEnd
+          })
+        });
+
+        if (response.ok) {
+          closeGapModal();
+          showMessage('success', `Gap added to ${workerName}`);
+          await loadData();
+        } else {
+          const result = await response.json();
+          showMessage('error', result.error || 'Failed to add gap');
+        }
+      } catch (error) {
+        showMessage('error', error.message);
+      }
+    }
+
+    function closeGapModal() {
+      document.getElementById('gap-modal').classList.remove('show');
     }
 
     // Load from CSV
