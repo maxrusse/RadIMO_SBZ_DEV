@@ -4134,15 +4134,39 @@ def skill_roster_page():
 
 @app.route('/timetable')
 def timetable():
-    modality = resolve_modality_from_request()
-    d = modality_data[modality]
-    if d['working_hours_df'] is not None:
-        df_for_json = d['working_hours_df'].copy()
-        df_for_json['start_time'] = df_for_json['start_time'].apply(lambda t: t.strftime('%H:%M:%S') if pd.notnull(t) else "")
-        df_for_json['end_time'] = df_for_json['end_time'].apply(lambda t: t.strftime('%H:%M:%S') if pd.notnull(t) else "")
-        debug_data = df_for_json.to_json(orient='records')
+    # Check if "all" modality requested
+    requested_modality = request.args.get('modality', '').lower()
+
+    if requested_modality == 'all':
+        # Combine data from ALL modalities
+        all_data = []
+        for mod in allowed_modalities:
+            d = modality_data[mod]
+            if d['working_hours_df'] is not None and not d['working_hours_df'].empty:
+                df_copy = d['working_hours_df'].copy()
+                df_copy['_modality'] = mod  # Add modality column
+                df_copy['start_time'] = df_copy['start_time'].apply(lambda t: t.strftime('%H:%M:%S') if pd.notnull(t) else "")
+                df_copy['end_time'] = df_copy['end_time'].apply(lambda t: t.strftime('%H:%M:%S') if pd.notnull(t) else "")
+                all_data.append(df_copy)
+
+        if all_data:
+            combined_df = pd.concat(all_data, ignore_index=True)
+            debug_data = combined_df.to_json(orient='records')
+        else:
+            debug_data = "[]"
+        modality = 'all'
     else:
-        debug_data = "[]"
+        # Single modality view
+        modality = resolve_modality_from_request()
+        d = modality_data[modality]
+        if d['working_hours_df'] is not None:
+            df_for_json = d['working_hours_df'].copy()
+            df_for_json['_modality'] = modality  # Add modality column for consistency
+            df_for_json['start_time'] = df_for_json['start_time'].apply(lambda t: t.strftime('%H:%M:%S') if pd.notnull(t) else "")
+            df_for_json['end_time'] = df_for_json['end_time'].apply(lambda t: t.strftime('%H:%M:%S') if pd.notnull(t) else "")
+            debug_data = df_for_json.to_json(orient='records')
+        else:
+            debug_data = "[]"
 
     # Build skill definitions for legend (list of {label, button_color})
     skill_definitions = [
@@ -4156,6 +4180,11 @@ def timetable():
         for skill in SKILL_COLUMNS
     }
 
+    # Build modality color map for legend
+    modality_color_map = {
+        k: v.get('nav_color', '#666666') for k, v in MODALITY_SETTINGS.items()
+    }
+
     return render_template(
         'timetable.html',
         debug_data=debug_data,
@@ -4167,7 +4196,8 @@ def timetable():
         skill_definitions=skill_definitions,
         modalities=MODALITY_SETTINGS,
         modality_order=list(MODALITY_SETTINGS.keys()),
-        modality_labels={k: v.get('label', k.upper()) for k, v in MODALITY_SETTINGS.items()}
+        modality_labels={k: v.get('label', k.upper()) for k, v in MODALITY_SETTINGS.items()},
+        modality_color_map=modality_color_map
     )
 
 
