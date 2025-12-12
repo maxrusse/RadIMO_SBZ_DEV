@@ -1,107 +1,107 @@
 {
-  "Dr. Müller": {
+  "Dr. Müller (CT1)": {
     "ct": {"Notfall": 1, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Schmidt": {
+  "Dr. Schmidt (CT2)": {
     "ct": {"Notfall": 1, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Weber": {
+  "Dr. Weber (CT3)": {
     "ct": {"Notfall": 0, "Privat": 1, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Schneider": {
+  "Dr. Schneider (MR1)": {
     "ct": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 1, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Fischer": {
+  "Dr. Fischer (MR2)": {
     "ct": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Meyer": {
+  "Dr. Meyer (MR3)": {
     "ct": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 1, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Wagner": {
+  "Dr. Wagner (MR4)": {
     "ct": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 0, "Privat": 1, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Becker": {
+  "Dr. Becker (XR1)": {
     "ct": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 1, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Hoffmann": {
+  "Dr. Hoffmann (XR2)": {
     "ct": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 1, "Privat": 1, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Schulz": {
+  "Dr. Schulz (MA1)": {
     "ct": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 1, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Koch": {
+  "Dr. Koch (MA2)": {
     "ct": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 1, "Gyn": 1, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Richter": {
+  "Dr. Richter (GYN1)": {
     "ct": {"Notfall": 0, "Privat": 0, "Gyn": 1, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 0, "Privat": 0, "Gyn": 1, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Wolf": {
+  "Dr. Wolf (MSK1)": {
     "ct": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 1, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 1, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 1, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Schröder": {
+  "Dr. Schröder (ABD1)": {
     "ct": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 1, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 1, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Neumann": {
+  "Dr. Neumann (CHE1)": {
     "ct": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 1, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 1, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Schwarz": {
+  "Dr. Schwarz (CAR1)": {
     "ct": {"Notfall": 1, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 1, "Uro": 0},
     "mr": {"Notfall": 1, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 1, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Braun": {
+  "Dr. Braun (URO1)": {
     "ct": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 1},
     "mr": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 1},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   },
-  "Dr. Krause": {
+  "Dr. Krause (PAD1)": {
     "ct": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 1, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mr": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 1, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 1, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
