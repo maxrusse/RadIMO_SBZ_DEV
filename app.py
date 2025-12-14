@@ -2649,7 +2649,8 @@ def index():
         available_specialties=available_specialties,
         info_texts=d.get('info_texts', []),
         modality=modality,
-        valid_skills=valid_skills
+        valid_skills=valid_skills,
+        is_admin=session.get('admin_logged_in', False)
     )
 
 
@@ -3669,14 +3670,33 @@ def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
         app.logger.exception("Error in _assign_worker")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/edit_info', methods=['POST'])
+@app.route('/api/edit_info', methods=['POST'])
+@admin_required
 def edit_info():
-    modality = resolve_modality_from_request()
-    d = modality_data[modality]
-    new_info = request.form.get('info_text', '')
-    d['info_texts'] = [line.strip() for line in new_info.splitlines() if line.strip()]
-    selection_logger.info(f"Updated info_texts for {modality}: {d['info_texts']}")
-    return redirect(url_for('upload_file', modality=modality))
+    """
+    Update info texts for a modality.
+    Accepts JSON body: {"modality": "ct", "info_text": "Line 1\\nLine 2"}
+    """
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
+
+        modality = data.get('modality')
+        if modality not in modality_data:
+            return jsonify({'success': False, 'error': 'Invalid modality'}), 400
+
+        new_info = data.get('info_text', '')
+        d = modality_data[modality]
+        d['info_texts'] = [line.strip() for line in new_info.splitlines() if line.strip()]
+        selection_logger.info(f"Updated info_texts for {modality}: {d['info_texts']}")
+
+        return jsonify({
+            'success': True,
+            'info_texts': d['info_texts']
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 
