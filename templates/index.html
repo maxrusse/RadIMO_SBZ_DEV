@@ -222,7 +222,104 @@
       box-shadow: 0 1px 2px var(--info-item-shadow);
     }
     .info-item:last-child { margin-bottom: 0; }
-    
+
+    /* Info Edit Button */
+    .info-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .info-header h3 {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #666;
+    }
+    .edit-btn {
+      padding: 0.3rem 0.6rem;
+      font-size: 0.8rem;
+      background: #004892;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .edit-btn:hover {
+      background: #003670;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal-content {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .modal-content h2 {
+      margin: 0 0 1rem 0;
+      font-size: 1.2rem;
+    }
+    .modal-content textarea {
+      width: 100%;
+      min-height: 150px;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      resize: vertical;
+    }
+    .modal-content textarea:focus {
+      outline: 2px solid #004892;
+      border-color: transparent;
+    }
+    .modal-buttons {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+      margin-top: 1rem;
+    }
+    .modal-buttons button {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .btn-cancel {
+      background: #e0e0e0;
+      color: #333;
+    }
+    .btn-save {
+      background: #28a745;
+      color: white;
+    }
+    .btn-save:hover {
+      background: #218838;
+    }
+    .modal-hint {
+      font-size: 0.8rem;
+      color: #666;
+      margin-top: 0.5rem;
+    }
+
     /* Footer */
     .footer {
       margin-top: 1.5rem;
@@ -310,13 +407,37 @@
       <span>Kürzel wird automatisch kopiert, Einfügen mit STRG+V im RadCenter</span>
     </div>
     <div class="info-box">
-      <div class="info-texts">
+      <div class="info-header">
+        <h3>Hinweise</h3>
+        {% if is_admin %}
+        <button class="edit-btn" onclick="openEditModal()">Bearbeiten</button>
+        {% endif %}
+      </div>
+      <div class="info-texts" id="infoTextsContainer">
         {% for info in info_texts %}
           <div class="info-item">{{ info }}</div>
         {% endfor %}
+        {% if not info_texts %}
+          <div class="info-item" style="color: #999; font-style: italic;">Keine Hinweise vorhanden</div>
+        {% endif %}
       </div>
     </div>
   </section>
+
+  <!-- Edit Info Modal -->
+  {% if is_admin %}
+  <div class="modal-overlay" id="editModal">
+    <div class="modal-content">
+      <h2>Hinweise bearbeiten</h2>
+      <textarea id="infoTextarea" placeholder="Jede Zeile wird als separater Hinweis angezeigt..."></textarea>
+      <p class="modal-hint">Jede Zeile wird als separater Hinweis angezeigt. Leere Zeilen werden ignoriert.</p>
+      <div class="modal-buttons">
+        <button class="btn-cancel" onclick="closeEditModal()">Abbrechen</button>
+        <button class="btn-save" onclick="saveInfoTexts()">Speichern</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
   
   <!-- Footer -->
   <div class="footer">
@@ -478,6 +599,84 @@
         }, 3000);
       }
     }
+
+    // Info Text Edit Functions
+    {% if is_admin %}
+    const infoTexts = {{ info_texts|tojson }};
+
+    function openEditModal() {
+      const modal = document.getElementById('editModal');
+      const textarea = document.getElementById('infoTextarea');
+      textarea.value = infoTexts.join('\n');
+      modal.classList.add('active');
+      textarea.focus();
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModal').classList.remove('active');
+    }
+
+    async function saveInfoTexts() {
+      const textarea = document.getElementById('infoTextarea');
+      const newText = textarea.value;
+
+      try {
+        const response = await fetch('/api/edit_info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modality: currentModality,
+            info_text: newText
+          })
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            alert('Sitzung abgelaufen. Bitte neu einloggen.');
+            window.location.href = '/login?modality=' + currentModality;
+            return;
+          }
+          throw new Error('Server error: ' + response.status);
+        }
+
+        const data = await response.json();
+        if (data.success) {
+          // Update the display
+          const container = document.getElementById('infoTextsContainer');
+          if (data.info_texts && data.info_texts.length > 0) {
+            container.innerHTML = data.info_texts
+              .map(text => `<div class="info-item">${escapeHtml(text)}</div>`)
+              .join('');
+          } else {
+            container.innerHTML = '<div class="info-item" style="color: #999; font-style: italic;">Keine Hinweise vorhanden</div>';
+          }
+          // Update local copy
+          infoTexts.length = 0;
+          infoTexts.push(...(data.info_texts || []));
+          closeEditModal();
+        } else {
+          alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+        }
+      } catch (e) {
+        console.error('Save error:', e);
+        alert('Fehler beim Speichern: ' + e.message);
+      }
+    }
+
+    // Close modal on escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeEditModal();
+      }
+    });
+
+    // Close modal on overlay click
+    document.getElementById('editModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeEditModal();
+      }
+    });
+    {% endif %}
   </script>
 </body>
 </html>

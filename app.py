@@ -2649,7 +2649,8 @@ def index():
         available_specialties=available_specialties,
         info_texts=d.get('info_texts', []),
         modality=modality,
-        valid_skills=valid_skills
+        valid_skills=valid_skills,
+        is_admin=session.get('admin_logged_in', False)
     )
 
 
@@ -3101,52 +3102,6 @@ def upload_file():
     )
 
 
-@app.route('/preload-next-day', methods=['POST'])
-@admin_required
-def preload_next_day():
-    """
-    Preload schedule for next workday from stored medweb CSV.
-    - Friday → loads Monday
-    - Other days → loads tomorrow
-    """
-    if 'file' not in request.files:
-        return jsonify({"error": "Keine Datei ausgewählt"}), 400
-
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "Keine Datei ausgewählt"}), 400
-
-    if not file.filename.lower().endswith('.csv'):
-        return jsonify({"error": "Ungültiger Dateityp. Bitte eine CSV-Datei hochladen."}), 400
-
-    # Save CSV
-    csv_path = os.path.join(app.config['UPLOAD_FOLDER'], 'medweb_preload.csv')
-    try:
-        file.save(csv_path)
-
-        # Preload next workday
-        result = preload_next_workday(csv_path, APP_CONFIG)
-
-        # Save to master CSV for future auto-preload
-        if result['success']:
-            shutil.copy2(csv_path, MASTER_CSV_PATH)
-            selection_logger.info(f"Master CSV updated via preload: {MASTER_CSV_PATH}")
-
-        # Clean up temp file
-        if os.path.exists(csv_path):
-            os.remove(csv_path)
-
-        if result['success']:
-            return jsonify(result)
-        else:
-            return jsonify(result), 400
-
-    except Exception as e:
-        if os.path.exists(csv_path):
-            os.remove(csv_path)
-        return jsonify({"error": f"Fehler beim Preload: {str(e)}"}), 500
-
-
 @app.route('/load-today-from-master', methods=['POST'])
 @admin_required
 def load_today_from_master():
@@ -3261,93 +3216,6 @@ def load_today_from_master():
 
     except Exception as e:
         return jsonify({"error": f"Fehler: {str(e)}"}), 500
-
-
-@app.route('/force-refresh-today', methods=['POST'])
-@admin_required
-def force_refresh_today():
-    """
-    Force refresh current day's schedule from new CSV.
-    Overwrites all current data and resets counters.
-    Use for emergency changes during the day.
-    """
-    if 'file' not in request.files:
-        return jsonify({"error": "Keine Datei ausgewählt"}), 400
-
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "Keine Datei ausgewählt"}), 400
-
-    if not file.filename.lower().endswith('.csv'):
-        return jsonify({"error": "Ungültiger Dateityp. Bitte eine CSV-Datei hochladen."}), 400
-
-    # Save CSV temporarily
-    csv_path = os.path.join(app.config['UPLOAD_FOLDER'], 'medweb_force_refresh.csv')
-    try:
-        file.save(csv_path)
-
-        # Use TODAY's date
-        target_date = get_local_berlin_now()
-
-        # Parse medweb CSV
-        modality_dfs = build_working_hours_from_medweb(
-            csv_path,
-            target_date,
-            APP_CONFIG
-        )
-
-        if not modality_dfs:
-            return jsonify({"error": f"Keine Cortex-Daten für {target_date.strftime('%Y-%m-%d')} gefunden"}), 400
-
-        # CRITICAL: Reset ALL counters and apply to modality_data
-        for modality, df in modality_dfs.items():
-            d = modality_data[modality]
-
-            # Reset counters (this loses all assignment history!)
-            d['draw_counts'] = {}
-            d['skill_counts'] = {skill: {} for skill in SKILL_COLUMNS}
-            d['WeightedCounts'] = {}
-            global_worker_data['weighted_counts_per_mod'][modality] = {}
-            global_worker_data['assignments_per_mod'][modality] = {}
-
-            # Load DataFrame
-            d['working_hours_df'] = df
-
-            # Initialize counters
-            for worker in df['PPL'].unique():
-                d['draw_counts'][worker] = 0
-                d['WeightedCounts'][worker] = 0.0
-                for skill in SKILL_COLUMNS:
-                    if skill not in d['skill_counts']:
-                        d['skill_counts'][skill] = {}
-                    d['skill_counts'][skill][worker] = 0
-
-            # Set info texts
-            d['info_texts'] = []
-            d['last_uploaded_filename'] = f"force_refresh_{target_date.strftime('%Y%m%d')}.csv"
-
-        # Save to master CSV for future auto-preload
-        shutil.copy2(csv_path, MASTER_CSV_PATH)
-        selection_logger.warning(
-            f"Force refresh executed for {target_date.strftime('%Y-%m-%d')}, "
-            f"all counters reset! Modalities: {list(modality_dfs.keys())}"
-        )
-
-        # Clean up temp file
-        os.remove(csv_path)
-
-        return jsonify({
-            "success": True,
-            "message": f"Force Refresh erfolgreich für {target_date.strftime('%Y-%m-%d')} (ALLE Zählerstände wurden zurückgesetzt!)",
-            "modalities_loaded": list(modality_dfs.keys()),
-            "total_workers": sum(len(df) for df in modality_dfs.values()),
-            "warning": "Alle bisherigen Zuteilungen wurden gelöscht!"
-        })
-
-    except Exception as e:
-        if os.path.exists(csv_path):
-            os.remove(csv_path)
-        return jsonify({"error": f"Fehler beim Force Refresh: {str(e)}"}), 500
 
 
 @app.route('/prep-next-day')
@@ -3493,131 +3361,6 @@ def delete_prep_worker():
     if success:
         return jsonify({'success': True})
     return jsonify({'error': error}), 400
-
-
-@app.route('/api/prep-next-day/activate', methods=['POST'])
-@admin_required
-def activate_staged_schedule():
-    """
-    Activate staged schedule: Copy staged data → live data.
-
-    This promotes tomorrow's planned schedule to today's live schedule.
-    Typically called manually or automatically at the start of each day.
-
-    CRITICAL: This operation:
-    - Copies staged_modality_data → modality_data for specified modalities
-    - Resets ALL assignment counters to 0 (fresh start for new day)
-    - Updates live backup files
-    - Cannot be undone
-
-    Expected JSON body:
-        {
-            "modalities": ["ct", "mr", "xray"]  # Optional, defaults to all
-        }
-
-    Returns:
-        JSON response with:
-        - success: bool
-        - activated_modalities: list of modality names
-        - total_workers: int (total across all activated modalities)
-        - errors: list (if any modalities failed)
-        - warning: str (about counter reset)
-
-    Security:
-        Requires admin authentication (@admin_required)
-
-    Example:
-        POST /api/prep-next-day/activate
-        {"modalities": ["ct", "mr"]}
-
-        Response:
-        {
-            "success": true,
-            "message": "Activated staged schedule for: ct, mr",
-            "activated_modalities": ["ct", "mr"],
-            "total_workers": 15,
-            "warning": "All assignment counters have been reset!"
-        }
-    """
-    try:
-        data = request.json
-        modalities_to_activate = data.get('modalities', allowed_modalities)
-
-        if not isinstance(modalities_to_activate, list):
-            modalities_to_activate = [modalities_to_activate]
-
-        activated = []
-        errors = []
-
-        for modality in modalities_to_activate:
-            if modality not in staged_modality_data:
-                errors.append(f"Invalid modality: {modality}")
-                continue
-
-            staged = staged_modality_data[modality]
-            if staged['working_hours_df'] is None or staged['working_hours_df'].empty:
-                errors.append(f"No staged data for {modality}")
-                continue
-
-            try:
-                # Copy staged → live
-                d = modality_data[modality]
-                d['working_hours_df'] = staged['working_hours_df'].copy()
-                d['info_texts'] = staged['info_texts'].copy() if staged['info_texts'] else []
-                d['total_work_hours'] = staged['total_work_hours'].copy()
-                d['worker_modifiers'] = staged['worker_modifiers'].copy()
-
-                # CRITICAL: Reset all counters for new day
-                d['draw_counts'] = {}
-                d['skill_counts'] = {skill: {} for skill in SKILL_COLUMNS}
-                d['WeightedCounts'] = {}
-                global_worker_data['weighted_counts_per_mod'][modality] = {}
-                global_worker_data['assignments_per_mod'][modality] = {}
-
-                # Initialize counters for all workers
-                for worker in d['working_hours_df']['PPL'].unique():
-                    d['draw_counts'][worker] = 0
-                    d['WeightedCounts'][worker] = 0.0
-                    for skill in SKILL_COLUMNS:
-                        if skill not in d['skill_counts']:
-                            d['skill_counts'][skill] = {}
-                        d['skill_counts'][skill][worker] = 0
-
-                # Update last_reset_date
-                d['last_reset_date'] = get_local_berlin_now()
-
-                # Save live backup
-                backup_dataframe(modality, use_staged=False)
-
-                activated.append(modality)
-                selection_logger.warning(
-                    f"Staged schedule activated for {modality}: "
-                    f"{len(d['working_hours_df'])} workers, counters reset"
-                )
-
-            except Exception as e:
-                errors.append(f"Error activating {modality}: {str(e)}")
-                selection_logger.error(f"Error activating staged schedule for {modality}: {e}")
-
-        if not activated:
-            return jsonify({
-                'success': False,
-                'error': 'No modalities activated',
-                'errors': errors
-            }), 400
-
-        return jsonify({
-            'success': True,
-            'message': f"Activated staged schedule for: {', '.join(activated)}",
-            'activated_modalities': activated,
-            'total_workers': sum(len(modality_data[m]['working_hours_df']) for m in activated),
-            'errors': errors if errors else None,
-            'warning': 'All assignment counters have been reset!'
-        })
-
-    except Exception as e:
-        selection_logger.error(f"Error in activate_staged_schedule: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # =============================================================================
@@ -3927,187 +3670,37 @@ def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
         app.logger.exception("Error in _assign_worker")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/edit_info', methods=['POST'])
+@app.route('/api/edit_info', methods=['POST'])
+@admin_required
 def edit_info():
-    modality = resolve_modality_from_request()
-    d = modality_data[modality]
-    new_info = request.form.get('info_text', '')
-    d['info_texts'] = [line.strip() for line in new_info.splitlines() if line.strip()]
-    selection_logger.info(f"Updated info_texts for {modality}: {d['info_texts']}")
-    return redirect(url_for('upload_file', modality=modality))
+    """
+    Update info texts for a modality.
+    Accepts JSON body: {"modality": "ct", "info_text": "Line 1\\nLine 2"}
+    """
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
 
-@app.route('/download')
-def download_file():
-    modality = resolve_modality_from_request()
-    d = modality_data[modality]
-    return send_from_directory(app.config['UPLOAD_FOLDER'], d['last_uploaded_filename'], as_attachment=True)
+        modality = data.get('modality')
+        if modality not in modality_data:
+            return jsonify({'success': False, 'error': 'Invalid modality'}), 400
 
-@app.route('/download_latest')
-def download_latest():
-    modality = resolve_modality_from_request()
-    backup_dataframe(modality)  # always ensure the latest backup is current
-    backup_file = os.path.join(app.config['UPLOAD_FOLDER'], "backups", f"Cortex_{modality.upper()}_live.xlsx")
-    if os.path.exists(backup_file):
-        return send_from_directory(
-            os.path.join(app.config['UPLOAD_FOLDER'], "backups"),
-            os.path.basename(backup_file),
-            as_attachment=True
-        )
-    else:
-        return jsonify({"error": "Backup file unavailable."}), 404
+        new_info = data.get('info_text', '')
+        d = modality_data[modality]
+        d['info_texts'] = [line.strip() for line in new_info.splitlines() if line.strip()]
+        selection_logger.info(f"Updated info_texts for {modality}: {d['info_texts']}")
 
-@app.route('/edit', methods=['POST'])
-def edit_entry():
-    modality = resolve_modality_from_request()
-    d = modality_data[modality]
-    idx_str = request.form.get('index')
-    person  = request.form['person']
-    time_str= request.form['time']
-    modifier_str = request.form.get('modifier', '1.0').strip().replace(',', '.')
-    new_modifier = float(modifier_str) if modifier_str else 1.0
-
-    with lock:
-        if d['working_hours_df'] is None:
-            return redirect(url_for('upload_file', modality=modality))
-
-        if idx_str:
-            idx = int(idx_str)
-            if 0 <= idx < len(d['working_hours_df']):
-                old_person = d['working_hours_df'].at[idx, 'PPL']
-                old_canonical = get_canonical_worker_id(old_person)
-                new_canonical = get_canonical_worker_id(person)
-                
-                d['working_hours_df'].at[idx, 'PPL'] = person
-                d['working_hours_df'].at[idx, 'canonical_id'] = new_canonical
-                d['working_hours_df'].at[idx, 'TIME'] = time_str
-                d['working_hours_df'].at[idx, 'Modifier'] = new_modifier
-                d['worker_modifiers'][person] = new_modifier
-
-                # Ensure all SKILL_COLUMNS exist in the dataframe
-                for skill in SKILL_COLUMNS:
-                    form_key = SKILL_FORM_KEYS.get(skill, skill.lower())
-                    val_str = request.form.get(form_key, '0').strip()
-                    new_val = int(val_str) if val_str else 0
-                    
-                    # Add column if it doesn't exist
-                    if skill not in d['working_hours_df'].columns:
-                        d['working_hours_df'][skill] = 0
-                        
-                    d['working_hours_df'].at[idx, skill] = new_val
-
-                if person != old_person:
-                    d['draw_counts'][person] = d['draw_counts'].get(person, 0) + d['draw_counts'].pop(old_person, 0)
-                    for skill in SKILL_COLUMNS:
-                        # Ensure both old and new persons exist in all skill dictionaries
-                        if skill not in d['skill_counts']:
-                            d['skill_counts'][skill] = {}
-                        if old_person not in d['skill_counts'][skill]:
-                            d['skill_counts'][skill][old_person] = 0
-                        if person not in d['skill_counts'][skill]:
-                            d['skill_counts'][skill][person] = 0
-                            
-                        d['skill_counts'][skill][person] = d['skill_counts'][skill].get(person, 0) + d['skill_counts'][skill].pop(old_person, 0)
-                    d['WeightedCounts'][person] = d['WeightedCounts'].get(person, 0) + d['WeightedCounts'].pop(old_person, 0)
-                
-        else:
-            # This is for adding a new row - similar fixes needed here
-            canonical_id = get_canonical_worker_id(person)
-            data_dict = {
-                'PPL': person,
-                'canonical_id': canonical_id,
-                'TIME': time_str,
-                'Modifier': new_modifier,
-            }
-            for skill in SKILL_COLUMNS:
-                form_key = SKILL_FORM_KEYS.get(skill, skill.lower())
-                val_str = request.form.get(form_key, '0').strip()
-                data_dict[skill] = int(val_str) if val_str else 0
-            new_row = pd.DataFrame([data_dict])
-            
-            # Add missing columns to working_hours_df if needed
-            for skill in SKILL_COLUMNS:
-                if skill not in d['working_hours_df'].columns:
-                    d['working_hours_df'][skill] = 0
-                    
-            d['working_hours_df'] = pd.concat([d['working_hours_df'], new_row], ignore_index=True)
-            if person not in d['draw_counts']:
-                d['draw_counts'][person] = 0
-            for skill in SKILL_COLUMNS:
-                if skill not in d['skill_counts']:
-                    d['skill_counts'][skill] = {}
-                if person not in d['skill_counts'][skill]:
-                    d['skill_counts'][skill][person] = 0
-            if person not in d['WeightedCounts']:
-                d['WeightedCounts'][person] = 0.0
-            d['worker_modifiers'][person] = new_modifier
-
-        d['working_hours_df']['start_time'], d['working_hours_df']['end_time'] = zip(*d['working_hours_df']['TIME'].map(parse_time_range))
-        d['working_hours_df']['shift_duration'] = d['working_hours_df'].apply(
-            lambda row: _calculate_shift_duration_hours(row['start_time'], row['end_time']),
-            axis=1
-        )
-        d['total_work_hours'] = d['working_hours_df'].groupby('PPL')['shift_duration'].sum().to_dict()
-        
-        # Update live backup after editing
-        backup_dataframe(modality)
-
-    return jsonify({'success': True, 'message': 'Entry updated successfully'})
+        return jsonify({
+            'success': True,
+            'info_texts': d['info_texts']
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/delete', methods=['POST'])
-def delete_entry():
-    modality = resolve_modality_from_request()
-    d = modality_data[modality]
-    idx = int(request.form['index'])
-    with lock:
-        if d['working_hours_df'] is not None and 0 <= idx < len(d['working_hours_df']):
-            d['working_hours_df'].at[idx, 'TIME'] = '00:00-00:00'
-            d['working_hours_df'].at[idx, 'start_time'], d['working_hours_df'].at[idx, 'end_time'] = parse_time_range('00:00-00:00')
-            d['working_hours_df']['shift_duration'] = d['working_hours_df'].apply(
-                lambda row: _calculate_shift_duration_hours(row['start_time'], row['end_time']),
-                axis=1
-            )
-            d['total_work_hours'] = d['working_hours_df'].groupby('PPL')['shift_duration'].sum().to_dict()
-            # Update live backup after deletion
-            backup_dataframe(modality)
-
-    return jsonify({'success': True, 'message': 'Entry deleted successfully'})
 
 
-@app.route('/get_entry', methods=['GET'])
-def get_entry():
-    modality = resolve_modality_from_request()
-    d = modality_data[modality]
-
-    idx = request.args.get('index', type=int)
-    if d['working_hours_df'] is not None and idx is not None and 0 <= idx < len(d['working_hours_df']):
-        entry = d['working_hours_df'].iloc[idx]
-
-        # Start building the response with core fields:
-        resp = {
-            'person':   entry.get('PPL', ''),       # or entry['PPL'] if guaranteed to exist
-            'time':     entry.get('TIME', '00:00-00:00'),
-            'modifier': entry.get('Modifier', 1.0)
-        }
-
-        # Convert skill columns to int safely:
-        for skill in SKILL_COLUMNS:
-            form_key = SKILL_FORM_KEYS.get(skill, skill.lower())
-            if skill in entry:
-                val = entry[skill]
-                if pd.isna(val):
-                    val = 0
-                try:
-                    resp[form_key] = int(val)
-                except (ValueError, TypeError):
-                    resp[form_key] = 0
-            else:
-                resp[form_key] = 0
-
-        return jsonify(resp)
-
-    # If index is out of range or DataFrame is empty:
-    return jsonify({"error": "Ungültiger Index"}), 400
 
 
 
@@ -4360,11 +3953,6 @@ def timetable():
         modality_labels={k: v.get('label', k.upper()) for k, v in MODALITY_SETTINGS.items()},
         modality_color_map=modality_color_map
     )
-
-
-
-
-
 
 
 app.config['DEBUG'] = True
