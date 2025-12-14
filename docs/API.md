@@ -272,34 +272,6 @@ Delete worker from staged data.
 
 ---
 
-### Activate Staged Schedule
-
-```http
-POST /api/prep-next-day/activate
-Content-Type: application/json
-```
-
-Copy staged data to live and reset counters.
-
-**Request:**
-```json
-{
-  "modalities": ["ct", "mr", "xray"]
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "activated_modalities": ["ct", "mr", "xray"],
-  "total_workers": 45,
-  "warning": "All assignment counters have been reset"
-}
-```
-
----
-
 ## Skill Matrix (Admin)
 
 ### Get Skill Matrix
@@ -376,62 +348,6 @@ Copy staged roster to active.
 
 ---
 
-### Edit Entry
-
-```http
-POST /edit
-Content-Type: application/x-www-form-urlencoded
-```
-
-Edit worker entry (takes effect immediately).
-
-**Parameters:**
-| Name | Type | Description |
-|------|------|-------------|
-| index | form | Row index (omit for new entry) |
-| person | form | Worker name |
-| time | form | Shift time range (e.g., "07:00-15:00") |
-| modifier | form | Worker modifier |
-| normal | form | Normal skill value |
-| notfall | form | Notfall skill value |
-| ... | form | Other skills |
-| modality | form | Target modality |
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Entry updated successfully"
-}
-```
-
----
-
-### Delete Entry (Live)
-
-```http
-POST /delete
-Content-Type: application/x-www-form-urlencoded
-```
-
-Delete worker entry (sets time to 00:00-00:00).
-
-**Parameters:**
-| Name | Type | Description |
-|------|------|-------------|
-| index | form | Row index |
-| modality | form | Target modality |
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Entry deleted successfully"
-}
-```
-
----
-
 ## CSV Upload (Admin)
 
 ### Upload Medweb CSV
@@ -448,38 +364,6 @@ Upload medweb CSV for specific date.
 |------|------|-------------|
 | file | file | Medweb CSV file |
 | target_date | form | Date (YYYY-MM-DD) |
-
----
-
-### Preload Next Workday
-
-```http
-POST /preload-next-day
-Content-Type: multipart/form-data
-```
-
-Preload next workday (Friday → Monday logic).
-
-**Parameters:**
-| Name | Type | Description |
-|------|------|-------------|
-| file | file | Medweb CSV file |
-
----
-
-### Force Refresh Today
-
-```http
-POST /force-refresh-today
-Content-Type: multipart/form-data
-```
-
-Complete same-day rebuild. **WARNING:** Destroys all assignment history and counters.
-
-**Parameters:**
-| Name | Type | Description |
-|------|------|-------------|
-| file | file | Medweb CSV file |
 
 ---
 
