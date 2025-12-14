@@ -76,6 +76,7 @@ DEFAULT_BALANCER = {
     'min_assignments_per_skill': 5,
     'imbalance_threshold_pct': 30,
     'allow_fallback_on_imbalance': True,
+    'skill_2_multiplier': 2.0,  # Extra weight multiplier for skill=2 (weighted/freshman entries)
 }
 
 
@@ -2121,13 +2122,18 @@ def _get_or_create_assignments(modality: str, canonical_id: str) -> dict:
         assignments[canonical_id]['total'] = 0
     return assignments[canonical_id]
 
-def update_global_assignment(person: str, role: str, modality: str) -> str:
+def update_global_assignment(person: str, role: str, modality: str, skill_value: int = 1) -> str:
     canonical_id = get_canonical_worker_id(person)
     # Get the modifier (default 1.0). Values > 1 mean more work, < 1 mean less work.
     modifier = modality_data[modality]['worker_modifiers'].get(person, 1.0)
     modifier = _coerce_float(modifier, 1.0)
     # Use helper that checks for skill×modality overrides first
     weight = get_skill_modality_weight(role, modality) * modifier
+
+    # Apply skill=2 multiplier for weighted/freshman entries (extra workload)
+    if skill_value == 2:
+        skill_2_mult = BALANCER_SETTINGS.get('skill_2_multiplier', 2.0)
+        weight *= skill_2_mult
 
     global_worker_data['weighted_counts_per_mod'][modality][canonical_id] = \
         global_worker_data['weighted_counts_per_mod'][modality].get(canonical_id, 0.0) + weight
@@ -2282,6 +2288,7 @@ def _df_to_api_response(df: pd.DataFrame) -> list:
             'PPL': row['PPL'],
             'start_time': row['start_time'].strftime(TIME_FORMAT) if pd.notnull(row.get('start_time')) else '',
             'end_time': row['end_time'].strftime(TIME_FORMAT) if pd.notnull(row.get('end_time')) else '',
+            'Modifier': float(row.get('Modifier', 1.0)) if pd.notnull(row.get('Modifier')) else 1.0,
         }
 
         # Add all skill columns
@@ -3583,14 +3590,16 @@ def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
                         d['skill_counts'][actual_skill][person] = 0
                     d['skill_counts'][actual_skill][person] += 1
 
+                    # Get skill value for this worker (used for modifier and skill=2 handling)
+                    skill_value = candidate.get(actual_skill, 0)
+
                     # Determine if modifier should apply
                     modifier = 1.0
                     modifier_active_only = BALANCER_SETTINGS.get('modifier_applies_to_active_only', False)
 
                     if modifier_active_only:
-                        # Only apply modifier if skill value is 1 (active)
-                        skill_value = candidate.get(actual_skill, 0)
-                        if skill_value == 1:
+                        # Only apply modifier if skill value is 1 or 2 (active/weighted)
+                        if skill_value >= 1:
                             modifier = candidate.get('Modifier', 1.0)
                     else:
                         # Apply modifier regardless of skill value (old behavior)
@@ -3598,12 +3607,20 @@ def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
 
                     if person not in d['WeightedCounts']:
                         d['WeightedCounts'][person] = 0.0
-                    # Use helper that checks for skill×modality overrides first
-                    d['WeightedCounts'][person] += (
-                        get_skill_modality_weight(actual_skill, actual_modality) * modifier
-                    )
 
-                canonical_id = update_global_assignment(person, actual_skill, actual_modality)
+                    # Calculate weight with skill×modality factor and modifier
+                    local_weight = get_skill_modality_weight(actual_skill, actual_modality) * modifier
+
+                    # Apply skill=2 multiplier for weighted/freshman entries (extra workload)
+                    if skill_value == 2:
+                        skill_2_mult = BALANCER_SETTINGS.get('skill_2_multiplier', 2.0)
+                        local_weight *= skill_2_mult
+
+                    d['WeightedCounts'][person] += local_weight
+
+                # Pass skill_value to global assignment for consistent skill=2 handling
+                skill_val_for_global = candidate.get(actual_skill, 1) if actual_skill in SKILL_COLUMNS else 1
+                canonical_id = update_global_assignment(person, actual_skill, actual_modality, skill_val_for_global)
                 
                 skill_counts = {}
                 for skill in SKILL_COLUMNS:
