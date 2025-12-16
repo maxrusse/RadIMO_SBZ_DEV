@@ -67,7 +67,7 @@
     .agg-all-neg { background: #dc3545; color: white; }     /* All = -1: Red */
     .agg-mixed { background: #e9ecef; color: #495057; }     /* Mixed values */
 
-    /* Skill value 2 = weighted/freshman (extra load) */
+    /* Skill value 2/'w' = weighted (visual marker only) */
     .skill-val-2 { background: #17a2b8; color: white; }
     .agg-has-weighted { border: 2px solid #17a2b8; }
 
@@ -1017,7 +1017,7 @@
         </div>
       </div>`;
 
-      // Skills editing (with skill=2 for weighted/freshman entries)
+      // Skills editing (skill=2/'w' is weighted, visual marker only)
       html += `<div style="margin-bottom: 1rem;">
         <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Skills: <span style="font-size: 0.75rem; color: #666;">(w = weighted)</span></label>
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.5rem;">`;
