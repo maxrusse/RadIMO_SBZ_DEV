@@ -17,11 +17,11 @@ RadIMO Cortex orchestrates workload distribution for radiology teams across mult
 - Two UI modes: by modality or by skill
 - Two-level fallback for high availability
 - Config-driven medweb CSV integration with automated daily preload
-- Three-page admin system: Planning (staged), Prep (tomorrow), Day Control (immediate)
+- Admin system: Skill Matrix (staged changes), Schedule Edit (today + tomorrow tabs)
 - Worker skill roster admin portal with JSON-based staged/active workflow
 - Time exclusion system for boards, meetings, and teaching activities
 - Overnight shift handling across midnight boundaries
-- Smart skill filtering on Day Control and Timetable views
+- Smart skill filtering on Schedule Edit and Timetable views
 
 ---
 
@@ -49,7 +49,7 @@ flask --app app run --debug  # Start application
 |------|-----|-------------|
 | Admin Panel | `/upload` | Upload medweb CSV, system management |
 | Skill Matrix | `/skill_roster` | Plan skill changes (STAGED mode) |
-| Schedule Edit | `/prep-next-day` | Prepare and edit schedules |
+| Schedule Edit | `/prep-next-day` | Edit today's schedule + prepare tomorrow |
 
 ---
 
@@ -80,12 +80,12 @@ Real-time assignment with load balancing
 - See [CONFIGURATION.md](docs/CONFIGURATION.md) for routing details
 
 ### Skill System
-| Value | Display | Behavior |
-|-------|---------|----------|
-| **1** | `1` | Active - Primary routing, actively performs this skill |
-| **0** | `0` | Passive - Fallback only, can help if needed |
-| **-1** | `-1` | Excluded - Never assigned, cannot do this skill |
-| **2** | `w` | Weighted - Active with special weighting (visual marker) |
+| Value | Name | Behavior |
+|-------|------|----------|
+| **2** | Weighted | Visual marker for weighted entries (Modifier controls load) |
+| **1** | Active | Primary routing - actively performs this skill |
+| **0** | Passive | Fallback only - can help if needed |
+| **-1** | Excluded | Never assigned - cannot do this skill |
 
 ### Weighting System
 Assignments are weighted by:
@@ -94,23 +94,18 @@ Assignments are weighted by:
 - **Worker modifier**: Individual multiplier
 - **Skill×Modality overrides**: Custom weights for specific combinations
 
-### Admin System
+### Admin Pages
 1. **Skill Matrix** (`/skill_roster`) - Plan skill changes, staged before activation
-2. **Schedule Edit** (`/prep-next-day`) - Prepare and edit schedules
-   - Time-based shifts with modality×skill matrix
-   - Quick inline edit mode for fast changes
-   - Add new shifts from popup modal
-   - Auto-prepull skills from task config and worker roster
-   - Gap/exclusion support (boards, meetings, teaching)
+2. **Schedule Edit** (`/prep-next-day`) - Edit today's schedule + prepare tomorrow (tabbed)
 
 ### Navigation & UI Features
 
 **Cortex Layout** - Unified navigation across all pages:
-- **Dashboard** - Main workload view (toggle between Modality/Skill views)
-- **Timetable** - Visual timeline of shifts and schedules
-- **Skill Matrix** - Manage worker skills (staged changes)
-- **Schedule Edit** - Prepare and edit schedules
-- **Admin** - System configuration and CSV uploads
+- **Dashboard** (`/`) - Main workload view (toggle Modality/Skill views)
+- **Timetable** (`/timetable`) - Visual timeline of shifts and schedules
+- **Skill Matrix** (`/skill_roster`) - Manage worker skills (staged changes)
+- **Schedule Edit** (`/prep-next-day`) - Today tab + Tomorrow tab
+- **Admin** (`/upload`) - System configuration and CSV uploads
 
 ---
 
@@ -120,7 +115,7 @@ Assignments are weighted by:
 RadIMO_Cortex/
 ├── app.py                      # Main Flask application
 ├── config.yaml                 # Configuration (mapping, skills, weights)
-├── worker_skill_overrides.json # Worker skill roster (admin portal)
+├── worker_skill_roster.json    # Worker skill roster (admin portal)
 ├── ops_check.py                # Pre-deployment checks
 ├── requirements.txt            # Python dependencies
 ├── templates/                  # HTML templates
@@ -168,7 +163,7 @@ Validates: config file, admin password, upload folder, modalities, skills, medwe
 
 ## Version
 
-**RadIMO v19** - Current production version
+**RadIMO v17** - Current production version
 
 For more information, see [EULA.txt](static/EULA.txt) or contact **Dr. M. Russe**.
 
