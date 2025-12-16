@@ -456,11 +456,10 @@
         // Show all workers
         renderTimeline(originalData);
       } else {
-        // Filter data to show only workers with this skill active (value = 1)
+        // Filter data to show only workers with this skill active (value >= 1, incl. weighted)
         const filteredData = originalData.filter(entry => {
-          // Check if this entry has the skill active
-          const skillValue = entry[skill];
-          return skillValue && skillValue === 1;
+          const skillValue = Number(entry[skill]);
+          return !Number.isNaN(skillValue) && skillValue >= 1;
         });
 
         renderTimeline(filteredData);
