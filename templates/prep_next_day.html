@@ -223,9 +223,11 @@
             <div class="form-group">
               <label>Modifier</label>
               <select id="add-modifier-today" style="padding: 0.3rem;">
-                <option value="0.5">0.5x (Freshman)</option>
-                <option value="1.0" selected>1.0x (Normal)</option>
-                <option value="2.0">2.0x (Experienced)</option>
+                <option value="0.5">0.5x</option>
+                <option value="0.75">0.75x</option>
+                <option value="1.0" selected>1.0x</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.5">1.5x</option>
               </select>
             </div>
           </div>
@@ -348,9 +350,11 @@
             <div class="form-group">
               <label>Modifier</label>
               <select id="add-modifier-tomorrow" style="padding: 0.3rem;">
-                <option value="0.5">0.5x (Freshman)</option>
-                <option value="1.0" selected>1.0x (Normal)</option>
-                <option value="2.0">2.0x (Experienced)</option>
+                <option value="0.5">0.5x</option>
+                <option value="0.75">0.75x</option>
+                <option value="1.0" selected>1.0x</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.5">1.5x</option>
               </select>
             </div>
           </div>
@@ -988,11 +992,11 @@
           <input type="time" id="edit-end-time" value="${entry.end_time || '15:00'}" style="padding: 0.5rem;">
           <span style="margin-left: 1rem; font-size: 0.85rem; color: #555;">Workload:</span>
           <select id="edit-modifier" style="padding: 0.4rem; font-size: 0.85rem;">
-            <option value="0.5" ${entry.modifier === 0.5 ? 'selected' : ''}>0.5x (Freshman)</option>
+            <option value="0.5" ${entry.modifier === 0.5 ? 'selected' : ''}>0.5x</option>
             <option value="0.75" ${entry.modifier === 0.75 ? 'selected' : ''}>0.75x</option>
-            <option value="1.0" ${!entry.modifier || entry.modifier === 1.0 ? 'selected' : ''}>1.0x (Normal)</option>
+            <option value="1.0" ${!entry.modifier || entry.modifier === 1.0 ? 'selected' : ''}>1.0x</option>
+            <option value="1.25" ${entry.modifier === 1.25 ? 'selected' : ''}>1.25x</option>
             <option value="1.5" ${entry.modifier === 1.5 ? 'selected' : ''}>1.5x</option>
-            <option value="2.0" ${entry.modifier === 2.0 ? 'selected' : ''}>2.0x (Exp)</option>
           </select>
         </div>
       </div>`;
@@ -1015,7 +1019,7 @@
 
       // Skills editing (with skill=2 for weighted/freshman entries)
       html += `<div style="margin-bottom: 1rem;">
-        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Skills: <span style="font-size: 0.75rem; color: #666;">(2 = weighted/extra load)</span></label>
+        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Skills: <span style="font-size: 0.75rem; color: #666;">(w = weighted)</span></label>
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.5rem;">`;
       SKILLS.forEach(skill => {
         const val = entry.skills[skill] || 0;
@@ -1025,7 +1029,7 @@
             <option value="-1" ${val === -1 ? 'selected' : ''}>-1</option>
             <option value="0" ${val === 0 ? 'selected' : ''}>0</option>
             <option value="1" ${val === 1 ? 'selected' : ''}>1</option>
-            <option value="2" ${val === 2 ? 'selected' : ''}>2 (weighted)</option>
+            <option value="2" ${val === 2 ? 'selected' : ''}>w</option>
           </select>
         </div>`;
       });
