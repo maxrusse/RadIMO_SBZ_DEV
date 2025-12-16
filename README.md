@@ -80,11 +80,12 @@ Real-time assignment with load balancing
 - See [CONFIGURATION.md](docs/CONFIGURATION.md) for routing details
 
 ### Skill System
-| Value | Name | Behavior |
-|-------|------|----------|
-| **1** | Active | Primary routing - actively performs this skill |
-| **0** | Passive | Fallback only - can help if needed |
-| **-1** | Excluded | Never assigned - cannot do this skill |
+| Value | Display | Behavior |
+|-------|---------|----------|
+| **1** | `1` | Active - Primary routing, actively performs this skill |
+| **0** | `0` | Passive - Fallback only, can help if needed |
+| **-1** | `-1` | Excluded - Never assigned, cannot do this skill |
+| **2** | `w` | Weighted - Active with special weighting (visual marker) |
 
 ### Weighting System
 Assignments are weighted by:
@@ -93,9 +94,14 @@ Assignments are weighted by:
 - **Worker modifier**: Individual multiplier
 - **Skill×Modality overrides**: Custom weights for specific combinations
 
-### Two-Page Admin System
+### Admin System
 1. **Skill Matrix** (`/skill_roster`) - Plan skill changes, staged before activation
 2. **Schedule Edit** (`/prep-next-day`) - Prepare and edit schedules
+   - Time-based shifts with modality×skill matrix
+   - Quick inline edit mode for fast changes
+   - Add new shifts from popup modal
+   - Auto-prepull skills from task config and worker roster
+   - Gap/exclusion support (boards, meetings, teaching)
 
 ### Navigation & UI Features
 
