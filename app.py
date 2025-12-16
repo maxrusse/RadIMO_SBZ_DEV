@@ -3901,8 +3901,8 @@ def skill_roster_page():
 
 @app.route('/timetable')
 def timetable():
-    # Check if "all" modality requested
-    requested_modality = request.args.get('modality', '').lower()
+    # Check if "all" modality requested (default to "all" when not specified)
+    requested_modality = request.args.get('modality', 'all').lower()
 
     if requested_modality == 'all':
         # Combine data from ALL modalities

@@ -106,5 +106,11 @@
     "mr": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 1, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 1, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
     "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
+  },
+  "Dr. Jung (MSK Trainee)": {
+    "ct": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 2, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
+    "mr": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 2, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
+    "xray": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 2, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0},
+    "mammo": {"Notfall": 0, "Privat": 0, "Gyn": 0, "Päd": 0, "MSK": 0, "Abdomen": 0, "Chest": 0, "Cardvask": 0, "Uro": 0}
   }
 }

@@ -432,3 +432,16 @@ worker_skill_roster:
       Chest: 0
       Cardvask: 0
       Uro: 0
+
+  # MSK junior template with weighted proficiency and reduced modifier expectation
+  MSK_ANFAENGER:
+    default:
+      Notfall: 0
+      Privat: 0
+      Gyn: 0
+      Päd: 0
+      MSK: 2      # weighted / assisted
+      Abdomen: 0
+      Chest: 0
+      Cardvask: 0
+      Uro: 0
