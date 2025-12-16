@@ -67,7 +67,9 @@ skills:
     weight: 1.0
     optional: true
     special: true
-
+    # Skill-level visibility filters (both optional, can combine):
+    # valid_modalities: [mammo, mr]  # only show in these modalities
+    # hidden_modalities: [xray]      # or hide in these modalities
     display_order: 2
     slug: gyn
     form_key: gyn

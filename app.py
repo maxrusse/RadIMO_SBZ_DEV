@@ -2691,13 +2691,27 @@ def index():
     modality = resolve_modality_from_request()
     d = modality_data[modality]
 
-    # Button visibility controlled by config:
-    # - valid_skills: positive filter (only show these) - if not set, all skills
-    # - hidden_skills: negative filter (hide these) - if not set, none hidden
+    # Button visibility controlled by config (skill×modality):
+    # Per modality: valid_skills (positive), hidden_skills (negative)
+    # Per skill: valid_modalities (positive), hidden_modalities (negative)
     modality_config = MODALITY_SETTINGS.get(modality, {})
-    valid_skills = set(modality_config.get('valid_skills', SKILL_COLUMNS))
-    hidden_skills = set(modality_config.get('hidden_skills', []))
-    visible_skills = [s for s in SKILL_COLUMNS if s in valid_skills and s not in hidden_skills]
+    mod_valid_skills = set(modality_config.get('valid_skills', SKILL_COLUMNS))
+    mod_hidden_skills = set(modality_config.get('hidden_skills', []))
+
+    visible_skills = []
+    for skill_name in SKILL_COLUMNS:
+        # Check modality-level filter
+        if skill_name not in mod_valid_skills or skill_name in mod_hidden_skills:
+            continue
+        # Check skill-level filter
+        skill_config = SKILL_SETTINGS.get(skill_name, {})
+        skill_valid_mods = skill_config.get('valid_modalities')
+        skill_hidden_mods = set(skill_config.get('hidden_modalities', []))
+        if skill_valid_mods is not None and modality not in skill_valid_mods:
+            continue
+        if modality in skill_hidden_mods:
+            continue
+        visible_skills.append(skill_name)
 
     return render_template(
         'index.html',
@@ -2712,10 +2726,34 @@ def index():
 def index_by_skill():
     """
     Skill-based view: navigate by skill, see all modalities as buttons.
-    All modality buttons are always visible (config-based, not worker-based).
+    Visibility controlled by config (skill×modality filters).
     """
     skill = request.args.get('skill', SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Notfall')
     skill = normalize_skill(skill)
+
+    # Button visibility controlled by config (skill×modality):
+    # Per skill: valid_modalities (positive), hidden_modalities (negative)
+    # Per modality: valid_skills (positive), hidden_skills (negative)
+    skill_config = SKILL_SETTINGS.get(skill, {})
+    skill_valid_mods = skill_config.get('valid_modalities')
+    skill_hidden_mods = set(skill_config.get('hidden_modalities', []))
+
+    visible_modalities = []
+    for mod in allowed_modalities:
+        # Check skill-level filter
+        if skill_valid_mods is not None and mod not in skill_valid_mods:
+            continue
+        if mod in skill_hidden_mods:
+            continue
+        # Check modality-level filter
+        mod_config = MODALITY_SETTINGS.get(mod, {})
+        mod_valid_skills = mod_config.get('valid_skills')
+        mod_hidden_skills = set(mod_config.get('hidden_skills', []))
+        if mod_valid_skills is not None and skill not in mod_valid_skills:
+            continue
+        if skill in mod_hidden_skills:
+            continue
+        visible_modalities.append(mod)
 
     # Get info texts from first modality (they're typically the same)
     info_texts = []
@@ -2726,6 +2764,7 @@ def index_by_skill():
     return render_template(
         'index_by_skill.html',
         skill=skill,
+        visible_modalities=visible_modalities,
         info_texts=info_texts
     )
 

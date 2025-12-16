@@ -270,7 +270,8 @@
     <div id="buttonGrid" class="button-grid">
       {% for mod_key in modality_order %}
         {% set mod = modalities[mod_key] %}
-        <div class="modality-button-wrapper" data-modality="{{ mod_key }}">
+        {% set is_visible = mod_key in visible_modalities %}
+        <div class="modality-button-wrapper" data-modality="{{ mod_key }}" {% if not is_visible %}style="display: none;"{% endif %}>
           <button id="mod-btn-{{ mod_key }}"
             data-modality="{{ mod_key }}"
             onclick="getNextAssignment('{{ mod_key }}', '{{ skill }}')"
