@@ -36,11 +36,11 @@
 
     /* Table Styles */
     .table-container { overflow: visible; }
-    .edit-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
-    .edit-table th, .edit-table td { padding: 0.3rem 0.35rem; text-align: left; border: 1px solid #e5e5e5; vertical-align: top; }
-    .edit-table th { background: #fafafa; font-weight: 600; position: sticky; top: 0; z-index: 10; white-space: nowrap; }
-    .edit-table tr:hover { background: #f5f7fa; }
-    .row-skill-flag { background: #f1f5f9; }
+    .edit-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .edit-table th, .edit-table td { padding: 0.35rem 0.4rem; text-align: left; border: 1px solid #ddd; vertical-align: top; }
+    .edit-table th { background: #f8f9fa; font-weight: 600; position: sticky; top: 0; z-index: 10; white-space: nowrap; }
+    .edit-table tr:hover { background: #f8f9fa; }
+    .row-skill-flag { background: #e9f7ef; }
 
     /* Badges - colors are dynamically generated from MODALITY_SETTINGS */
     .badge { display: inline-block; padding: 0.2rem 0.4rem; margin: 0.1rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; }
@@ -48,19 +48,18 @@
 
     /* Skill cells */
     .skill-cell { text-align: center; font-size: 0.7rem; }
-    .skill-val { padding: 0.15rem 0.35rem; border-radius: 4px; font-size: 0.72rem; border: 1px solid #dcdcdc; background: #f9fafb; color: #333; min-width: 28px; display: inline-block; text-align: center; }
-    .skill-val-1 { background: #e7f5ed; color: #0f5132; }
-    .skill-val-0 { background: #fff8e1; color: #7a5a00; }
-    .skill-val--1 { background: #fdf2f2; color: #8a1c1c; }
+    .skill-val { padding: 0.15rem 0.35rem; border-radius: 3px; font-size: 0.72rem; }
+    .skill-val-1 { background: #d4edda; color: #155724; }
+    .skill-val-0 { background: #fff3cd; color: #856404; }
+    .skill-val--1 { background: #f8d7da; color: #721c24; }
 
     /* Multi-modality chips per skill */
-    .mod-skill-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 0.25rem; }
-    .mod-skill-chip { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.18rem 0.3rem; border-radius: 6px; background: #ffffff; border: 1px solid #e5e5e5; box-shadow: inset 0 0 0 1px #f4f4f4; }
-    .mod-skill-chip .badge { margin: 0; font-weight: 700; font-size: 0.68rem; color: #333; background: #eef1f5; border-radius: 4px; }
-    .mod-skill-chip select { padding: 0.12rem; font-size: 0.7rem; width: 54px; border: 1px solid #d0d0d0; border-radius: 4px; }
-    .mod-skill-chip input[type='number'] { width: 70px; padding: 0.12rem; font-size: 0.7rem; border: 1px solid #d0d0d0; border-radius: 4px; }
-    .mod-skill-chip.ghost { opacity: 0.6; border-style: dashed; background: #fafafa; }
-    .skill-bundle { min-width: 140px; }
+    .mod-skill-grid { display: flex; flex-wrap: wrap; gap: 0.2rem; }
+    .mod-skill-chip { display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.15rem 0.2rem; border-radius: 4px; background: #f8f9fa; border: 1px solid #dee2e6; }
+    .mod-skill-chip .badge { margin: 0; }
+    .mod-skill-chip select { padding: 0.1rem; font-size: 0.7rem; width: 42px; }
+    .mod-skill-chip.ghost { opacity: 0.7; border-style: dashed; }
+    .skill-bundle { min-width: 120px; }
 
     /* Aggregated skill/modality cells */
     .agg-cell { text-align: center; font-size: 0.7rem; min-width: 50px; }
@@ -846,8 +845,10 @@
         const skillSettings = SKILL_SETTINGS[skill] || {};
         const btnColor = skillSettings.button_color || '#6c757d';
         const textColor = skillSettings.text_color || '#ffffff';
-      headerHtml += `<th style="background: ${btnColor}; color: ${textColor}; font-size: 0.7rem; padding: 0.25rem; min-width: 110px;" title="${skill}">${escapeHtml(skill.substring(0, 4))}</th>`;
+        headerHtml += `<th style="background: ${btnColor}; color: ${textColor}; font-size: 0.7rem; padding: 0.3rem; min-width: 130px;" title="${skill}">${escapeHtml(skill.substring(0, 4))}</th>`;
       });
+
+      headerHtml += '<th title="Modifier (only for w-weighted skills)">Mod.(w)</th>';
       headerHtml += '<th>Actions</th>';
       headerHtml += '</tr>';
 
@@ -867,8 +868,8 @@
       const counts = workerCounts[tab];
       const isEditMode = editMode[tab];
 
-      // Calculate column count: Worker + Shift + Task + Skills + Actions
-      const colCount = 3 + SKILLS.length + 1;
+      // Calculate column count: Worker + Shift + Task + Skills + Mod.(w) + Actions
+      const colCount = 3 + SKILLS.length + 2;
 
       if (!groups || groups.length === 0) {
         tbody.innerHTML = `<tr><td colspan="${colCount}" style="text-align: center; padding: 2rem; color: #666;">No data. Load from CSV first.</td></tr>`;
@@ -918,28 +919,53 @@
               const val = modData.skills[skill] !== undefined ? modData.skills[skill] : -1;
               const badgeClass = `badge-${modKey}`;
               const chipClass = isAssigned ? 'mod-skill-chip' : 'mod-skill-chip ghost';
-              const modifierValue = modData.modifier || 1.0;
 
               if (isEditMode) {
-                cellHtml += `<label class="${chipClass}"><span class="badge ${badgeClass}">${modKey.toUpperCase().substring(0,2)}</span>
-                  <select onchange="onInlineSkillChange('${tab}', '${modKey}', ${modData.row_index}, '${skill}', this.value, ${gIdx}, ${shiftIdx}, this)">
+                cellHtml += `<label class="${chipClass}"><span class="badge ${badgeClass}">${modKey.toUpperCase()}</span>
+                  <select onchange="onInlineSkillChange('${tab}', '${modKey}', ${modData.row_index}, '${skill}', this.value, ${gIdx}, ${shiftIdx})">
                     <option value="-1" ${val === -1 ? 'selected' : ''}>-1</option>
                     <option value="0" ${val === 0 ? 'selected' : ''}>0</option>
                     <option value="1" ${val === 1 ? 'selected' : ''}>1</option>
                     <option value="2" ${val === 2 ? 'selected' : ''}>w</option>
-                  </select>
-                  <input type="number" step="0.05" min="0.25" max="2" value="${modifierValue}" ${val === 2 ? '' : 'style=\"display:none;\"'} onchange="onInlineModifierChange('${tab}', '${modKey}', ${modData.row_index}, this.value, ${gIdx}, ${shiftIdx})" title="Weighted modifier" aria-label="${modKey} ${skill} modifier">
-                </label>`;
+                  </select></label>`;
               } else {
+                const skillSettings = SKILL_SETTINGS[skill] || {};
+                const skillColor = skillSettings.button_color || '#6c757d';
                 const skillClass = val === 2 ? 'skill-val-2' : `skill-val-${val}`;
-                const displayVal = val === 2 ? `w${modifierValue.toFixed(2)}` : val;
-                cellHtml += `<span class="${chipClass}"><span class="badge ${badgeClass}">${modKey.toUpperCase().substring(0,2)}</span><span class="skill-val ${skillClass}">${displayVal}</span></span>`;
+                const displayVal = val === 2 ? 'w' : val;
+                cellHtml += `<span class="${chipClass}" style="border-color:${skillColor};"><span class="badge ${badgeClass}">${modKey.toUpperCase()}</span><span class="skill-val ${skillClass}" style="border:1px solid ${skillColor}; min-width:22px; text-align:center;">${displayVal}</span></span>`;
               }
             });
             cellHtml += '</div>';
             cellHtml += '</td>';
             tr.innerHTML += cellHtml;
           });
+
+          let modHtml = '<td class="skill-bundle">';
+          modHtml += '<div class="mod-skill-grid">';
+          modKeysToShow.forEach(modKey => {
+            const modData = shift.modalities[modKey] || { skills: {}, row_index: -1, modifier: 1.0 };
+            const isAssigned = modData.row_index !== undefined && modData.row_index >= 0;
+            const hasWeighted = Object.values(modData.skills).some(v => v === 2);
+            const chipClass = isAssigned ? 'mod-skill-chip' : 'mod-skill-chip ghost';
+            const badgeClass = `badge-${modKey}`;
+            if (isEditMode) {
+              modHtml += `<label class="${chipClass}"><span class="badge ${badgeClass}">${modKey.toUpperCase()}</span>
+                <select onchange="onInlineModifierChange('${tab}', '${modKey}', ${modData.row_index}, this.value, ${gIdx}, ${shiftIdx})">
+                  <option value="0.5" ${modData.modifier === 0.5 ? 'selected' : ''}>0.5x</option>
+                  <option value="0.75" ${modData.modifier === 0.75 ? 'selected' : ''}>0.75x</option>
+                  <option value="1" ${modData.modifier === 1 || modData.modifier === 1.0 ? 'selected' : ''}>1.0x</option>
+                  <option value="1.25" ${modData.modifier === 1.25 ? 'selected' : ''}>1.25x</option>
+                  <option value="1.5" ${modData.modifier === 1.5 ? 'selected' : ''}>1.5x</option>
+                </select></label>`;
+            } else {
+              const modClass = hasWeighted ? 'modifier-high' : '';
+              modHtml += `<span class="${chipClass}"><span class="badge ${badgeClass}">${modKey.toUpperCase()}</span><span class="modifier-badge ${modClass}">${(modData.modifier || 1.0).toFixed(2)}x</span></span>`;
+            }
+          });
+          modHtml += '</div>';
+          modHtml += '</td>';
+          tr.innerHTML += modHtml;
 
           if (shiftIdx === 0) {
             tr.innerHTML += `
