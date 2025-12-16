@@ -499,7 +499,7 @@
     }
 
     // Track inline skill change (supports adding new modalities with rowIndex=-1)
-    function onInlineSkillChange(tab, modKey, rowIndex, skill, value, groupIdx, shiftIdx) {
+    function onInlineSkillChange(tab, modKey, rowIndex, skill, value, groupIdx, shiftIdx, el = null) {
       // Handle new modality additions (rowIndex = -1)
       if (rowIndex === -1) {
         const key = `new-${groupIdx}-${shiftIdx}-${modKey}`;
@@ -507,12 +507,28 @@
           pendingChanges[tab][key] = { modality: modKey, row_index: -1, groupIdx, shiftIdx, isNew: true, updates: {} };
         }
         pendingChanges[tab][key].updates[skill] = parseInt(value);
+        if (parseInt(value) === 2) {
+          const currentWeight = el?.nextElementSibling ? parseFloat(el.nextElementSibling.value || '1.0') : 1.0;
+          pendingChanges[tab][key].updates['Modifier'] = currentWeight;
+        } else {
+          delete pendingChanges[tab][key].updates['Modifier'];
+        }
       } else {
         const key = `${modKey}-${rowIndex}`;
         if (!pendingChanges[tab][key]) {
           pendingChanges[tab][key] = { modality: modKey, row_index: rowIndex, updates: {} };
         }
         pendingChanges[tab][key].updates[skill] = parseInt(value);
+        if (parseInt(value) === 2) {
+          const currentWeight = el?.nextElementSibling ? parseFloat(el.nextElementSibling.value || '1.0') : 1.0;
+          pendingChanges[tab][key].updates['Modifier'] = currentWeight;
+        } else {
+          delete pendingChanges[tab][key].updates['Modifier'];
+        }
+      }
+
+      if (el && el.nextElementSibling) {
+        el.nextElementSibling.style.display = value === '2' ? '' : 'none';
       }
 
       // Update save button count
