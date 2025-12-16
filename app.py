@@ -3272,6 +3272,7 @@ def prep_next_day():
         target_date_german=next_day.strftime('%d.%m.%Y'),
         is_next_day=True,
         skills=SKILL_COLUMNS,
+        skill_settings=SKILL_SETTINGS,
         modalities=list(MODALITY_SETTINGS.keys()),
         modality_settings=MODALITY_SETTINGS,
         shift_times=APP_CONFIG.get('shift_times', {}),
