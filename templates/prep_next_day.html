@@ -1508,6 +1508,9 @@
 
       document.getElementById('modal-title').textContent = `Edit Worker - ${group.worker}`;
       document.getElementById('modal-content').innerHTML = html;
+
+      // Prefill the add-shift section with config + roster defaults for faster entry
+      initializeModalAddForm();
     }
 
     // Handle task change in modal add shift section
@@ -1569,6 +1572,39 @@
             }
           });
         }
+      }
+    }
+
+    // Initialize modal add-shift form with sensible defaults from config and roster
+    function initializeModalAddForm() {
+      const taskSelect = document.getElementById('modal-add-task');
+      const skillsContainer = document.getElementById('modal-add-skills');
+
+      if (!taskSelect || !skillsContainer) return;
+
+      // Auto-select first task if none chosen to trigger config preload
+      if (!taskSelect.value && taskSelect.options.length > 1) {
+        taskSelect.selectedIndex = 1;
+      }
+
+      if (taskSelect.value) {
+        onModalTaskChange();
+        skillsContainer.style.display = 'block';
+      } else {
+        // If no task available, still expose skills with roster defaults
+        skillsContainer.style.display = 'block';
+        const { tab, groupIdx } = currentEditEntry || {};
+        const group = entriesData[tab]?.[groupIdx];
+        const preset = group ? WORKER_SKILLS[group.worker] : null;
+        const rosterSkills = preset ? (preset.skills || preset) : {};
+
+        SKILLS.forEach(skill => {
+          const el = document.getElementById(`modal-add-skill-${skill}`);
+          if (el) {
+            const val = rosterSkills[skill] !== undefined ? rosterSkills[skill] : 0;
+            el.value = val.toString();
+          }
+        });
       }
     }
 
