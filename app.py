@@ -3340,27 +3340,32 @@ def prep_next_day():
         roster = {}
     worker_list = list(roster.keys())
 
-    # Build task/role list from medweb_mapping rules (non-exclusion only)
-    # These are the roles like "CT Assistent", "MR Spätdienst", etc.
+    # Build task/role list from medweb_mapping rules
+    # Two types: "shift" (actual work) and "gap" (time exclusions)
     medweb_rules = APP_CONFIG.get('medweb_mapping', {}).get('rules', [])
     task_roles = []
     for rule in medweb_rules:
-        if not rule.get('exclusion'):  # Only non-exclusion rules = actual roles
-            task_role = {
-                'name': rule.get('match', ''),
-                'modality': rule.get('modality'),  # Single modality
-                'modalities': rule.get('modalities', []),  # Multiple modalities
-                'shift': rule.get('shift', 'Fruehdienst'),
-                'base_skills': rule.get('base_skills', {}),
-                'modifier': rule.get('modifier', 1.0)  # Workload modifier (0.5-1.5 range)
-            }
-            # If single modality, convert to list for consistency
-            if task_role['modality'] and not task_role['modalities']:
-                task_role['modalities'] = [task_role['modality']]
-            task_roles.append(task_role)
+        # Determine type: "gap" if exclusion=true, otherwise "shift"
+        rule_type = rule.get('type', 'gap' if rule.get('exclusion') else 'shift')
 
-    # Get exclusion rules for "gap" functionality (boards, meetings, etc.)
-    exclusion_rules = [r for r in medweb_rules if r.get('exclusion')]
+        task_role = {
+            'name': rule.get('match', ''),
+            'type': rule_type,  # "shift" or "gap"
+            'exclusion': rule.get('exclusion', False),
+            'modality': rule.get('modality'),  # Single modality
+            'modalities': rule.get('modalities', []),  # Multiple modalities
+            'shift': rule.get('shift', 'Fruehdienst'),
+            'base_skills': rule.get('base_skills', {}),
+            'modifier': rule.get('modifier', 1.0),  # Workload modifier (0.5-1.5 range)
+            'schedule': rule.get('schedule', {}),  # Day-specific times for gaps
+        }
+        # If single modality, convert to list for consistency
+        if task_role['modality'] and not task_role['modalities']:
+            task_role['modalities'] = [task_role['modality']]
+        task_roles.append(task_role)
+
+    # Separate exclusion rules for backwards compatibility
+    exclusion_rules = [r for r in task_roles if r.get('exclusion')]
 
     # Worker skills from JSON roster (used to prefill skills in UI)
     worker_skills = load_worker_skill_json()
