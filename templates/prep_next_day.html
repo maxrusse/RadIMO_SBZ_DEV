@@ -1161,40 +1161,41 @@
       return { entries, counts };
     }
 
-    // Render table header - compact grid with skill x modality matrix
+    // Render table header - compact grid with modality x skill matrix (inversed)
     function renderTableHeader(tab) {
       const thead = document.getElementById(`table-head-${tab}`);
       const isEditMode = editMode[tab];
       const modalKeys = MODALITIES.map(m => m.toLowerCase());
 
-      // First header row: Worker/Shift/Task, grouped skill columns, modifier group, actions
+      // First header row: Worker/Shift/Task, grouped modality columns (with skills as sub-columns), modifier, actions
       let headerHtml = '<tr class="header-top">';
       headerHtml += '<th rowspan="2" class="worker-col">Worker</th>';
       headerHtml += `<th rowspan="2" class="shift-col">${isEditMode ? 'Shift (editable)' : 'Shift'}</th>`;
       headerHtml += '<th rowspan="2" class="task-col">Task</th>';
 
-      SKILLS.forEach(skill => {
-        const skillSettings = SKILL_SETTINGS[skill] || {};
-        const btnColor = skillSettings.button_color || '#6c757d';
-        const textColor = skillSettings.text_color || '#ffffff';
-        headerHtml += `<th colspan="${modalKeys.length}" class="skill-header" style="background:${btnColor}; color:${textColor};">${escapeHtml(skill)}</th>`;
+      // Modalities as top-level columns (each spanning skill count)
+      modalKeys.forEach(mod => {
+        const modSettings = MODALITY_SETTINGS[mod] || {};
+        const label = (modSettings.label || mod).toUpperCase();
+        const navColor = modSettings.nav_color || '#6c757d';
+        headerHtml += `<th colspan="${SKILLS.length}" class="skill-header" style="background:${navColor}; color:#fff;">${label}</th>`;
       });
 
       headerHtml += `<th colspan="${modalKeys.length}">Mod.(w)</th>`;
       headerHtml += '<th rowspan="2">Actions</th>';
       headerHtml += '</tr>';
 
-      // Second header row: modality labels
+      // Second header row: skill labels under each modality
       headerHtml += '<tr class="header-sub">';
-      SKILLS.forEach(() => {
-        modalKeys.forEach(mod => {
-          const modSettings = MODALITY_SETTINGS[mod] || {};
-          const label = (modSettings.label || mod).replace(/-/g, '');
-          const shortLabel = label.substring(0, 2).toUpperCase();
+      modalKeys.forEach(() => {
+        SKILLS.forEach(skill => {
+          const skillSettings = SKILL_SETTINGS[skill] || {};
+          const shortLabel = skill.substring(0, 3);
           headerHtml += `<th class="sub-col">${shortLabel}</th>`;
         });
       });
 
+      // Modifier sub-headers (one per modality)
       modalKeys.forEach(mod => {
         const modSettings = MODALITY_SETTINGS[mod] || {};
         const label = (modSettings.label || mod).replace(/-/g, '');
@@ -1237,17 +1238,18 @@
         });
       });
 
-      let html = '<div class="summary-title">Active counts by skill & modality (w and 1 counted once per worker)</div>';
-      html += '<table class="summary-table"><thead><tr><th>Skill</th>';
-      MODALITIES.forEach(mod => {
-        const label = mod.toUpperCase();
-        html += `<th>${label}</th>`;
+      let html = '<div class="summary-title">Active counts by modality & skill (w and 1 counted once per worker)</div>';
+      html += '<table class="summary-table"><thead><tr><th>Modality</th>';
+      SKILLS.forEach(skill => {
+        html += `<th>${escapeHtml(skill)}</th>`;
       });
       html += '</tr></thead><tbody>';
 
-      SKILLS.forEach(skill => {
-        html += `<tr><td style="text-align:left; font-weight:600;">${escapeHtml(skill)}</td>`;
-        MODALITIES.forEach(mod => {
+      MODALITIES.forEach(mod => {
+        const modSettings = MODALITY_SETTINGS[mod.toLowerCase()] || {};
+        const navColor = modSettings.nav_color || '#6c757d';
+        html += `<tr><td style="text-align:left; font-weight:600; background:${navColor}20;">${mod.toUpperCase()}</td>`;
+        SKILLS.forEach(skill => {
           html += `<td>${counts[skill][mod.toLowerCase()]}</td>`;
         });
         html += '</tr>';
@@ -1318,8 +1320,9 @@
           const taskStr = shift.task || '';
           tr.innerHTML += `<td class="grid-cell task-col">${taskStr ? `<span class="task-badge">${escapeHtml(taskStr)}</span>` : '<span style="color:#aaa;">-</span>'}</td>`;
 
-          SKILLS.forEach(skill => {
-            modKeysToShow.forEach(modKey => {
+          // Inversed order: modalities first, then skills under each modality
+          modKeysToShow.forEach(modKey => {
+            SKILLS.forEach(skill => {
               const modData = shift.modalities[modKey] || { skills: {}, row_index: -1, modifier: 1.0 };
               const isAssigned = modData.row_index !== undefined && modData.row_index >= 0;
               const isGap = (shift.gaps || []).length > 0 || (shift.task || '').toLowerCase().includes('board');
