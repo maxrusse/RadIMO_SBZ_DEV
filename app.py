@@ -1274,6 +1274,7 @@ def build_working_hours_from_medweb(
                 })
 
     # SECOND PASS: Apply exclusions to split/truncate shifts
+    # Gaps are stored as metadata, not as separate rows
     if exclusions_per_worker:
         selection_logger.info(
             f"Applying time exclusions for {len(exclusions_per_worker)} workers on {weekday_name}"
@@ -1294,13 +1295,28 @@ def build_working_hours_from_medweb(
             # Apply exclusions per worker and rebuild shift list
             new_shifts = []
             for worker_id, worker_shifts in shifts_by_worker.items():
-                if worker_id in exclusions_per_worker:
-                    # Apply exclusions to this worker's shifts
+                worker_exclusions = exclusions_per_worker.get(worker_id, [])
+                if worker_exclusions:
+                    # Store original shift times before splitting
+                    original_times = [(s['start_time'], s['end_time']) for s in worker_shifts]
+
+                    # Apply exclusions to split this worker's shifts
                     worker_shifts = apply_exclusions_to_shifts(
                         worker_shifts,
-                        exclusions_per_worker[worker_id],
+                        worker_exclusions,
                         target_date_obj
                     )
+
+                    # Attach gap info to split shifts for frontend display
+                    gaps_json = json.dumps([{
+                        'start': excl['start_time'].strftime('%H:%M'),
+                        'end': excl['end_time'].strftime('%H:%M'),
+                        'activity': excl['activity']
+                    } for excl in worker_exclusions])
+
+                    for shift in worker_shifts:
+                        shift['gaps'] = gaps_json
+
                 new_shifts.extend(worker_shifts)
 
             rows_per_modality[modality] = new_shifts
