@@ -179,7 +179,7 @@
     /* Modal */
     .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
     .modal-overlay.show { display: flex; }
-    .modal { background: white; padding: 1.5rem; border-radius: 8px; max-width: 700px; width: 95%; max-height: 85vh; overflow-y: auto; }
+    .modal { background: white; padding: 1.5rem; border-radius: 8px; max-width: 1200px; width: 95%; max-height: 85vh; overflow-y: auto; }
     .modal h3 { margin: 0 0 1rem 0; }
     .modal-actions { margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
 
@@ -386,7 +386,7 @@
 
   <!-- Add Worker Modal -->
   <div class="modal-overlay" id="add-worker-modal">
-    <div class="modal" style="max-width: 800px;">
+    <div class="modal" style="max-width: 1100px;">
       <h3 id="add-worker-modal-title">Add Worker</h3>
       <div id="add-worker-modal-content"></div>
       <div class="modal-actions">
@@ -1098,6 +1098,32 @@
       const counts = {};
       const grouped = {};
 
+      function mergeUniqueGaps(list) {
+        const seen = new Set();
+        const result = [];
+        list.filter(Boolean).forEach(gap => {
+          const key = `${gap.start || ''}-${gap.end || ''}-${gap.activity || ''}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            result.push(gap);
+          }
+        });
+        return result;
+      }
+
+      function deriveGapsFromSegments(segments) {
+        const sorted = [...segments].sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+        const derived = [];
+        for (let i = 1; i < sorted.length; i++) {
+          const prev = sorted[i - 1];
+          const curr = sorted[i];
+          if (prev?.end && curr?.start && prev.end < curr.start) {
+            derived.push({ start: prev.end, end: curr.start, activity: 'Gap' });
+          }
+        }
+        return derived;
+      }
+
       // First pass: collect all entries
       MODALITIES.forEach(mod => {
         const modData = Array.isArray(data[mod]) ? data[mod] : [];
@@ -1122,6 +1148,30 @@
           // Check if this is a gap row using config (not string matching)
           const isGapRow = isGapTask(taskStr);
 
+          // Pull default times from configured shifts/roles when missing
+          const roleConfig = TASK_ROLES.find(t => t.name === taskStr);
+          let startTime = row.start_time;
+          let endTime = row.end_time;
+          if ((!startTime || !endTime) && roleConfig) {
+            if (isGapRow) {
+              const schedule = roleConfig.schedule || {};
+              const days = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+              const today = days[new Date().getDay()];
+              if (schedule[today]) {
+                [startTime, endTime] = schedule[today].split('-');
+              }
+            } else {
+              const shiftName = roleConfig.shift || 'Fruehdienst';
+              const shiftConfig = SHIFT_TIMES[shiftName] || {};
+              const [start, end] = (shiftConfig.default || '07:00-15:00').split('-');
+              startTime = startTime || start;
+              endTime = endTime || end;
+            }
+          }
+          if (!startTime || !endTime) {
+            [startTime, endTime] = isGapRow ? ['12:00', '13:00'] : ['07:00', '15:00'];
+          }
+
           const rosterPreset = (WORKER_SKILLS[workerName] || {});
           const rosterSkills = rosterPreset[mod] || rosterPreset.default || {};
 
@@ -1129,8 +1179,8 @@
             worker: workerName,
             modality: mod,
             row_index: row.row_index,
-            start_time: row.start_time || '07:00',
-            end_time: row.end_time || '15:00',
+            start_time: startTime,
+            end_time: endTime,
             modifier: row.Modifier !== undefined ? row.Modifier : 1.0,
             gaps: gaps,
             skills: SKILLS.reduce((acc, skill) => {
@@ -1155,13 +1205,11 @@
             grouped[workerName] = { worker: workerName, shifts: {}, allEntries: [], allGaps: [] };
           }
           grouped[workerName].allEntries.push(entry);
-          if (gaps.length > 0) {
-            gaps.forEach(g => {
-              if (!grouped[workerName].allGaps.some(eg => eg.start === g.start && eg.end === g.end)) {
-                grouped[workerName].allGaps.push(g);
-              }
-            });
+          const gapCandidates = [...gaps];
+          if (isGapRow) {
+            gapCandidates.push({ start: startTime, end: endTime, activity: taskStr });
           }
+          grouped[workerName].allGaps = mergeUniqueGaps([...(grouped[workerName].allGaps || []), ...gapCandidates]);
 
           // Group by time slot (shift key = start_time-end_time)
           const shiftKey = `${entry.start_time}-${entry.end_time}`;
@@ -1172,7 +1220,9 @@
               modifier: entry.modifier,
               task: entry.task,
               gaps: gaps,
-              modalities: {}  // modality -> {skills, row_index}
+              modalities: {},
+              timeSegments: [{ start: entry.start_time, end: entry.end_time }],
+              originalShifts: [entry]
             };
           }
 
@@ -1231,14 +1281,24 @@
         // Collect all gaps for this worker
         const workerGaps = group.allGaps || [];
 
+        const hasWorkerGapBetween = (start, end) => {
+          if (!start || !end) return false;
+          return workerGaps.some(g => {
+            const gapStart = g.start || '';
+            const gapEnd = g.end || '';
+            return gapStart < end && gapEnd >= start;
+          });
+        };
+
         // Merge consecutive shifts with same task (split shifts due to gaps)
         const mergedShifts = [];
         let currentMerged = null;
 
         shiftsArr.forEach(shift => {
           // Check if there's a gap between currentMerged.end_time and shift.start_time
-          const hasGapBetween = currentMerged && workerGaps.some(g =>
-            g.start >= currentMerged.end_time && g.end <= shift.start_time
+          const hasGapBetween = currentMerged && (
+            (shift.start_time || '') > (currentMerged.end_time || '') ||
+            hasWorkerGapBetween(currentMerged.end_time, shift.start_time)
           );
 
           if (!currentMerged) {
@@ -1246,13 +1306,14 @@
               ...shift,
               timeSegments: [{ start: shift.start_time, end: shift.end_time }],
               originalShifts: [shift],
-              gaps: workerGaps
+              gaps: mergeUniqueGaps(shift.gaps || [])
             };
           } else if (currentMerged.task === shift.task && hasGapBetween) {
             // Same task with gap between - merge into one work period
             currentMerged.timeSegments.push({ start: shift.start_time, end: shift.end_time });
             currentMerged.originalShifts.push(shift);
             currentMerged.end_time = shift.end_time;
+            currentMerged.gaps = mergeUniqueGaps([...(currentMerged.gaps || []), ...(shift.gaps || [])]);
             // Merge modalities (prefer non-placeholder)
             Object.entries(shift.modalities).forEach(([modKey, modData]) => {
               if (!currentMerged.modalities[modKey] || currentMerged.modalities[modKey].placeholder) {
@@ -1266,13 +1327,42 @@
               ...shift,
               timeSegments: [{ start: shift.start_time, end: shift.end_time }],
               originalShifts: [shift],
-              gaps: workerGaps
+              gaps: mergeUniqueGaps(shift.gaps || [])
             };
           }
         });
         if (currentMerged) mergedShifts.push(currentMerged);
 
-        group.shiftsArray = mergedShifts;
+        // Attach only the gaps that live inside each merged shift and derive implicit ones between segments
+        group.shiftsArray = mergedShifts.map(shift => {
+          const segments = (shift.timeSegments || []).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+          const firstStart = segments[0]?.start || shift.start_time;
+          const lastEnd = segments[segments.length - 1]?.end || shift.end_time;
+
+          const gapsInRange = (workerGaps || [])
+            .filter(g => {
+              const gapStart = g.start || '';
+              const gapEnd = g.end || '';
+              return gapStart < (lastEnd || '') && gapEnd > (firstStart || '');
+            })
+            .map(g => {
+              const gapStart = g.start || '';
+              const gapEnd = g.end || '';
+              const clippedStart = gapStart < (firstStart || '') ? firstStart : gapStart;
+              const clippedEnd = gapEnd > (lastEnd || '') ? lastEnd : gapEnd;
+              return { ...g, start: clippedStart, end: clippedEnd };
+            });
+          const derivedGaps = deriveGapsFromSegments(segments);
+          const combinedGaps = mergeUniqueGaps([...(shift.gaps || []), ...gapsInRange, ...derivedGaps]);
+
+          return {
+            ...shift,
+            start_time: firstStart,
+            end_time: lastEnd,
+            gaps: combinedGaps,
+            timeSegments: segments
+          };
+        });
       });
 
       // Sort workers (default by name)
@@ -1497,6 +1587,7 @@
             tr.innerHTML += `<td rowspan="${totalRows}" style="vertical-align: middle;"><span class="worker-name ${isDuplicate ? 'duplicate' : ''}">${escapedWorker}</span>${duplicateBadge}</td>`;
           }
 
+          const isGapRow = isGapTask(shift.task);
           // Build timeline display with gaps shown inline
           const segments = shift.timeSegments || [{ start: shift.start_time, end: shift.end_time }];
           const gaps = shift.gaps || [];
@@ -1515,37 +1606,48 @@
               gaps.forEach(g => {
                 shiftEditor += `<div class="gap-indicator" style="margin-top:0.1rem;" title="${escapeHtml(g.activity || 'Gap')}">⏸ ${escapeHtml(g.start)}-${escapeHtml(g.end)}</div>`;
               });
+            } else if (isGapRow) {
+              const gapStart = firstSeg.start || shift.start_time || '12:00';
+              const gapEnd = lastSeg.end || shift.end_time || '13:00';
+              shiftEditor += `<div class="gap-indicator" style="margin-top:0.1rem;">⏸ ${escapeHtml(gapStart)}-${escapeHtml(gapEnd)}</div>`;
             }
             tr.innerHTML += `<td class="grid-cell shift-col">${shiftEditor}</td>`;
           } else {
             // View mode: show timeline with segments and gaps in time order
             let timelineHtml = '<div class="shift-timeline">';
 
-            // Build combined timeline: segments + gaps sorted by start time
-            const timelineItems = [];
-            segments.forEach(seg => {
-              timelineItems.push({ type: 'segment', start: seg.start, end: seg.end });
-            });
-            gaps.forEach(g => {
-              timelineItems.push({ type: 'gap', start: g.start, end: g.end, activity: g.activity });
-            });
-            timelineItems.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+            if (isGapRow) {
+              const firstSeg = segments[0] || {};
+              const lastSeg = segments[segments.length - 1] || firstSeg;
+              timelineHtml += `<span class="gap-indicator">⏸ ${escapeHtml(firstSeg.start || shift.start_time || '12:00')}-${escapeHtml(lastSeg.end || shift.end_time || '13:00')}</span>`;
+            } else {
+              // Build combined timeline: segments + gaps sorted by start time
+              const timelineItems = [];
+              segments.forEach(seg => {
+                timelineItems.push({ type: 'segment', start: seg.start, end: seg.end });
+              });
+              gaps.forEach(g => {
+                timelineItems.push({ type: 'gap', start: g.start, end: g.end, activity: g.activity });
+              });
+              timelineItems.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
 
-            // Render in order
-            timelineItems.forEach(item => {
-              if (item.type === 'segment') {
-                timelineHtml += `<span class="shift-segment">${escapeHtml(item.start)}-${escapeHtml(item.end)}</span>`;
-              } else {
-                timelineHtml += `<span class="gap-indicator" title="${escapeHtml(item.activity || 'Gap')}">⏸ ${escapeHtml(item.start)}-${escapeHtml(item.end)}</span>`;
-              }
-            });
+              // Render in order
+              timelineItems.forEach(item => {
+                if (item.type === 'segment') {
+                  timelineHtml += `<span class="shift-segment">${escapeHtml(item.start)}-${escapeHtml(item.end)}</span>`;
+                } else {
+                  timelineHtml += `<span class="gap-indicator" title="${escapeHtml(item.activity || 'Gap')}">⏸ ${escapeHtml(item.start)}-${escapeHtml(item.end)}</span>`;
+                }
+              });
+            }
 
             timelineHtml += '</div>';
             tr.innerHTML += `<td class="grid-cell shift-col">${timelineHtml}</td>`;
           }
 
           const taskStr = shift.task || '';
-          tr.innerHTML += `<td class="grid-cell task-col">${taskStr ? `<span class="task-badge">${escapeHtml(taskStr)}</span>` : '<span style="color:#aaa;">-</span>'}</td>`;
+          const taskBadgeClass = isGapRow ? 'task-badge exclusion' : 'task-badge';
+          tr.innerHTML += `<td class="grid-cell task-col">${taskStr ? `<span class="${taskBadgeClass}">${escapeHtml(taskStr)}</span>` : '<span style="color:#aaa;">-</span>'}</td>`;
 
           // Render data cells based on display order
           const renderCell = (modKey, skill) => {
@@ -2229,8 +2331,8 @@ html += `</div>
       }
     }
 
-    // Add shift from modal
-    async function addShiftFromModal() {
+    // Add shift from modal (staged locally until Save)
+    function addShiftFromModal() {
       const { tab, groupIdx } = currentEditEntry || {};
       const group = entriesData[tab]?.[groupIdx];
       if (!group) return;
@@ -2255,6 +2357,7 @@ html += `</div>
       const startTime = document.getElementById('modal-add-start').value;
       const endTime = document.getElementById('modal-add-end').value;
       const modifier = parseFloat(document.getElementById('modal-add-modifier').value) || 1.0;
+      const isGap = isGapTask(taskName);
 
       const endpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
 
