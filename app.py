@@ -2333,19 +2333,36 @@ def load_staged_dataframe(modality: str) -> bool:
     """
     Load staged data from file into staged_modality_data structure.
 
+    Checks multiple file sources in order:
+    1. staged_file_path (backups/Cortex_{MOD}_staged.xlsx) - edited prep data
+    2. scheduled_file_path (Cortex_{MOD}_scheduled.xlsx) - preloaded data awaiting daily reset
+
+    This ensures that after a server restart, previously preloaded data is still available
+    in the prep page.
+
     Returns:
         True if loaded successfully, False otherwise
     """
     d = staged_modality_data[modality]
     staged_file = d['staged_file_path']
+    scheduled_file = modality_data[modality]['scheduled_file_path']
 
-    if not os.path.exists(staged_file):
-        selection_logger.info(f"No staged file found for {modality}: {staged_file}")
+    # Determine which file to load from (prefer staged, fallback to scheduled)
+    file_to_load = None
+    if os.path.exists(staged_file):
+        file_to_load = staged_file
+    elif os.path.exists(scheduled_file):
+        # Fallback: load from scheduled file if staged doesn't exist
+        # This handles the case where preload was done but server restarted before edits
+        selection_logger.info(f"No staged file for {modality}, falling back to scheduled file: {scheduled_file}")
+        file_to_load = scheduled_file
+    else:
+        selection_logger.info(f"No staged or scheduled file found for {modality}")
         return False
 
     try:
         # Load staged data directly from Excel file
-        with pd.ExcelFile(staged_file, engine='openpyxl') as xls:
+        with pd.ExcelFile(file_to_load, engine='openpyxl') as xls:
             if 'Tabelle1' in xls.sheet_names:
                 df = pd.read_excel(xls, sheet_name='Tabelle1')
 
@@ -2374,8 +2391,8 @@ def load_staged_dataframe(modality: str) -> bool:
                     if 'Info' in df_info.columns:
                         d['info_texts'] = df_info['Info'].tolist()
 
-                d['last_modified'] = datetime.fromtimestamp(os.path.getmtime(staged_file))
-                selection_logger.info(f"Loaded staged data for {modality} from {staged_file}")
+                d['last_modified'] = datetime.fromtimestamp(os.path.getmtime(file_to_load))
+                selection_logger.info(f"Loaded staged data for {modality} from {file_to_load}")
                 return True
     except Exception as e:
         selection_logger.error(f"Error loading staged data for {modality}: {e}")
@@ -3160,6 +3177,9 @@ def preload_from_master():
     """
     Preload next workday from the already-uploaded master CSV.
     No file upload needed.
+
+    CRITICAL: After saving to scheduled files, also loads into staged_modality_data
+    so the prep page immediately shows the preloaded data.
     """
     if not os.path.exists(MASTER_CSV_PATH):
         return jsonify({"error": "Keine Master-CSV vorhanden. Bitte zuerst hochladen."}), 400
@@ -3167,6 +3187,50 @@ def preload_from_master():
     result = preload_next_workday(MASTER_CSV_PATH, APP_CONFIG)
 
     if result['success']:
+        # CRITICAL FIX: Load the newly saved data into staged_modality_data
+        # so the prep page shows the preloaded data instead of falling back to live data
+        modalities_loaded = result.get('modalities_loaded', [])
+        for modality in modalities_loaded:
+            d = modality_data[modality]
+            scheduled_path = d['scheduled_file_path']
+
+            if os.path.exists(scheduled_path):
+                try:
+                    # Load from the scheduled file we just saved
+                    with pd.ExcelFile(scheduled_path, engine='openpyxl') as xls:
+                        if 'Tabelle1' in xls.sheet_names:
+                            df = pd.read_excel(xls, sheet_name='Tabelle1')
+
+                            # Parse TIME column and add start_time, end_time, shift_duration
+                            if 'TIME' in df.columns:
+                                time_data = df['TIME'].apply(parse_time_range)
+                                df['start_time'] = time_data.apply(lambda x: x[0])
+                                df['end_time'] = time_data.apply(lambda x: x[1])
+
+                                # Calculate shift_duration
+                                df['shift_duration'] = df.apply(
+                                    lambda row: _calculate_shift_duration_hours(row['start_time'], row['end_time']),
+                                    axis=1
+                                )
+
+                            # Add canonical_id
+                            if 'PPL' in df.columns:
+                                df['canonical_id'] = df['PPL'].apply(get_canonical_worker_id)
+
+                            # Update staged_modality_data
+                            staged_modality_data[modality]['working_hours_df'] = df
+                            staged_modality_data[modality]['info_texts'] = []
+                            staged_modality_data[modality]['total_work_hours'] = df.groupby('PPL')['shift_duration'].sum().to_dict() if 'shift_duration' in df.columns else {}
+                            staged_modality_data[modality]['last_modified'] = get_local_berlin_now()
+
+                            # Also save to staged file path for consistency
+                            backup_dataframe(modality, use_staged=True)
+
+                            selection_logger.info(f"Staged data updated for {modality} from scheduled file after preload")
+
+                except Exception as e:
+                    selection_logger.error(f"Error loading staged data for {modality} after preload: {e}")
+
         return jsonify(result)
     return jsonify(result), 400
 
