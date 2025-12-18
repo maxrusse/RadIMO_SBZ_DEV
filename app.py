@@ -2376,6 +2376,10 @@ def _df_to_api_response(df: pd.DataFrame) -> list:
             'Modifier': float(row.get('Modifier', 1.0)) if pd.notnull(row.get('Modifier')) else 1.0,
         }
 
+        # Preserve gap metadata for frontend schedule editors
+        if 'gaps' in df.columns:
+            worker_data['gaps'] = row.get('gaps', None)
+
         # Add all skill columns
         for skill in SKILL_COLUMNS:
             value = row.get(skill, 0)
@@ -2431,6 +2435,8 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
                     df.at[row_index, 'tasks'] = ', '.join(value)
                 else:
                     df.at[row_index, 'tasks'] = value
+            elif col == 'gaps':
+                df.at[row_index, 'gaps'] = value
 
         # Recalculate shift_duration if times changed
         if 'start_time' in updates or 'end_time' in updates:
@@ -2571,12 +2577,40 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
     data_dict = _get_schedule_data_dict(modality, use_staged)
     df = data_dict['working_hours_df']
 
+    # Ensure gaps column exists to persist metadata
+    if df is not None and 'gaps' not in df.columns:
+        df['gaps'] = None
+
     if not _validate_row_index(df, row_index):
         return False, None, 'Invalid row index'
 
     try:
         row = df.loc[row_index].copy()
         worker_name = row['PPL']
+
+        def parse_gap_list(raw_val):
+            if raw_val is None or (isinstance(raw_val, float) and pd.isna(raw_val)):
+                return []
+            if isinstance(raw_val, list):
+                return raw_val
+            if isinstance(raw_val, str):
+                try:
+                    return json.loads(raw_val)
+                except Exception:
+                    return []
+            return []
+
+        def merge_gap(existing: list, new_gap: dict) -> list:
+            merged = existing.copy() if existing else []
+            for g in merged:
+                if (
+                    g.get('start') == new_gap.get('start') and
+                    g.get('end') == new_gap.get('end') and
+                    g.get('activity') == new_gap.get('activity')
+                ):
+                    return merged
+            merged.append(new_gap)
+            return merged
 
         # Parse times
         gap_start_time = datetime.strptime(gap_start, TIME_FORMAT).time()
@@ -2595,6 +2629,13 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
         shift_end_dt = datetime.combine(base_date, shift_end)
         gap_start_dt = datetime.combine(base_date, gap_start_time)
         gap_end_dt = datetime.combine(base_date, gap_end_time)
+
+        # Prepare gap metadata to persist for UI
+        gap_entry = {
+            'start': gap_start_time.strftime(TIME_FORMAT),
+            'end': gap_end_time.strftime(TIME_FORMAT),
+            'activity': gap_type,
+        }
 
         # Check if gap is within shift
         if gap_end_dt <= shift_start_dt or gap_start_dt >= shift_end_dt:
@@ -2615,6 +2656,7 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
             df.at[row_index, 'TIME'] = f"{gap_end_time.strftime(TIME_FORMAT)}-{shift_end.strftime(TIME_FORMAT)}"
             new_start_dt = datetime.combine(base_date, gap_end_time)
             df.at[row_index, 'shift_duration'] = (shift_end_dt - new_start_dt).seconds / 3600
+            df.at[row_index, 'gaps'] = json.dumps(merge_gap(parse_gap_list(row.get('gaps')), gap_entry))
             backup_dataframe(modality, use_staged=use_staged)
             selection_logger.info(f"{log_prefix}Gap ({gap_type}) at start for {worker_name}: new start {gap_end_time}")
             return True, 'start_adjusted', None
@@ -2625,6 +2667,7 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
             df.at[row_index, 'TIME'] = f"{shift_start.strftime(TIME_FORMAT)}-{gap_start_time.strftime(TIME_FORMAT)}"
             new_end_dt = datetime.combine(base_date, gap_start_time)
             df.at[row_index, 'shift_duration'] = (new_end_dt - shift_start_dt).seconds / 3600
+            df.at[row_index, 'gaps'] = json.dumps(merge_gap(parse_gap_list(row.get('gaps')), gap_entry))
             backup_dataframe(modality, use_staged=use_staged)
             selection_logger.info(f"{log_prefix}Gap ({gap_type}) at end for {worker_name}: new end {gap_start_time}")
             return True, 'end_adjusted', None
@@ -2644,6 +2687,9 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
             new_row['TIME'] = f"{gap_end_time.strftime(TIME_FORMAT)}-{shift_end.strftime(TIME_FORMAT)}"
             new_start_dt = datetime.combine(base_date, gap_end_time)
             new_row['shift_duration'] = (shift_end_dt - new_start_dt).seconds / 3600
+            serialized_gaps = json.dumps(merge_gap(parse_gap_list(row.get('gaps')), gap_entry))
+            df.at[row_index, 'gaps'] = serialized_gaps
+            new_row['gaps'] = serialized_gaps
 
             # Append new row
             data_dict['working_hours_df'] = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
