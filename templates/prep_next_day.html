@@ -15,24 +15,18 @@
     .header-actions a:hover, .header-actions button:hover { background: rgba(255,255,255,0.3); }
     .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 1rem; }
 
-    /* Tab Styles */
+    /* Tab Styles - colors generated dynamically from config */
     .tab-container { display: flex; gap: 0; margin-bottom: 0; }
     .tab-btn { padding: 1rem 2rem; border: none; background: #e0e0e0; color: #666; font-size: 1rem; font-weight: 600; cursor: pointer; border-radius: 8px 8px 0 0; transition: all 0.2s; }
     .tab-btn:hover { background: #d0d0d0; }
-    .tab-btn.active-today { background: #28a745; color: white; }
-    .tab-btn.active-tomorrow { background: #ffc107; color: #333; }
+    /* .tab-btn.active-today and .tab-btn.active-tomorrow generated from UI_COLORS */
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    /* Today Banner - Green */
-    .today-banner { background: #d4edda; border: 2px solid #28a745; padding: 1rem; border-radius: 0 8px 8px 8px; margin-bottom: 1rem; }
-    .today-banner h2 { color: #155724; margin-bottom: 0.5rem; font-size: 1.2rem; }
-    .today-banner p { color: #155724; margin: 0.25rem 0; font-size: 0.9rem; }
-
-    /* Tomorrow Banner - Yellow */
-    .tomorrow-banner { background: #fff3cd; border: 2px solid #ffc107; padding: 1rem; border-radius: 0 8px 8px 8px; margin-bottom: 1rem; }
-    .tomorrow-banner h2 { color: #856404; margin-bottom: 0.5rem; font-size: 1.2rem; }
-    .tomorrow-banner p { color: #856404; margin: 0.25rem 0; font-size: 0.9rem; }
+    /* Today/Tomorrow Banners - colors generated dynamically from config */
+    .today-banner, .tomorrow-banner { padding: 1rem; border-radius: 0 8px 8px 8px; margin-bottom: 1rem; }
+    .today-banner h2, .tomorrow-banner h2 { margin-bottom: 0.5rem; font-size: 1.2rem; }
+    .today-banner p, .tomorrow-banner p { margin: 0.25rem 0; font-size: 0.9rem; }
 
     /* Table Styles */
     .table-container { overflow: visible; }
@@ -65,13 +59,10 @@
     .badge { display: inline-block; padding: 0.15rem 0.3rem; margin: 0.05rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; }
     .badge-default { background: #6c757d; color: white; }
 
-    /* Skill cells - borderless, use background color only */
+    /* Skill cells - borderless, colors generated dynamically from SKILL_VALUE_COLORS */
     .skill-cell { text-align: center; font-size: 0.7rem; }
     .skill-val { padding: 0.05rem 0.15rem; font-size: 0.72rem; font-weight: 600; text-align: center; }
-    .skill-val-1 { color: #28a745; }     /* Active - green text */
-    .skill-val-0 { color: #999; }        /* Passive - gray text */
-    .skill-val--1 { color: #dc3545; }    /* Excluded - red text */
-    .skill-val-w { color: #17a2b8; }     /* Weighted - teal text */
+    /* .skill-val-1, .skill-val-0, .skill-val--1, .skill-val-w colors generated from config */
 
     /* Multi-modality chips per skill */
     .mod-skill-grid { display: flex; flex-wrap: wrap; gap: 0.15rem; }
@@ -90,11 +81,10 @@
     .agg-any-0 { background: #f7f7f7; }
     .agg-all-neg { background: #f7f7f7; }
     .agg-mixed { background: #f7f7f7; }
-    .agg-has-weighted { color: #17a2b8; font-weight: bold; }
+    /* .agg-has-weighted generated from SKILL_VALUE_COLORS.weighted */
 
-    /* Workload modifier badge */
+    /* Workload modifier badge - .modifier-high generated from config */
     .modifier-badge { display: inline-block; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.65rem; font-weight: 600; margin-left: 0.3rem; }
-    .modifier-high { background: #17a2b8; color: white; }    /* Modifier > 1: higher weight */
     .modifier-low { background: #6f42c1; color: white; }     /* Modifier < 1: lower weight (freshman) */
 
     /* View toggle */
@@ -396,6 +386,10 @@
     const WORKER_SKILLS = {{ worker_skills|default({})|tojson }};
     const TASK_ROLES = {{ task_roles|default([])|tojson }};
     const EXCLUSION_RULES = {{ exclusion_rules|default([])|tojson }};
+    // Skill value display colors from config (active, passive, excluded, weighted)
+    const SKILL_VALUE_COLORS = {{ skill_value_colors|default({})|tojson }};
+    // UI theme colors from config
+    const UI_COLORS = {{ ui_colors|default({})|tojson }};
 
     // Generate dynamic CSS for modality and skill colors from config
     (function() {
@@ -416,6 +410,30 @@
         css += `.skill-header-${skill.toLowerCase()} { background: ${btnColor}; color: ${textColor}; }\n`;
         css += `.skill-btn-${skill.toLowerCase()} { background: ${btnColor}; color: ${textColor}; border: none; }\n`;
       }
+      // Skill VALUE colors (1=active, 0=passive, -1=excluded, w=weighted)
+      const activeColor = SKILL_VALUE_COLORS.active?.color || '#28a745';
+      const passiveColor = SKILL_VALUE_COLORS.passive?.color || '#6c757d';
+      const excludedColor = SKILL_VALUE_COLORS.excluded?.color || '#dc3545';
+      const weightedColor = SKILL_VALUE_COLORS.weighted?.color || '#17a2b8';
+      css += `.skill-val-1 { color: ${activeColor}; }\n`;
+      css += `.skill-val-0 { color: ${passiveColor}; }\n`;
+      css += `.skill-val--1 { color: ${excludedColor}; }\n`;
+      css += `.skill-val-w { color: ${weightedColor}; }\n`;
+      css += `.modifier-high { background: ${weightedColor}; color: white; }\n`;
+      css += `.agg-has-weighted { color: ${weightedColor}; font-weight: bold; }\n`;
+      // UI theme colors
+      const todayColor = UI_COLORS.today_tab || '#28a745';
+      const tomorrowColor = UI_COLORS.tomorrow_tab || '#ffc107';
+      const successColor = UI_COLORS.success || '#28a745';
+      const errorColor = UI_COLORS.error || '#dc3545';
+      css += `.tab-btn.active-today { background: ${todayColor}; color: white; }\n`;
+      css += `.today-banner { background: ${todayColor}15; border: 2px solid ${todayColor}; }\n`;
+      css += `.today-banner h2, .today-banner p { color: ${todayColor}; }\n`;
+      css += `.tab-btn.active-tomorrow { background: ${tomorrowColor}; color: #333; }\n`;
+      css += `.tomorrow-banner { background: ${tomorrowColor}30; border: 2px solid ${tomorrowColor}; }\n`;
+      css += `.tomorrow-banner h2, .tomorrow-banner p { color: #856404; }\n`;
+      css += `.btn-success { background: ${successColor}; color: white; }\n`;
+      css += `.btn-danger { background: ${errorColor}; color: white; }\n`;
       style.textContent = css;
       document.head.appendChild(style);
     })();
@@ -541,14 +559,14 @@
       return '';
     }
 
-    // Get border color for skill value based on value
+    // Get color for skill value based on config
     function getSkillColor(value) {
       const v = normalizeSkillValueJS(value);
-      if (v === 1) return '#28a745';
-      if (v === 0) return '#6c757d';
-      if (v === -1) return '#dc3545';
-      if (isWeightedSkill(v)) return '#17a2b8';
-      return '#ddd';
+      if (v === 1) return SKILL_VALUE_COLORS.active?.color || '#28a745';
+      if (v === 0) return SKILL_VALUE_COLORS.passive?.color || '#6c757d';
+      if (v === -1) return SKILL_VALUE_COLORS.excluded?.color || '#dc3545';
+      if (isWeightedSkill(v)) return SKILL_VALUE_COLORS.weighted?.color || '#17a2b8';
+      return SKILL_VALUE_COLORS.passive?.color || '#ddd';
     }
 
     function shiftMatchesFilters(shift, filter) {
@@ -1555,7 +1573,7 @@
       const shifts = group.shiftsArray || [];
       const numShifts = shifts.length;
       const duplicateBadge = numShifts > 1 ? `<span class="duplicate-badge">${numShifts}x</span>` : '';
-      const borderColor = tab === 'today' ? '#28a745' : '#ffc107';
+      const borderColor = tab === 'today' ? (UI_COLORS.today_tab || '#28a745') : (UI_COLORS.tomorrow_tab || '#ffc107');
 
       // Header with worker name (similar to Add Worker modal)
       html += `<div style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border-radius: 8px;">
@@ -2491,7 +2509,7 @@
       addWorkerModalState.tasks.forEach((task, idx) => {
         const taskConfig = TASK_ROLES.find(t => t.name === task.task) || {};
         const availableModalities = taskConfig.modalities || MODALITIES;
-        const borderColor = addWorkerModalState.tab === 'today' ? '#28a745' : '#ffc107';
+        const borderColor = addWorkerModalState.tab === 'today' ? (UI_COLORS.today_tab || '#28a745') : (UI_COLORS.tomorrow_tab || '#ffc107');
 
         html += `<div style="margin-bottom: 1rem; padding: 0.75rem; border: 2px solid ${borderColor}; border-radius: 8px; background: #fafafa;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
