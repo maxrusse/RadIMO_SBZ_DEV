@@ -813,6 +813,37 @@ def _calculate_shift_duration_hours(start_time: time, end_time: time) -> float:
         end_minutes += 24 * 60
     return (end_minutes - start_minutes) / 60.0
 
+
+def _calculate_total_work_hours(df: pd.DataFrame) -> dict:
+    """
+    Calculate total work hours per worker, respecting counts_for_hours flag.
+    Only sums shift_duration for entries where counts_for_hours=True.
+
+    Args:
+        df: DataFrame with 'PPL', 'shift_duration', and optionally 'counts_for_hours' columns
+
+    Returns:
+        dict mapping worker PPL to total hours that count for load balancing
+    """
+    if df is None or df.empty:
+        return {}
+
+    if 'shift_duration' not in df.columns:
+        return {}
+
+    # Filter to only entries that count for hours (if column exists)
+    if 'counts_for_hours' in df.columns:
+        hours_df = df[df['counts_for_hours'] == True]
+    else:
+        # Legacy compatibility: if column doesn't exist, count all hours
+        hours_df = df
+
+    if hours_df.empty:
+        return {}
+
+    return hours_df.groupby('PPL')['shift_duration'].sum().to_dict()
+
+
 # -----------------------------------------------------------
 # Worker identification helper functions (NEW)
 # -----------------------------------------------------------
@@ -1294,6 +1325,17 @@ def build_working_hours_from_medweb(
                 # Modifier range: 0.5, 0.75, 1.0, 1.25, 1.5 (lower = less capacity, counts more toward load)
                 rule_modifier = rule.get('modifier', 1.0)
 
+                # Determine if this entry's hours count for load balancing
+                # Check explicit rule setting first, then fall back to type-based defaults
+                hours_counting_config = config.get('balancer', {}).get('hours_counting', {})
+                rule_type = rule.get('type', 'shift')
+                if 'counts_for_hours' in rule:
+                    counts_for_hours = rule['counts_for_hours']
+                elif rule_type == 'gap':
+                    counts_for_hours = hours_counting_config.get('gap_default', False)
+                else:
+                    counts_for_hours = hours_counting_config.get('shift_default', True)
+
                 rows_per_modality[modality].append({
                     'PPL': ppl_str,
                     'canonical_id': canonical_id,
@@ -1302,6 +1344,7 @@ def build_working_hours_from_medweb(
                     'shift_duration': duration_hours,
                     'Modifier': rule_modifier,
                     'tasks': activity_desc,  # Store shift/role name from CSV
+                    'counts_for_hours': counts_for_hours,  # Whether hours count for load balancing
                     **final_skills
                 })
 
@@ -1561,10 +1604,21 @@ def get_global_assignments(canonical_id):
 # Modality-specific work hours & weighted calculations
 # -----------------------------------------------------------
 def calculate_work_hours_now(current_dt: datetime, modality: str) -> dict:
+    """
+    Calculate how many hours each worker has worked so far today.
+    Only counts entries where counts_for_hours=True (shifts by default, not gaps).
+    """
     d = modality_data[modality]
     if d['working_hours_df'] is None:
         return {}
     df_copy = d['working_hours_df'].copy()
+
+    # Filter to only entries that count for hours (shifts by default, not gaps/tasks)
+    if 'counts_for_hours' in df_copy.columns:
+        df_copy = df_copy[df_copy['counts_for_hours'] == True].copy()
+
+    if df_copy.empty:
+        return {}
 
     def _calc(row):
         start_dt, end_dt = _compute_shift_window(row['start_time'], row['end_time'], current_dt)
@@ -1575,14 +1629,14 @@ def calculate_work_hours_now(current_dt: datetime, modality: str) -> dict:
         return (current_dt - start_dt).total_seconds() / 3600.0
 
     df_copy['work_hours_now'] = df_copy.apply(_calc, axis=1)
-    
+
     hours_by_canonical = {}
     hours_by_worker = df_copy.groupby('PPL')['work_hours_now'].sum().to_dict()
-    
+
     for worker, hours in hours_by_worker.items():
         canonical_id = get_canonical_worker_id(worker)
         hours_by_canonical[canonical_id] = hours_by_canonical.get(canonical_id, 0) + hours
-        
+
     return hours_by_canonical
 
 
@@ -1646,18 +1700,21 @@ def initialize_data(file_path: str, modality: str):
             df['canonical_id'] = df['PPL'].apply(get_canonical_worker_id)
 
             # Set column order as desired (include tasks column)
-            col_order = ['PPL', 'canonical_id', 'Modifier', 'TIME', 'start_time', 'end_time', 'shift_duration', 'tasks']
+            col_order = ['PPL', 'canonical_id', 'Modifier', 'TIME', 'start_time', 'end_time', 'shift_duration', 'tasks', 'counts_for_hours']
             skill_cols = [skill for skill in SKILL_COLUMNS if skill in df.columns]
             col_order = col_order[:4] + skill_cols + col_order[4:]
             # Ensure tasks column exists
             if 'tasks' not in df.columns:
                 df['tasks'] = ''
+            # Ensure counts_for_hours column exists (default True for legacy files)
+            if 'counts_for_hours' not in df.columns:
+                df['counts_for_hours'] = True
             df = df[[col for col in col_order if col in df.columns]]
 
             # Save the DataFrame and compute auxiliary data
             d['working_hours_df'] = df
             d['worker_modifiers'] = df.groupby('PPL')['Modifier'].first().to_dict()
-            d['total_work_hours'] = df.groupby('PPL')['shift_duration'].sum().to_dict()
+            d['total_work_hours'] = _calculate_total_work_hours(df)
             unique_workers = df['PPL'].unique()
             d['draw_counts'] = {w: 0 for w in unique_workers}
 
@@ -2382,8 +2439,12 @@ def load_staged_dataframe(modality: str) -> bool:
                 if 'PPL' in df.columns:
                     df['canonical_id'] = df['PPL'].apply(get_canonical_worker_id)
 
+                # Ensure counts_for_hours column exists (default True for legacy files)
+                if 'counts_for_hours' not in df.columns:
+                    df['counts_for_hours'] = True
+
                 d['working_hours_df'] = df
-                d['total_work_hours'] = df.groupby('PPL')['shift_duration'].sum().to_dict() if 'shift_duration' in df.columns else {}
+                d['total_work_hours'] = _calculate_total_work_hours(df)
 
                 # Load info texts if available
                 if 'Tabelle2' in xls.sheet_names:
@@ -2504,6 +2565,9 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
                     df.at[row_index, 'tasks'] = value
             elif col == 'gaps':
                 df.at[row_index, 'gaps'] = value
+            elif col == 'counts_for_hours':
+                # Boolean flag for whether hours count towards load balancing
+                df.at[row_index, 'counts_for_hours'] = bool(value)
 
         # Recalculate shift_duration if times changed
         if 'start_time' in updates or 'end_time' in updates:
@@ -2574,6 +2638,9 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
         if end_dt < start_dt:
             end_dt += timedelta(days=1)
         new_row['shift_duration'] = (end_dt - start_dt).seconds / 3600
+
+        # Set counts_for_hours (defaults to True for manually added entries = shifts)
+        new_row['counts_for_hours'] = worker_data.get('counts_for_hours', True)
 
         # Append to DataFrame
         if df is None or df.empty:
@@ -3217,10 +3284,14 @@ def preload_from_master():
                             if 'PPL' in df.columns:
                                 df['canonical_id'] = df['PPL'].apply(get_canonical_worker_id)
 
+                            # Ensure counts_for_hours column exists (default True for legacy files)
+                            if 'counts_for_hours' not in df.columns:
+                                df['counts_for_hours'] = True
+
                             # Update staged_modality_data
                             staged_modality_data[modality]['working_hours_df'] = df
                             staged_modality_data[modality]['info_texts'] = []
-                            staged_modality_data[modality]['total_work_hours'] = df.groupby('PPL')['shift_duration'].sum().to_dict() if 'shift_duration' in df.columns else {}
+                            staged_modality_data[modality]['total_work_hours'] = _calculate_total_work_hours(df)
                             staged_modality_data[modality]['last_modified'] = get_local_berlin_now()
 
                             # Also save to staged file path for consistency
@@ -3533,6 +3604,15 @@ def prep_next_day():
         # Determine type: "gap" if exclusion=true, otherwise "shift"
         rule_type = rule.get('type', 'gap' if rule.get('exclusion') else 'shift')
 
+        # Determine default counts_for_hours based on type and config
+        hours_counting_config = APP_CONFIG.get('balancer', {}).get('hours_counting', {})
+        if 'counts_for_hours' in rule:
+            counts_for_hours = rule['counts_for_hours']
+        elif rule_type == 'gap':
+            counts_for_hours = hours_counting_config.get('gap_default', False)
+        else:
+            counts_for_hours = hours_counting_config.get('shift_default', True)
+
         task_role = {
             'name': rule.get('match', ''),
             'type': rule_type,  # "shift" or "gap"
@@ -3543,6 +3623,7 @@ def prep_next_day():
             'base_skills': rule.get('base_skills', {}),
             'modifier': rule.get('modifier', 1.0),  # Workload modifier (0.5-1.5 range)
             'schedule': rule.get('schedule', {}),  # Day-specific times for gaps
+            'counts_for_hours': counts_for_hours,  # Whether hours count for load balancing
         }
         # If single modality, convert to list for consistency
         if task_role['modality'] and not task_role['modalities']:

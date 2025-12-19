@@ -187,6 +187,14 @@ balancer:
   allow_fallback_on_imbalance: true
   modifier_applies_to_active_only: true  # If true, Modifier only applies when skill=1 (active), not skill=0 (fallback)
 
+  # Hours counting for load balancing
+  # Controls which entries count towards a worker's total hours in workload calculations
+  # Default behavior: shifts count, gaps don't count
+  # Override per-rule in medweb_mapping using "counts_for_hours: true/false"
+  hours_counting:
+    shift_default: true   # type: "shift" entries count towards hours (default)
+    gap_default: false    # type: "gap" entries don't count towards hours (default)
+
   # Exclusion-based routing configuration
   exclusion_rules:
     # Define which workers to EXCLUDE when requesting each skill
@@ -224,6 +232,14 @@ balancer:
 # Two types of entries:
 #   - type: "shift" (default) = Actual work assignments with modality, skills, times
 #   - type: "gap"   = Time exclusions (boards, meetings) - worker unavailable, shows -1 everywhere
+#
+# Load balancing hours counting:
+#   Each rule can have "counts_for_hours: true/false" to control if this entry's
+#   hours count towards the worker's total workload for load balancing calculations.
+#   - Shifts default to counting (shift_default in balancer.hours_counting)
+#   - Gaps default to NOT counting (gap_default in balancer.hours_counting)
+#   - Use explicit "counts_for_hours: false" on a shift to exclude from hours calculation
+#   - Use explicit "counts_for_hours: true" on a gap to include in hours calculation
 medweb_mapping:
   # Rules for mapping medweb activities to modalities and skills
   # Rules are evaluated in order; first match wins
@@ -371,12 +387,13 @@ medweb_mapping:
       shift: "Fruehdienst"
       base_skills: {Notfall: 0, Privat: 0, Gyn: 0, Päd: 1, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
-    # Cortex Aufklärung - shift (not a gap)
+    # Cortex Aufklärung - shift (not a gap) but hours don't count for load balancing
     - match: "Cortex Aufklärung"
       type: "shift"
       modality: "ct"
       shift: "Fruehdienst"
       label: "Aufklärung"
+      counts_for_hours: false  # Don't count hours towards workload (task, not actual shift)
       base_skills: {Notfall: 0, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
     # ===========================================
