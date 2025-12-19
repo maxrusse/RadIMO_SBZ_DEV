@@ -2484,7 +2484,12 @@ def _df_to_api_response(df: pd.DataFrame) -> list:
 
         # Add counts_for_hours (whether hours count for load balancing)
         if 'counts_for_hours' in df.columns:
-            worker_data['counts_for_hours'] = bool(row.get('counts_for_hours', True))
+            val = row.get('counts_for_hours', True)
+            # Handle NaN/None values and numpy booleans
+            if pd.isna(val):
+                worker_data['counts_for_hours'] = True
+            else:
+                worker_data['counts_for_hours'] = bool(val)
         else:
             worker_data['counts_for_hours'] = True  # Default for legacy data
 

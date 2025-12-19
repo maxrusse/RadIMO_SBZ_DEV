@@ -1211,11 +1211,10 @@
           const rosterSkills = rosterPreset[mod] || rosterPreset.default || {};
 
           // Get counts_for_hours from API response, or derive from task config
-          const taskConfig = TASK_ROLES.find(t => t.name === taskStr);
           let countsForHours = row.counts_for_hours;
           if (countsForHours === undefined) {
             // Derive from task config if not in API response
-            countsForHours = taskConfig ? taskConfig.counts_for_hours : true;
+            countsForHours = roleConfig ? roleConfig.counts_for_hours : true;
           }
 
           const entry = {
