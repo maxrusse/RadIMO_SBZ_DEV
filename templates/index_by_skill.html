@@ -1,53 +1,49 @@
 <!DOCTYPE html>
 <html lang="de">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RadIMO Cortex | {{ skill_labels[skill] }} Dashboard</title>
   <style>
     :root {
-      --disabled-color:  #888;
+      --disabled-color: #888;
 
       /* Global & Other Colors */
-      --primary-color:   #004892;
-      --global-accent:   #004892;
-      --body-bg:         #f0f0f0;
-      --header-bg:       #fff;
-      --tab-bg:          #fff;
-      --tab-color:       #000;
-      --card-bg:         #fff;
+      --primary-color: #004892;
+      --global-accent: #004892;
+      --body-bg: #f0f0f0;
+      --header-bg: #fff;
+      --tab-bg: #fff;
+      --tab-color: #000;
+      --card-bg: #fff;
       --info-box-border: #dc3545;
-      --info-item-bg:    #fff;
+      --info-item-bg: #fff;
       --info-item-shadow: rgba(0, 0, 0, 0.05);
-      --card-header-bg:  #f8f9fa;
+      --card-header-bg: #f8f9fa;
       --stats-header-bg: #f8f9fa;
       --table-header-bg: #f8f9fa;
-      --highlight-bg:    rgba(0, 0, 0, 0.05);
+      --highlight-bg: rgba(0, 0, 0, 0.05);
     }
 
     /* Reset */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
     body {
       font-family: system-ui, -apple-system, sans-serif;
       background: var(--body-bg);
       padding: 1rem;
-      max-width: 1000px;
+      max-width: 1800px;
       margin: 0 auto;
     }
 
     body[data-skill] {
       background: var(--skill-bg, var(--body-bg));
     }
-
-    /* Skill-specific background colors */
-    {% for skill_def in skill_definitions %}
-    body[data-skill="{{ skill_def.name }}"] {
-      --skill-bg: {{ skill_def.button_color }}22;
-      --skill-nav: {{ skill_def.button_color }};
-      --skill-hover: {{ skill_def.button_color }}dd;
-    }
-    {% endfor %}
 
     .result-panel,
     .clipboard-note {
@@ -62,7 +58,7 @@
       background: var(--header-bg);
       padding: 1rem 2rem;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       margin-bottom: 1rem;
     }
 
@@ -76,6 +72,7 @@
       gap: 0.5rem;
       flex-wrap: wrap;
     }
+
     .skill-selector a {
       text-decoration: none;
       font-weight: bold;
@@ -83,14 +80,10 @@
       border-radius: 20px;
       background: var(--tab-bg);
       color: var(--tab-color);
-      border: 2px solid;
+      border: 2px solid #ddd;
       transition: border-width 0.2s;
     }
-    {% for skill_def in skill_definitions %}
-    .skill-selector a[data-skill="{{ skill_def.name }}"] {
-      border-color: {{ skill_def.button_color }};
-    }
-    {% endfor %}
+
     .skill-selector a.active {
       border-width: 4px;
     }
@@ -98,7 +91,7 @@
     .card {
       background: var(--card-bg);
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       padding: 1rem;
       margin-bottom: 1rem;
     }
@@ -135,17 +128,23 @@
       position: relative;
       background: var(--btn-bg, var(--primary-color));
     }
-    .btn:disabled, .btn.btn-disabled {
+
+    .btn:disabled,
+    .btn.btn-disabled {
       background-color: var(--disabled-color) !important;
       cursor: not-allowed;
       opacity: 0.7;
       color: #ddd !important;
     }
+
     .btn:hover {
       filter: brightness(1.1);
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
-    .btn:active { transform: scale(0.98); }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
 
     .modality-main-btn {
       flex: 0 0 65%;
@@ -169,12 +168,17 @@
       text-align: center;
       margin-bottom: 1rem;
     }
+
     .assigned-person {
       font-size: 2rem;
       font-weight: 600;
       margin: 0.5rem 0;
     }
-    .timer { color: #666; font-size: 1rem; }
+
+    .timer {
+      color: #666;
+      font-size: 1rem;
+    }
 
     .clipboard-note {
       color: var(--primary-color);
@@ -186,6 +190,7 @@
       align-items: center;
       gap: 0.5rem;
     }
+
     .small-button {
       font-size: 0.9rem;
       padding: 0.3rem 0.6rem;
@@ -195,12 +200,14 @@
       background: var(--primary-color);
       margin-left: 0.5rem;
     }
+
     .info-box {
       border: 2px solid var(--info-box-border);
       border-radius: 8px;
       padding: 1rem;
       margin-top: 1rem;
     }
+
     .info-item {
       background: var(--info-item-bg);
       padding: 0.75rem;
@@ -209,7 +216,10 @@
       font-size: 1rem;
       box-shadow: 0 1px 2px var(--info-item-shadow);
     }
-    .info-item:last-child { margin-bottom: 0; }
+
+    .info-item:last-child {
+      margin-bottom: 0;
+    }
 
     /* Footer */
     .footer {
@@ -218,23 +228,27 @@
       font-size: 11px;
       color: #888;
     }
+
     .footer a {
       color: #666;
     }
+
     .last-assignment {
       font-size: 0.8rem;
       color: #666;
       padding: 0.5rem 1rem;
-      background: rgba(255,255,255,0.7);
+      background: rgba(255, 255, 255, 0.7);
       border-radius: 4px;
       margin-bottom: 0.5rem;
       display: none;
     }
+
     .last-assignment.visible {
       display: block;
     }
   </style>
 </head>
+
 <body data-skill="{{ skill }}">
   <!-- Premium Header with Navigation -->
   <header class="premium-header">
@@ -243,24 +257,32 @@
       <p style="margin: 0; opacity: 0.8; font-size: 0.9rem;">Intelligent Radiology Orchestration</p>
     </div>
     <nav style="display: flex; gap: 1rem; align-items: center;">
-      <a href="{{ url_for('index') }}" style="font-weight: bold; color: #004892; text-decoration: none; border-bottom: 2px solid #004892;">Dashboard</a>
-      <a href="{{ url_for('timetable') }}" style="color: #333; text-decoration: none;">Timetable</a>
-      <a href="{{ url_for('upload_file') }}" style="color: #333; text-decoration: none; padding: 0.4rem 0.8rem; background: #004892; color: white; border-radius: 4px;">Admin</a>
+      <a href="{{ url_for('routes.index') }}"
+        style="font-weight: bold; color: #004892; text-decoration: none; border-bottom: 2px solid #004892;">Dashboard</a>
+      <a href="{{ url_for('routes.timetable') }}" style="color: #333; text-decoration: none;">Timetable</a>
+      <a href="{{ url_for('routes.upload_file') }}"
+        style="color: #333; text-decoration: none; padding: 0.4rem 0.8rem; background: #004892; color: white; border-radius: 4px;">Admin</a>
     </nav>
   </header>
 
   <!-- Skill Selector -->
-  <div style="background: white; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+  <div
+    style="background: white; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <div class="skill-selector" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
         {% for s in skill_order %}
-          <a href="{{ url_for('index_by_skill', skill=s) }}" data-skill="{{ s }}" class="{% if skill == s %}active{% endif %}">{{ skill_labels[s] }}</a>
+        <a href="{{ url_for('routes.index_by_skill', skill=s) }}" data-skill="{{ s }}"
+          class="{% if skill == s %}active{% endif %}">
+          {{ skill_labels[s] }}
+        </a>
         {% endfor %}
       </div>
       <div style="display: flex; gap: 0.5rem; align-items: center;">
         <span style="font-size: 0.9rem; color: #666;">View by:</span>
-        <a href="{{ url_for('index') }}" style="padding: 0.4rem 0.8rem; background: #e0e0e0; color: #333; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">Modality</a>
-        <a href="{{ url_for('index_by_skill') }}" style="padding: 0.4rem 0.8rem; background: #004892; color: white; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">Skill</a>
+        <a href="{{ url_for('routes.index') }}"
+          style="padding: 0.4rem 0.8rem; background: #e0e0e0; color: #333; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">Modality</a>
+        <a href="{{ url_for('routes.index_by_skill') }}"
+          style="padding: 0.4rem 0.8rem; background: #004892; color: white; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">Skill</a>
       </div>
     </div>
   </div>
@@ -269,25 +291,18 @@
   <section class="card">
     <div id="buttonGrid" class="button-grid">
       {% for mod_key in modality_order %}
-        {% set mod = modalities[mod_key] %}
-        {% set is_visible = mod_key in visible_modalities %}
-        <div class="modality-button-wrapper" data-modality="{{ mod_key }}" {% if not is_visible %}style="display: none;"{% endif %}>
-          <button id="mod-btn-{{ mod_key }}"
-            data-modality="{{ mod_key }}"
-            onclick="getNextAssignment('{{ mod_key }}', '{{ skill }}')"
-            class="btn assignment-btn modality-main-btn"
-            style="--btn-bg: {{ mod.nav_color }}; --btn-text: #ffffff;">
-            {{ mod.label }}
-          </button>
-          <button type="button"
-            class="btn assignment-btn modality-strict-btn"
-            onclick="getNextAssignment('{{ mod_key }}', '{{ skill }}', true)"
-            aria-label="Nur diese Modalität (kein Fallback)"
-            title="Nur diese Modalität"
-            style="--btn-bg: {{ mod.nav_color }};">
-            *
-          </button>
-        </div>
+      <div class="modality-button-wrapper" data-modality="{{ mod_key }}"
+        data-visible="{{ 'true' if mod_key in visible_modalities else 'false' }}">
+        <button id="mod-btn-{{ mod_key }}" data-modality="{{ mod_key }}"
+          onclick="getNextAssignment('{{ mod_key }}', '{{ skill }}')" class="btn assignment-btn modality-main-btn">
+          {{ modalities[mod_key].label }}
+        </button>
+        <button type="button" class="btn assignment-btn modality-strict-btn"
+          onclick="getNextAssignment('{{ mod_key }}', '{{ skill }}', true)"
+          aria-label="Nur diese Modalität (kein Fallback)" title="Nur diese Modalität">
+          *
+        </button>
+      </div>
       {% endfor %}
     </div>
     <div id="result"></div>
@@ -297,7 +312,7 @@
     <div class="info-box">
       <div class="info-texts">
         {% for info in info_texts %}
-          <div class="info-item">{{ info }}</div>
+        <div class="info-item">{{ info }}</div>
         {% endfor %}
       </div>
     </div>
@@ -310,6 +325,43 @@
   </div>
 
   <script>
+    (function injectDynamicStyles() {
+      const currentSkill = "{{ skill }}";
+      const skillDefinitions = JSON.parse('{{ skill_definitions|tojson|safe }}');
+      const modalities = JSON.parse('{{ modalities|tojson|safe }}');
+
+      // Find current skill definition
+      const skillDef = skillDefinitions.find(s => s.name === currentSkill);
+      if (skillDef) {
+        document.body.style.setProperty('--skill-bg', skillDef.button_color + '22');
+        document.body.style.setProperty('--skill-nav', skillDef.button_color);
+        document.body.style.setProperty('--skill-hover', skillDef.button_color + 'dd');
+      }
+
+      // Border colors for skill selector
+      document.querySelectorAll('.skill-selector a').forEach(a => {
+        const sName = a.getAttribute('data-skill');
+        const sDef = skillDefinitions.find(sd => sd.name === sName);
+        if (sDef) {
+          a.style.borderColor = sDef.button_color;
+        }
+      });
+
+      // Colors for modality buttons
+      document.querySelectorAll('.modality-button-wrapper').forEach(wrapper => {
+        const modKey = wrapper.getAttribute('data-modality');
+        if (modalities[modKey]) {
+          wrapper.style.setProperty('--btn-bg', modalities[modKey].nav_color);
+          wrapper.style.setProperty('--btn-text', '#ffffff');
+        }
+
+        // Handle visibility
+        if (wrapper.getAttribute('data-visible') === 'false') {
+          wrapper.style.display = 'none';
+        }
+      });
+    })();
+
     let requestInProgress = false;
     let timerInterval, lastClickTime, disableTimeout;
     let currentSkill = "{{ skill }}";
@@ -372,7 +424,7 @@
 
       // Update last assignment footer (textContent is XSS-safe)
       const now = new Date();
-      const timeStr = now.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
+      const timeStr = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
       const lastEl = document.getElementById('lastAssignment');
       const mod = (modality || lastModalityUsed || '').toUpperCase();
       lastEl.textContent = `Letzte Zuweisung: ${timeStr} · ${displayPerson} · ${mod}/${currentSkill}`;
@@ -443,4 +495,5 @@
     }
   </script>
 </body>
+
 </html>

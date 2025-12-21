@@ -1,55 +1,284 @@
 <!DOCTYPE html>
 <html lang="de">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RadIMO Cortex | Admin</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f0f0; padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
-    .header { background: #004892; color: white; padding: 1rem 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
-    .header h1 { font-size: 1.5rem; margin: 0; }
-    .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-    .header-actions a { color: white; text-decoration: none; padding: 0.5rem 1rem; background: rgba(255,255,255,0.2); border-radius: 4px; font-size: 0.9rem; }
-    .header-actions a:hover { background: rgba(255,255,255,0.3); }
-    .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
-    .card h2 { margin-bottom: 1rem; color: #333; font-size: 1.2rem; border-bottom: 2px solid #004892; padding-bottom: 0.5rem; }
-    .workflow-box { background: #e7f3ff; border-left: 4px solid #004892; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; }
-    .workflow-box h3 { margin-bottom: 0.5rem; color: #004892; font-size: 1rem; }
-    .workflow-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
-    .step { background: #f8f9fa; padding: 1rem; border-radius: 4px; text-align: center; }
-    .step-num { background: #004892; color: white; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-bottom: 0.5rem; }
-    .step-title { font-weight: 600; margin-bottom: 0.25rem; }
-    .step-desc { font-size: 0.85rem; color: #666; }
-    .upload-area { background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border: 2px dashed #004892; margin-bottom: 1rem; }
-    .form-group { margin-bottom: 1rem; }
-    .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #333; }
-    .form-group input[type="file"] { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; }
-    .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; gap: 0.5rem; }
-    .btn-primary { background: #004892; color: white; }
-    .btn-primary:hover { background: #003670; }
-    .btn-success { background: #28a745; color: white; }
-    .btn-success:hover { background: #218838; }
-    .btn-warning { background: #ffc107; color: #333; }
-    .btn-warning:hover { background: #e0a800; }
-    .btn:disabled { background: #ccc; cursor: not-allowed; }
-    .action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
-    .action-card { background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border: 1px solid #ddd; }
-    .action-card h3 { margin-bottom: 0.5rem; font-size: 1rem; }
-    .action-card p { font-size: 0.85rem; color: #666; margin-bottom: 1rem; }
-    .message { padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
-    .message.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-    .message.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-    .master-status { padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem; font-size: 0.9rem; }
-    .master-status.loaded { background: #d4edda; color: #155724; }
-    .master-status.empty { background: #fff3cd; color: #856404; }
-    .stats-table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; }
-    .stats-table th, .stats-table td { padding: 0.5rem; text-align: left; border-bottom: 1px solid #ddd; }
-    .stats-table th { background: #f8f9fa; font-weight: 600; }
-    .skill-column { text-align: center; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f0f0;
+      padding: 1rem;
+      max-width: 1800px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: #004892;
+      color: white;
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      margin: 0;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .header-actions a {
+      color: white;
+      text-decoration: none;
+      padding: 0.5rem 1rem;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    .header-actions a:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      margin-bottom: 1.5rem;
+    }
+
+    .card h2 {
+      margin-bottom: 1rem;
+      color: #333;
+      font-size: 1.2rem;
+      border-bottom: 2px solid #004892;
+      padding-bottom: 0.5rem;
+    }
+
+    .workflow-box {
+      background: #e7f3ff;
+      border-left: 4px solid #004892;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      border-radius: 4px;
+    }
+
+    .workflow-box h3 {
+      margin-bottom: 0.5rem;
+      color: #004892;
+      font-size: 1rem;
+    }
+
+    .workflow-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .step {
+      background: #f8f9fa;
+      padding: 1rem;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .step-num {
+      background: #004892;
+      color: white;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+
+    .step-title {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .step-desc {
+      font-size: 0.85rem;
+      color: #666;
+    }
+
+    .upload-area {
+      background: #f8f9fa;
+      padding: 1.5rem;
+      border-radius: 8px;
+      border: 2px dashed #004892;
+      margin-bottom: 1rem;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .form-group input[type="file"] {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background: #004892;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #003670;
+    }
+
+    .btn-success {
+      background: #28a745;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #218838;
+    }
+
+    .btn-warning {
+      background: #ffc107;
+      color: #333;
+    }
+
+    .btn-warning:hover {
+      background: #e0a800;
+    }
+
+    .btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+    }
+
+    .action-card {
+      background: #f8f9fa;
+      padding: 1.5rem;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    .action-card h3 {
+      margin-bottom: 0.5rem;
+      font-size: 1rem;
+    }
+
+    .action-card p {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 1rem;
+    }
+
+    .message {
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+    }
+
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .master-status {
+      padding: 0.75rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+    }
+
+    .master-status.loaded {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .master-status.empty {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .stats-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.85rem;
+    }
+
+    .stats-table th,
+    .stats-table td {
+      padding: 0.5rem;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .stats-table th {
+      background: #f8f9fa;
+      font-weight: 600;
+    }
+
+    .skill-column {
+      text-align: center;
+    }
   </style>
 </head>
+
 <body>
   <div class="header">
     <div>
@@ -57,11 +286,11 @@
       <p style="font-size: 0.85rem; opacity: 0.9;">CSV Management & System</p>
     </div>
     <div class="header-actions">
-      <a href="{{ url_for('index') }}">Dashboard</a>
-      <a href="{{ url_for('timetable') }}">Timetable</a>
-      <a href="{{ url_for('skill_roster_page') }}">Skill Matrix</a>
-      <a href="{{ url_for('prep_next_day') }}">Schedule Edit</a>
-      <a href="{{ url_for('logout') }}">Logout</a>
+      <a href="{{ url_for('routes.index') }}">Dashboard</a>
+      <a href="{{ url_for('routes.timetable') }}">Timetable</a>
+      <a href="{{ url_for('routes.skill_roster_page') }}">Skill Matrix</a>
+      <a href="{{ url_for('routes.prep_next_day') }}">Schedule Edit</a>
+      <a href="{{ url_for('routes.logout') }}">Logout</a>
     </div>
   </div>
 
@@ -108,7 +337,8 @@
           <label>Medweb CSV (enthält ganzen Monat):</label>
           <input type="file" id="master-csv-file" name="file" accept=".csv" required>
           <small style="color: #666; display: block; margin-top: 0.5rem;">
-            CSV mit Spalten: Datum (DD.MM.YYYY), Beschreibung der Aktivität, Name des Mitarbeiters, Code des Mitarbeiters
+            CSV mit Spalten: Datum (DD.MM.YYYY), Beschreibung der Aktivität, Name des Mitarbeiters, Code des
+            Mitarbeiters
           </small>
         </div>
         <button type="submit" class="btn btn-primary" id="master-upload-btn">
@@ -149,20 +379,20 @@
           <tr>
             <th>Worker</th>
             {% for skill in skill_counts.keys() %}
-              <th class="skill-column">{{ skill }}</th>
+            <th class="skill-column">{{ skill }}</th>
             {% endfor %}
             <th class="skill-column"><strong>Total</strong></th>
           </tr>
         </thead>
         <tbody>
           {% for worker in combined_workers %}
-            <tr>
-              <td><strong>{{ worker }}</strong></td>
-              {% for skill in skill_counts.keys() %}
-                <td class="skill-column">{{ modality_stats[worker][skill] }}</td>
-              {% endfor %}
-              <td class="skill-column"><strong>{{ modality_stats[worker].total }}</strong></td>
-            </tr>
+          <tr>
+            <td><strong>{{ worker }}</strong></td>
+            {% for skill in skill_counts.keys() %}
+            <td class="skill-column">{{ modality_stats[worker][skill] }}</td>
+            {% endfor %}
+            <td class="skill-column"><strong>{{ modality_stats[worker].total }}</strong></td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
@@ -192,7 +422,7 @@
     }
 
     // Master CSV upload
-    document.getElementById('master-upload-form').addEventListener('submit', async function(e) {
+    document.getElementById('master-upload-form').addEventListener('submit', async function (e) {
       e.preventDefault();
       const formData = new FormData(this);
       const btn = document.getElementById('master-upload-btn');
@@ -303,4 +533,5 @@
     }
   </script>
 </body>
+
 </html>

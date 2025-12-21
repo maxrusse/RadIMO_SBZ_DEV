@@ -1,31 +1,40 @@
 <!DOCTYPE html>
 <html lang="de">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RadIMO Cortex | Timetable</title>
   <style>
     :root {
-      --disabled-color:  #888;
-      --primary-color:   #004892;
-      --global-accent:   #004892;
-      --body-bg:         #f0f0f0;
-      --header-bg:       #fff;
-      --tab-bg:          #fff;
-      --tab-color:       #000;
-      --card-bg:         #fff;
-      --timeline-start:  6;  /* 6:00 */
-      --timeline-end:    20; /* 20:00 */
-      --timeline-hours:  14; /* 20 - 6 */
-      --worker-col-width: 180px; /* Width of worker name column */
+      --disabled-color: #888;
+      --primary-color: #004892;
+      --global-accent: #004892;
+      --body-bg: #f0f0f0;
+      --header-bg: #fff;
+      --tab-bg: #fff;
+      --tab-color: #000;
+      --card-bg: #fff;
+      --timeline-start: 6;
+      /* 6:00 */
+      --timeline-end: 20;
+      /* 20:00 */
+      --timeline-hours: 14;
+      /* 20 - 6 */
+      --worker-col-width: 180px;
+      /* Width of worker name column */
     }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
     body {
       font-family: system-ui, -apple-system, sans-serif;
       padding: 1rem;
-      max-width: 1400px;
+      max-width: 1800px;
       margin: 0 auto;
     }
 
@@ -33,81 +42,17 @@
       background: var(--modality-bg, var(--body-bg));
     }
 
-    {% for key, settings in modalities.items() %}
-    body[data-modality="{{ key }}"] {
-      --modality-bg: {{ settings.background_color }};
-      --modality-nav: {{ settings.nav_color }};
-      --modality-hover: {{ settings.hover_color }};
-    }
-    {% endfor %}
-
-    .premium-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: var(--header-bg);
-      padding: 1rem 2rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      margin-bottom: 1rem;
-    }
-    .premium-header h1 {
-      font-size: 1.75rem;
-      margin: 0;
-    }
-
-    /* Filter bars */
-    .skill-filter-bar {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
-      padding: 0.75rem;
-      background: white;
-      border-radius: 8px;
-      flex-wrap: wrap;
-      align-items: center;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .skill-filter-bar label {
-      font-weight: 600;
-      color: #333;
-      margin-right: 0.5rem;
-    }
-    .filter-btn {
-      padding: 0.5rem 1rem;
-      border: 2px solid #ddd;
-      background: white;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      transition: all 0.2s;
-      font-weight: 500;
-      text-decoration: none;
-      color: inherit;
-    }
-    .filter-btn:hover {
-      border-color: #004892;
-      background: #f0f0f0;
-    }
     .filter-btn.active {
       background: #004892;
       color: white;
       border-color: #004892;
     }
 
-    {% for skill in skill_definitions %}
-    .filter-btn[data-skill="{{ skill.label }}"].active {
-      background: {{ skill.button_color }};
-      border-color: {{ skill.button_color }};
-      color: white;
-    }
-    {% endfor %}
-
     /* Timeline container */
     .card {
       background: var(--card-bg);
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       padding: 1rem;
       margin-bottom: 1rem;
     }
@@ -133,6 +78,7 @@
       top: 0;
       z-index: 10;
     }
+
     .time-header-label {
       grid-column: 1;
       background: #f8f9fa;
@@ -144,6 +90,7 @@
       left: 0;
       z-index: 11;
     }
+
     .time-slot {
       flex: 1;
       text-align: center;
@@ -152,12 +99,16 @@
       color: #666;
       border-left: 1px solid #eee;
     }
-    .time-slot:first-child { border-left: none; }
+
+    .time-slot:first-child {
+      border-left: none;
+    }
 
     /* Worker rows */
     .worker-row {
       display: contents;
     }
+
     .worker-name-cell {
       padding: 0.5rem;
       font-size: 0.85rem;
@@ -172,26 +123,26 @@
       min-height: 36px;
       transition: opacity 0.15s ease-in-out;
     }
+
     .worker-timeline {
       position: relative;
       height: 36px;
       background: linear-gradient(90deg,
-        transparent calc(100% / 14 * 0), #f0f0f0 calc(100% / 14 * 0), #f0f0f0 calc(100% / 14 * 0 + 1px),
-        transparent calc(100% / 14 * 1), #f0f0f0 calc(100% / 14 * 1), #f0f0f0 calc(100% / 14 * 1 + 1px),
-        transparent calc(100% / 14 * 2), #f0f0f0 calc(100% / 14 * 2), #f0f0f0 calc(100% / 14 * 2 + 1px),
-        transparent calc(100% / 14 * 3), #f0f0f0 calc(100% / 14 * 3), #f0f0f0 calc(100% / 14 * 3 + 1px),
-        transparent calc(100% / 14 * 4), #f0f0f0 calc(100% / 14 * 4), #f0f0f0 calc(100% / 14 * 4 + 1px),
-        transparent calc(100% / 14 * 5), #f0f0f0 calc(100% / 14 * 5), #f0f0f0 calc(100% / 14 * 5 + 1px),
-        transparent calc(100% / 14 * 6), #f0f0f0 calc(100% / 14 * 6), #f0f0f0 calc(100% / 14 * 6 + 1px),
-        transparent calc(100% / 14 * 7), #f0f0f0 calc(100% / 14 * 7), #f0f0f0 calc(100% / 14 * 7 + 1px),
-        transparent calc(100% / 14 * 8), #f0f0f0 calc(100% / 14 * 8), #f0f0f0 calc(100% / 14 * 8 + 1px),
-        transparent calc(100% / 14 * 9), #f0f0f0 calc(100% / 14 * 9), #f0f0f0 calc(100% / 14 * 9 + 1px),
-        transparent calc(100% / 14 * 10), #f0f0f0 calc(100% / 14 * 10), #f0f0f0 calc(100% / 14 * 10 + 1px),
-        transparent calc(100% / 14 * 11), #f0f0f0 calc(100% / 14 * 11), #f0f0f0 calc(100% / 14 * 11 + 1px),
-        transparent calc(100% / 14 * 12), #f0f0f0 calc(100% / 14 * 12), #f0f0f0 calc(100% / 14 * 12 + 1px),
-        transparent calc(100% / 14 * 13), #f0f0f0 calc(100% / 14 * 13), #f0f0f0 calc(100% / 14 * 13 + 1px),
-        transparent 100%
-      );
+          transparent calc(100% / 14 * 0), #f0f0f0 calc(100% / 14 * 0), #f0f0f0 calc(100% / 14 * 0 + 1px),
+          transparent calc(100% / 14 * 1), #f0f0f0 calc(100% / 14 * 1), #f0f0f0 calc(100% / 14 * 1 + 1px),
+          transparent calc(100% / 14 * 2), #f0f0f0 calc(100% / 14 * 2), #f0f0f0 calc(100% / 14 * 2 + 1px),
+          transparent calc(100% / 14 * 3), #f0f0f0 calc(100% / 14 * 3), #f0f0f0 calc(100% / 14 * 3 + 1px),
+          transparent calc(100% / 14 * 4), #f0f0f0 calc(100% / 14 * 4), #f0f0f0 calc(100% / 14 * 4 + 1px),
+          transparent calc(100% / 14 * 5), #f0f0f0 calc(100% / 14 * 5), #f0f0f0 calc(100% / 14 * 5 + 1px),
+          transparent calc(100% / 14 * 6), #f0f0f0 calc(100% / 14 * 6), #f0f0f0 calc(100% / 14 * 6 + 1px),
+          transparent calc(100% / 14 * 7), #f0f0f0 calc(100% / 14 * 7), #f0f0f0 calc(100% / 14 * 7 + 1px),
+          transparent calc(100% / 14 * 8), #f0f0f0 calc(100% / 14 * 8), #f0f0f0 calc(100% / 14 * 8 + 1px),
+          transparent calc(100% / 14 * 9), #f0f0f0 calc(100% / 14 * 9), #f0f0f0 calc(100% / 14 * 9 + 1px),
+          transparent calc(100% / 14 * 10), #f0f0f0 calc(100% / 14 * 10), #f0f0f0 calc(100% / 14 * 10 + 1px),
+          transparent calc(100% / 14 * 11), #f0f0f0 calc(100% / 14 * 11), #f0f0f0 calc(100% / 14 * 11 + 1px),
+          transparent calc(100% / 14 * 12), #f0f0f0 calc(100% / 14 * 12), #f0f0f0 calc(100% / 14 * 12 + 1px),
+          transparent calc(100% / 14 * 13), #f0f0f0 calc(100% / 14 * 13), #f0f0f0 calc(100% / 14 * 13 + 1px),
+          transparent 100%);
       border-bottom: 1px solid #eee;
       transition: opacity 0.15s ease-in-out;
     }
@@ -202,14 +153,15 @@
       top: 4px;
       height: 28px;
       border-radius: 4px;
-      border: 1px solid rgba(0,0,0,0.15);
+      border: 1px solid rgba(0, 0, 0, 0.15);
       cursor: default;
       overflow: hidden;
       transition: opacity 0.15s;
     }
+
     .shift-bar:hover {
       z-index: 2;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
 
     /* Tooltip */
@@ -221,15 +173,18 @@
     .timeline-grid {
       position: relative;
     }
+
     .current-time-line {
       position: absolute;
-      top: 32px; /* Below header */
+      top: 32px;
+      /* Below header */
       bottom: 0;
       width: 2px;
       background: #dc3545;
       z-index: 8;
       pointer-events: none;
     }
+
     .current-time-line::before {
       content: '';
       position: absolute;
@@ -249,48 +204,26 @@
       margin-top: 0.5rem;
       flex-wrap: wrap;
     }
-    .legend-item {
+
+    .premium-header {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      font-size: 0.85rem;
-    }
-    .legend-box {
-      width: 15px;
-      height: 15px;
-      margin-right: 0.5rem;
-      border: 1px solid #ddd;
-      border-radius: 3px;
+      background: var(--header-bg);
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      margin-bottom: 1rem;
     }
 
-    /* Back button */
-    .back-button {
-      display: inline-block;
-      padding: 0.75rem 1.5rem;
-      color: #fff;
-      text-decoration: none;
-      border-radius: 4px;
-      font-size: 1rem;
-      margin-top: 1rem;
-      background: var(--modality-nav, var(--primary-color));
-      transition: background 0.3s;
+    .premium-header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      color: var(--primary-color);
     }
-    .back-button:hover {
-      background: var(--modality-hover, #003f73);
-    }
-
-    /* Empty state */
-    .empty-state {
-      text-align: center;
-      padding: 3rem;
-      color: #666;
-    }
-
-    /* Skill colors for stripes */
-    {% for skill in skill_definitions %}
-    .skill-stripe-{{ skill.slug }} { background-color: {{ skill.button_color }}; }
-    {% endfor %}
   </style>
 </head>
+
 <body data-modality="{{ modality }}">
   <header class="premium-header">
     <div>
@@ -298,27 +231,38 @@
       <p style="margin: 0; opacity: 0.8; font-size: 0.9rem;">Intelligent Radiology Orchestration</p>
     </div>
     <nav style="display: flex; gap: 1rem; align-items: center;">
-      <a href="{{ url_for('index', modality=modality) }}" style="color: #333; text-decoration: none;">Dashboard</a>
-      <a href="{{ url_for('timetable', modality=modality) }}" style="font-weight: bold; color: #004892; text-decoration: none; border-bottom: 2px solid #004892;">Timetable</a>
-      <a href="{{ url_for('upload_file', modality=modality) }}" style="color: #333; text-decoration: none; padding: 0.4rem 0.8rem; background: #004892; color: white; border-radius: 4px;">Admin</a>
+      <a href="{{ url_for('routes.index', modality=modality) }}"
+        style="color: #333; text-decoration: none;">Dashboard</a>
+      <a href="{{ url_for('routes.timetable', modality=modality) }}"
+        style="font-weight: bold; color: #004892; text-decoration: none; border-bottom: 2px solid #004892;">Timetable</a>
+      <a href="{{ url_for('routes.upload_file', modality=modality) }}"
+        style="color: #333; text-decoration: none; padding: 0.4rem 0.8rem; background: #004892; color: white; border-radius: 4px;">Admin</a>
     </nav>
   </header>
 
   <!-- Modality Filter Bar -->
-  <div class="skill-filter-bar">
+  <div class="skill-filter-bar" id="modalityFilterBar">
     <label>Modality:</label>
-    <a href="#" class="filter-btn {% if modality == 'all' %}active{% endif %}" data-modality="all" onclick="changeModality(event, 'all')">ALL</a>
+    <a href="#" class="filter-btn {% if modality == 'all' %}active{% endif %}" data-modality="all"
+      onclick="changeModality(event, 'all')">ALL</a>
     {% for mod in modality_order %}
-    <a href="#" class="filter-btn {% if modality == mod %}active{% endif %}" data-modality="{{ mod }}" onclick="changeModality(event, '{{ mod }}')" style="{% if modality == mod %}background: {{ modalities[mod].nav_color }}; border-color: {{ modalities[mod].nav_color }}; color: white;{% endif %}">{{ modality_labels[mod] }}</a>
+    <a href="#" class="filter-btn {% if modality == mod %}active{% endif %}" data-modality="{{ mod }}"
+      onclick="changeModality(event, '{{ mod }}')">
+      {{ modality_labels[mod] }}
+    </a>
     {% endfor %}
   </div>
 
   <!-- Skill Filter Bar -->
-  <div class="skill-filter-bar">
+  <div class="skill-filter-bar" id="skillFilterBar">
     <label>Filter by Skill:</label>
-    <button class="filter-btn {% if skill_filter == 'all' %}active{% endif %}" data-skill="all" onclick="filterBySkill('all')">All</button>
+    <button class="filter-btn {% if skill_filter == 'all' %}active{% endif %}" data-skill="all"
+      onclick="filterBySkill('all')">All</button>
     {% for skill in skill_definitions %}
-    <button class="filter-btn {% if skill_filter == skill.slug %}active{% endif %}" data-skill="{{ skill.slug }}" onclick="filterBySkill('{{ skill.slug }}')" style="border-left: 4px solid {{ skill.button_color }};">{{ skill.label }}</button>
+    <button class="filter-btn {% if skill_filter == skill.slug %}active{% endif %}" data-skill="{{ skill.slug }}"
+      onclick="filterBySkill('{{ skill.slug }}')">
+      {{ skill.label }}
+    </button>
     {% endfor %}
   </div>
 
@@ -334,21 +278,63 @@
     </div>
     <div class="legend">
       {% for skill in skill_definitions %}
-        <div class="legend-item">
-          <div class="legend-box" style="background: {{ skill.button_color }};"></div> {{ skill.label }}
-        </div>
+      <div class="legend-item">
+        <div class="legend-box" data-skill="{{ skill.slug }}"></div> {{ skill.label }}
+      </div>
       {% endfor %}
     </div>
   </div>
 
-  <a href="{{ url_for('index', modality=modality) }}" class="back-button">Zurück zur Hauptseite</a>
+  <a href="{{ url_for('routes.index', modality=modality) }}" class="back-button">Zurück zur Hauptseite</a>
 
   <script>
+    (function injectDynamicStyles() {
+      const modalities = JSON.parse('{{ modalities|tojson|safe }}');
+      const skillDefinitions = JSON.parse('{{ skill_definitions|tojson|safe }}');
+      const currentModality = '{{ modality }}';
+
+      // Set modality body styles
+      if (modalities[currentModality]) {
+        const settings = modalities[currentModality];
+        document.body.style.setProperty('--modality-bg', settings.background_color);
+        document.body.style.setProperty('--modality-nav', settings.nav_color);
+        document.body.style.setProperty('--modality-hover', settings.hover_color);
+      }
+
+      // Add styles for modality filter buttons
+      document.querySelectorAll('#modalityFilterBar a').forEach(a => {
+        const mod = a.getAttribute('data-modality');
+        if (modalities[mod] && mod === currentModality) {
+          a.style.background = modalities[mod].nav_color;
+          a.style.borderColor = modalities[mod].nav_color;
+          a.style.color = 'white';
+        }
+      });
+
+      // Add styles for skill filter buttons
+      document.querySelectorAll('#skillFilterBar button').forEach(btn => {
+        const skillSlug = btn.getAttribute('data-skill');
+        const skillDef = skillDefinitions.find(s => s.slug === skillSlug);
+        if (skillDef) {
+          btn.style.borderLeft = `4px solid ${skillDef.button_color}`;
+        }
+      });
+
+      // Add styles for legend boxes
+      document.querySelectorAll('.legend-box').forEach(box => {
+        const skillSlug = box.getAttribute('data-skill');
+        const skillDef = skillDefinitions.find(s => s.slug === skillSlug);
+        if (skillDef) {
+          box.style.background = skillDef.button_color;
+        }
+      });
+    })();
+
     // Configuration from server
-    const skillColumns = {{ skill_columns|tojson }};
-    const skillSlugMap = {{ skill_slug_map|tojson }};
-    const skillColorMap = {{ skill_color_map|tojson }};
-    const modColorMap = {{ modality_color_map|tojson }};
+    const skillColumns = JSON.parse('{{ skill_columns|tojson|safe }}');
+    const skillSlugMap = JSON.parse('{{ skill_slug_map|tojson|safe }}');
+    const skillColorMap = JSON.parse('{{ skill_color_map|tojson|safe }}');
+    const modColorMap = JSON.parse('{{ modality_color_map|tojson|safe }}');
     const currentModality = '{{ modality }}';
     const isAllView = currentModality === 'all';
 
@@ -726,7 +712,7 @@
     }
 
     // Initialize on load
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
       buildTimeline();
       // Apply initial filter from URL parameter
       const currentFilter = '{{ skill_filter }}';
@@ -736,4 +722,5 @@
     });
   </script>
 </body>
+
 </html>
