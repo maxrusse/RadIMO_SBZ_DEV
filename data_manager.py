@@ -949,9 +949,11 @@ def compute_time_ranges(row: pd.Series, rule: dict, target_date: datetime, confi
     except Exception:
         return [(time(7, 0), time(15, 0))]
 
-def build_ppl_from_row(row: pd.Series) -> str:
-    name = str(row.get('Name des Mitarbeiters', 'Unknown'))
-    code = str(row.get('Code des Mitarbeiters', 'UNK'))
+def build_ppl_from_row(row: pd.Series, cols: Optional[dict] = None) -> str:
+    name_col = cols.get('employee_name', 'Name des Mitarbeiters') if cols else 'Name des Mitarbeiters'
+    code_col = cols.get('employee_code', 'Code des Mitarbeiters') if cols else 'Code des Mitarbeiters'
+    name = str(row.get(name_col, 'Unknown'))
+    code = str(row.get(code_col, 'UNK'))
     return f"{name} ({code})"
 
 def apply_exclusions_to_shifts(work_shifts: List[dict], exclusions: List[dict], target_date: date) -> List[dict]:
@@ -1053,7 +1055,15 @@ def build_working_hours_from_medweb(
         except Exception:
             return None
 
-    medweb_df['Datum_parsed'] = medweb_df['Datum'].apply(parse_german_date)
+    vendor_mapping = config.get('medweb_mapping', {})
+    cols = vendor_mapping.get('columns', {
+        'date': 'Datum',
+        'activity': 'Beschreibung der Aktivität',
+        'employee_name': 'Name des Mitarbeiters',
+        'employee_code': 'Code des Mitarbeiters'
+    })
+
+    medweb_df['Datum_parsed'] = medweb_df[cols.get('date', 'Datum')].apply(parse_german_date)
     target_date_obj = target_date.date() if hasattr(target_date, 'date') else target_date
 
     parsed_dates = medweb_df['Datum_parsed'].dropna().unique().tolist()
@@ -1065,7 +1075,7 @@ def build_working_hours_from_medweb(
         selection_logger.warning(f"No rows found for date {target_date_obj}. Available: {parsed_dates}")
         return {}
 
-    mapping_rules = config.get('medweb_mapping', {}).get('rules', [])
+    mapping_rules = vendor_mapping.get('rules', [])
     worker_roster = get_merged_worker_roster(config)
 
     selection_logger.debug(f"Found {len(day_df)} rows for target date, {len(mapping_rules)} mapping rules")
@@ -1078,13 +1088,13 @@ def build_working_hours_from_medweb(
 
     # FIRST PASS
     for _, row in day_df.iterrows():
-        activity_desc = str(row.get('Beschreibung der Aktivität', ''))
+        activity_desc = str(row.get(cols.get('activity', 'Beschreibung der Aktivität'), ''))
         rule = match_mapping_rule(activity_desc, mapping_rules)
         if not rule:
             unmatched_activities.append(activity_desc)
             continue
 
-        ppl_str = build_ppl_from_row(row)
+        ppl_str = build_ppl_from_row(row, cols=cols)
         canonical_id = get_canonical_worker_id(ppl_str)
 
         if rule.get('exclusion', False):

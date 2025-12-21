@@ -585,18 +585,26 @@ def load_today_from_master():
 
         # Debug: Check CSV content before parsing
         try:
+            vendor_mapping = APP_CONFIG.get('medweb_mapping', {})
+            cols = vendor_mapping.get('columns', {
+                'date': 'Datum',
+                'activity': 'Beschreibung der Aktivität'
+            })
+            date_col = cols.get('date', 'Datum')
+            activity_col = cols.get('activity', 'Beschreibung der Aktivität')
+
             try:
                 debug_df = pd.read_csv(MASTER_CSV_PATH, sep=',', encoding='utf-8')
             except UnicodeDecodeError:
                 debug_df = pd.read_csv(MASTER_CSV_PATH, sep=',', encoding='latin1')
-            if 'Datum' not in debug_df.columns:
+            if date_col not in debug_df.columns:
                 try:
                     debug_df = pd.read_csv(MASTER_CSV_PATH, sep=';', encoding='utf-8')
                 except UnicodeDecodeError:
                     debug_df = pd.read_csv(MASTER_CSV_PATH, sep=';', encoding='latin1')
 
-            available_dates = debug_df['Datum'].unique().tolist() if 'Datum' in debug_df.columns else []
-            available_activities = debug_df['Beschreibung der Aktivität'].unique().tolist() if 'Beschreibung der Aktivität' in debug_df.columns else []
+            available_dates = debug_df[date_col].unique().tolist() if date_col in debug_df.columns else []
+            available_activities = debug_df[activity_col].unique().tolist() if activity_col in debug_df.columns else []
         except Exception as e:
             return jsonify({"error": f"CSV-Lesefehler: {str(e)}"}), 400
 

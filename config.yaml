@@ -245,10 +245,20 @@ balancer:
 #   - Gaps default to NOT counting (gap_default in balancer.hours_counting)
 #   - Use explicit "counts_for_hours: false" on a shift to exclude from hours calculation
 #   - Use explicit "counts_for_hours: true" on a gap to include in hours calculation
-medweb_mapping:
-  # Rules for mapping medweb activities to modalities and skills
-  # Rules are evaluated in order; first match wins
-  rules:
+# Vendor-specific CSV Upload Configurations
+vendor_mappings:
+  medweb:
+    # Column name mappings for this vendor
+    columns:
+      date: "Datum"
+      activity: "Beschreibung der Aktivität"
+      employee_name: "Name des Mitarbeiters"
+      employee_code: "Code des Mitarbeiters"
+      day_part: "Tageszeit"  # Optional: VM/NM split heuristic
+
+    # Rules for mapping activities to modalities and skills
+    # Rules are evaluated in order; first match wins
+    rules:
     # ===========================================
     # SHIFTS/ROLES - Actual work assignments
     # ===========================================

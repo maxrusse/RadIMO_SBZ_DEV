@@ -138,22 +138,28 @@ def guess_shift(activity: str, day_part: str, known_shifts: List[str]) -> Tuple[
     return None, "unknown"
 
 
-def build_rules(df: pd.DataFrame, skills: List[str], modalities: List[str], shifts: List[str]) -> List[Dict]:
+def build_rules(df: pd.DataFrame, skills: List[str], modalities: List[str], shifts: List[str], cols: dict) -> List[Dict]:
+    activity_col = cols.get('activity', 'Beschreibung der Aktivität')
+    day_part_col = cols.get('day_part', 'Tageszeit')
+
     counts = collections.Counter(
-        df.get("Beschreibung der Aktivität", pd.Series(dtype=str)).dropna().astype(str)
+        df.get(activity_col, pd.Series(dtype=str)).dropna().astype(str)
     )
 
-    day_part_lookup = (
-        df[["Beschreibung der Aktivität", "Tageszeit"]]
-        .dropna(subset=["Beschreibung der Aktivität"])
-        .astype(str)
-        .groupby("Beschreibung der Aktivität")
-        .agg(lambda values: collections.Counter(values).most_common(1)[0][0])
-    )
+    if day_part_col in df.columns:
+        day_part_lookup = (
+            df[[activity_col, day_part_col]]
+            .dropna(subset=[activity_col])
+            .astype(str)
+            .groupby(activity_col)
+            .agg(lambda values: collections.Counter(values).most_common(1)[0][0])
+        )
+    else:
+        day_part_lookup = {}
 
     rules: List[Dict] = []
     for activity, count in counts.most_common():
-        day_part = day_part_lookup.get(activity, "") if not day_part_lookup.empty else ""
+        day_part = day_part_lookup.get(activity, "") if (hasattr(day_part_lookup, 'empty') and not day_part_lookup.empty) or (isinstance(day_part_lookup, dict) and day_part_lookup) else ""
         modality, modality_source = guess_modality(activity, modalities)
         shift, shift_source = guess_shift(activity, day_part, shifts)
 
@@ -220,13 +226,22 @@ def main() -> None:
     except Exception as exc:  # pragma: no cover - CLI helper
         raise SystemExit(f"Failed to read CSV {input_path}: {exc}")
 
-    required_column = "Beschreibung der Aktivität"
-    if required_column not in df.columns:
+    vendor_mapping = config.get('vendor_mappings', {}).get('medweb', config.get('medweb_mapping', {}))
+    cols = vendor_mapping.get('columns', {
+        'date': 'Datum',
+        'activity': 'Beschreibung der Aktivität',
+        'employee_name': 'Name des Mitarbeiters',
+        'employee_code': 'Code des Mitarbeiters',
+        'day_part': 'Tageszeit'
+    })
+    activity_col = cols.get('activity', 'Beschreibung der Aktivität')
+
+    if activity_col not in df.columns:
         raise SystemExit(
-            f"CSV must contain column '{required_column}'. Columns found: {list(df.columns)}"
+            f"CSV must contain column '{activity_col}'. Columns found: {list(df.columns)}"
         )
 
-    rules = build_rules(df, skills, modalities, shifts)
+    rules = build_rules(df, skills, modalities, shifts, cols)
 
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
