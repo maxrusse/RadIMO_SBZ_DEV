@@ -1039,7 +1039,7 @@ def assign_worker_strict_api(modality, role):
 # Usage Statistics API Endpoints
 
 @routes.route('/api/usage-stats/current', methods=['GET'])
-@requires_auth
+@admin_required
 def get_current_usage_stats():
     """Get current daily usage statistics for skill-modality combinations."""
     stats = usage_logger.get_current_usage_stats()
@@ -1062,7 +1062,7 @@ def get_current_usage_stats():
     })
 
 @routes.route('/api/usage-stats/export', methods=['POST'])
-@requires_auth
+@admin_required
 def export_usage_stats():
     """Manually trigger export of current usage statistics to CSV (wide format)."""
     try:
@@ -1088,7 +1088,7 @@ def export_usage_stats():
         }), 500
 
 @routes.route('/api/usage-stats/reset', methods=['POST'])
-@requires_auth
+@admin_required
 def reset_usage_stats():
     """Reset current usage statistics (use with caution)."""
     try:
@@ -1105,7 +1105,7 @@ def reset_usage_stats():
         }), 500
 
 @routes.route('/api/usage-stats/file', methods=['GET'])
-@requires_auth
+@admin_required
 def get_usage_stats_file_info():
     """Get information about the usage statistics CSV file."""
     try:
