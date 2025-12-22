@@ -263,144 +263,123 @@ vendor_mappings:
     # SHIFTS/ROLES - Actual work assignments
     # ===========================================
 
-    # CT activities
+    # CT activities - skills come from worker_skill_roster
     - match: "CT Spätdienst"
       type: "shift"
       modality: "ct"
       shift: "Spaetdienst"
-      base_skills: {Notfall: 1, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
     - match: "CT Assistent"
       type: "shift"
       modality: "ct"
       shift: "Fruehdienst"
-      base_skills: {Notfall: 1, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
     - match: "Cortex: CT Privatpatienten"
       type: "shift"
       modality: "ct"
       shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 1, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
-    # MR activities
+    # MR activities - skills come from worker_skill_roster
     - match: "MRT Spätdienst"
       type: "shift"
       modality: "mr"
       shift: "Spaetdienst"
-      base_skills: {Notfall: 1, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
     - match: "MR Assistent 1. Monat"
       type: "shift"
       modality: "mr"
       shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
     - match: "MR Assistent"
       type: "shift"
       modality: "mr"
       shift: "Fruehdienst"
-      base_skills: {Notfall: 1, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
     - match: "Cortex: MRT-OA"
       type: "shift"
       modality: "mr"
       shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 1, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
-    # X-ray activities (Chir = conventional X-ray)
+    # X-ray activities - skills come from worker_skill_roster
     - match: "Chir Assistent"
       type: "shift"
       modality: "xray"
       shift: "Fruehdienst"
-      base_skills: {Notfall: 1, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
     - match: "OA / FA Chir"
       type: "shift"
       modality: "xray"
       shift: "Fruehdienst"
-      base_skills: {Notfall: 1, Privat: 1, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
-    # Mammo activities
+    # Mammo activities - skills come from worker_skill_roster
     - match: "Mammo Assistent"
       type: "shift"
       modality: "mammo"
       shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 0, Gyn: 1, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
     - match: "Mammo OA"
       type: "shift"
       modality: "mammo"
       shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 1, Gyn: 1, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
     # ===========================================
     # TEAMS - Sub-specialty work (multi-modality)
+    # Skills come from worker_skill_roster
     # ===========================================
 
     - match: "MSK Assistent"
       type: "shift"
       modalities: ["xray", "ct", "mr"]
       shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 0, Gyn: 0, Päd: 0, MSK: 1, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
     - match: "MSK Team"
       type: "shift"
       modalities: ["xray", "ct", "mr"]
       shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 0, Gyn: 0, Päd: 0, MSK: 1, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
-    # Weighted entries: skill='w' marks assisted workers; Modifier controls workload factor
+    # Weighted entries: Modifier controls workload factor for beginners
     # Modifier range: 0.5, 0.75, 1.0, 1.25, 1.5 (lower = less capacity, counts more toward load)
-    # 'w' is just a visual marker in UI - Modifier controls the actual weight calculation
     - match: "MSK Anfänger"
       type: "shift"
       modalities: ["xray", "ct"]
       shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 0, Gyn: 0, Päd: 0, MSK: w, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
       modifier: 0.5  # Freshman: assignments count double toward their load
 
     - match: "CT Anfänger"
       type: "shift"
       modality: "ct"
       shift: "Fruehdienst"
-      base_skills: {Notfall: w, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
       modifier: 0.5  # Freshman: assignments count double
 
     - match: "Cardvask Team"
       type: "shift"
       modalities: ["ct", "mr"]
       shift: "Fruehdienst"
-      base_skills: {Notfall: 1, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 1, Uro: 0}
 
     - match: "Chest Team"
       type: "shift"
       modalities: ["xray", "ct"]
       shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 1, Cardvask: 0, Uro: 0}
 
     - match: "Abdomen Team"
       type: "shift"
       modalities: ["ct", "mr"]
       shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 1, Chest: 0, Cardvask: 0, Uro: 0}
 
     - match: "Uro Team"
       type: "shift"
       modalities: ["ct", "mr"]
       shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 1}
 
     - match: "Gyn Team"
       type: "shift"
       modalities: ["ct", "mr"]
       shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 0, Gyn: 1, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
     - match: "Päd Team"
       type: "shift"
       modalities: ["xray", "ct", "mr"]
       shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 0, Gyn: 0, Päd: 1, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
     # Cortex Aufklärung - shift (not a gap) but hours don't count for load balancing
     - match: "Cortex Aufklärung"
@@ -409,7 +388,6 @@ vendor_mappings:
       shift: "Fruehdienst"
       label: "Aufklärung"
       counts_for_hours: false  # Don't count hours towards workload (task, not actual shift)
-      base_skills: {Notfall: 0, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
 
     # ===========================================
     # GAPS/TASKS - Time exclusions (shows -1 everywhere)
@@ -462,86 +440,78 @@ shift_times:
     default: "13:00-21:00"
     friday: "13:00-19:00"
 
-# Worker skill roster - per-worker overrides
-# Config takes precedence over medweb mapping
-# -1 = excluded (never use), 0 = passive (fallback only), 1 = active (primary + fallback)
+# Worker skill roster - defines what each person CAN DO (their capabilities)
+# These skills apply regardless of which modality they work in on a given day
+# -1 = excluded (never use), 0 = passive (fallback only), 1 = active (primary + fallback), w = weighted/assisted
 worker_skill_roster:
   # Example: MSK specialist
   AA:  # Any Arzt
-    default:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 1      # MSK specialist
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
+    Notfall: 1
+    Privat: 0
+    Gyn: 0
+    Päd: 0
+    MSK: 1      # MSK specialist
+    Abdomen: 0
+    Chest: 0
+    Cardvask: 0
+    Uro: 0
 
-  # Example: Chest specialist with CT Notfall only as fallback
+  # Example: Chest specialist
   AN:  # Any Newarzt
-    default:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 1    # Chest specialist
-      Cardvask: 0
-      Uro: 0
-    ct:
-      Notfall: 0  # Only fallback for CT Notfall
+    Notfall: 1
+    Privat: 0
+    Gyn: 0
+    Päd: 0
+    MSK: 0
+    Abdomen: 0
+    Chest: 1    # Chest specialist
+    Cardvask: 0
+    Uro: 0
 
   # Example: Cardiac specialist
   DEMO1:
-    default:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 1   # Cardiac specialist
-      Uro: 0
+    Notfall: 1
+    Privat: 0
+    Gyn: 0
+    Päd: 0
+    MSK: 0
+    Abdomen: 0
+    Chest: 0
+    Cardvask: 1   # Cardiac specialist
+    Uro: 0
 
   # Example: Private patients only (PP role)
   DEMO2:
-    default:
-      Notfall: 0     # Only fallback
-      Privat: 1      # Primary for private patients
-      Gyn: 0
-      Päd: 0
-      MSK: -1        # Never for MSK
-      Abdomen: 0
-      Chest: -1      # Never for Chest
-      Cardvask: 0
-      Uro: 0
+    Notfall: 0     # Only fallback
+    Privat: 1      # Primary for private patients
+    Gyn: 0
+    Päd: 0
+    MSK: -1        # Never for MSK
+    Abdomen: 0
+    Chest: -1      # Never for Chest
+    Cardvask: 0
+    Uro: 0
 
   # Example: First month assistant (no Notfall)
   DEMO3:
-    default:
-      Notfall: 0     # Not allowed for emergencies yet
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
+    Notfall: 0     # Not allowed for emergencies yet
+    Privat: 0
+    Gyn: 0
+    Päd: 0
+    MSK: 0
+    Abdomen: 0
+    Chest: 0
+    Cardvask: 0
+    Uro: 0
 
   # MSK junior template with weighted proficiency and reduced modifier expectation
   MSK_ANFAENGER:
-    default:
-      Notfall: 0
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: w      # weighted / assisted
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
+    Notfall: 0
+    Privat: 0
+    Gyn: 0
+    Päd: 0
+    MSK: w      # weighted / assisted
+    Abdomen: 0
+    Chest: 0
+    Cardvask: 0
+    Uro: 0

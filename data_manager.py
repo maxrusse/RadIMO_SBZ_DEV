@@ -156,6 +156,7 @@ def save_worker_skill_json(roster_data: Dict[str, Any]) -> bool:
 
 
 def build_valid_skills_map() -> Dict[str, List[str]]:
+    """Build map of valid skills per modality (for filtering in UI)."""
     valid_skills_map: Dict[str, List[str]] = {}
     for mod, settings in MODALITY_SETTINGS.items():
         if 'valid_skills' in settings:
@@ -165,18 +166,24 @@ def build_valid_skills_map() -> Dict[str, List[str]]:
     return valid_skills_map
 
 
-def build_disabled_worker_entry(valid_skills_map: Dict[str, List[str]]) -> Dict[str, Any]:
-    entry: Dict[str, Any] = {'default': {}}
-    for mod in allowed_modalities:
-        valid_skills = valid_skills_map.get(mod, SKILL_COLUMNS)
-        entry[mod] = {skill: -1 for skill in valid_skills}
-    return entry
+def build_disabled_worker_entry() -> Dict[str, Any]:
+    """
+    Create a new worker entry with all skills disabled (-1).
+
+    New simplified format: skills are directly at top level, no modality separation.
+    Example: {'Notfall': -1, 'Privat': -1, 'MSK': -1, ...}
+    """
+    return {skill: -1 for skill in SKILL_COLUMNS}
 
 
 def auto_populate_skill_roster(modality_dfs: Dict[str, pd.DataFrame]) -> int:
+    """
+    Auto-populate skill roster with new workers found in uploaded schedules.
+
+    New workers are added with all skills disabled (-1) by default.
+    """
     roster = load_worker_skill_json()
     added_count = 0
-    valid_skills_map = build_valid_skills_map()
 
     for modality, df in modality_dfs.items():
         if df is None or df.empty:
@@ -188,7 +195,7 @@ def auto_populate_skill_roster(modality_dfs: Dict[str, pd.DataFrame]) -> int:
             if not worker_id or worker_id in roster:
                 continue
 
-            roster[worker_id] = build_disabled_worker_entry(valid_skills_map)
+            roster[worker_id] = build_disabled_worker_entry()
             added_count += 1
             selection_logger.info(
                 "Auto-added worker %s to skill roster with all skills disabled",
@@ -202,6 +209,12 @@ def auto_populate_skill_roster(modality_dfs: Dict[str, pd.DataFrame]) -> int:
 
 
 def get_merged_worker_roster(config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Merge YAML config roster with JSON roster.
+
+    JSON roster has priority. Both old format (with 'default' key) and new format
+    (direct skills) are supported.
+    """
     # Start with YAML config
     yaml_roster = config.get('worker_roster', {})
     merged = copy.deepcopy(yaml_roster)
@@ -210,16 +223,10 @@ def get_merged_worker_roster(config: Dict[str, Any]) -> Dict[str, Any]:
     # Ensure JSON is loaded
     if not worker_skill_json_roster:
         load_worker_skill_json()
-        
+
     for worker_id, worker_data in worker_skill_json_roster.items():
-        if worker_id in merged:
-            for key, value in worker_data.items():
-                if isinstance(value, dict) and key in merged[worker_id]:
-                    merged[worker_id][key].update(value)
-                else:
-                    merged[worker_id][key] = value
-        else:
-            merged[worker_id] = copy.deepcopy(worker_data)
+        # JSON roster completely overrides YAML for this worker
+        merged[worker_id] = copy.deepcopy(worker_data)
 
     return merged
 
@@ -904,28 +911,27 @@ def match_mapping_rule(activity_desc: str, rules: list) -> Optional[dict]:
             return rule
     return None
 
-def apply_roster_overrides(base_skills: dict, canonical_id: str, modality: str, worker_roster: dict) -> dict:
+def get_worker_skills_from_roster(canonical_id: str, worker_roster: dict) -> dict:
+    """
+    Load worker skills from roster - skills define what a person CAN DO.
+
+    Skills are independent of modality - they represent the worker's capabilities.
+    Returns a dict with all skills (1=active, 0=passive/fallback, -1=excluded, 'w'=weighted).
+    """
     if canonical_id not in worker_roster:
-        return base_skills.copy()
+        # If worker not in roster, all skills = 0 (passive/fallback only)
+        return {skill: 0 for skill in SKILL_COLUMNS}
 
-    final_skills = base_skills.copy()
+    worker_data = worker_roster[canonical_id]
 
-    def merge_skill(base_val: int, roster_val: int) -> int:
-        if roster_val == -1:
-            return -1
-        return base_val
-
-    if 'default' in worker_roster[canonical_id]:
-        for skill, roster_val in worker_roster[canonical_id]['default'].items():
-            if skill in final_skills:
-                final_skills[skill] = merge_skill(final_skills[skill], roster_val)
-
-    if modality in worker_roster[canonical_id]:
-        for skill, roster_val in worker_roster[canonical_id][modality].items():
-            if skill in final_skills:
-                final_skills[skill] = merge_skill(final_skills[skill], roster_val)
-
-    return final_skills
+    # Support both old format (with 'default' key) and new format (direct skills)
+    if 'default' in worker_data:
+        # Old format: {'default': {skills}, 'ct': {overrides}, ...}
+        # Use only 'default', ignore modality-specific overrides
+        return worker_data['default'].copy()
+    else:
+        # New format: {skills directly}
+        return worker_data.copy()
 
 def compute_time_ranges(row: pd.Series, rule: dict, target_date: datetime, config: dict) -> List[Tuple[time, time]]:
     shift_name = rule.get('shift', 'Fruehdienst')
@@ -1141,16 +1147,12 @@ def build_working_hours_from_medweb(
         if not target_modalities:
             continue
 
-        base_skills = {s: 0 for s in SKILL_COLUMNS}
-        base_skills.update(rule.get('base_skills', {}))
+        # Skills come from worker_skill_roster only (not from CSV rules)
+        worker_skills = get_worker_skills_from_roster(canonical_id, worker_roster)
 
         time_ranges = compute_time_ranges(row, rule, target_date, config)
 
         for modality in target_modalities:
-            final_skills = apply_roster_overrides(
-                base_skills, canonical_id, modality, worker_roster
-            )
-
             for start_time, end_time in time_ranges:
                 start_dt = datetime.combine(target_date.date(), start_time)
                 end_dt = datetime.combine(target_date.date(), end_time)
@@ -1177,7 +1179,7 @@ def build_working_hours_from_medweb(
                     'Modifier': rule_modifier,
                     'tasks': activity_desc,
                     'counts_for_hours': counts_for_hours,
-                    **final_skills
+                    **worker_skills
                 })
 
     # SECOND PASS

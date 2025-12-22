@@ -464,57 +464,73 @@ Overnight shifts (e.g., `22:00-06:00`) are automatically handled by rolling end 
 
 ## Worker Skill Matrix
 
-Per-worker skill overrides. Takes precedence over `medweb_mapping.base_skills`.
+Defines what each person **CAN DO** - their fundamental capabilities independent of daily assignments.
+
+**Important:** Skills in the roster represent worker abilities. The CSV defines WHERE and WHEN they work, not WHAT they can do.
 
 ```yaml
 worker_skill_roster:
   # MSK specialist
   AA:
-    default:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 1      # MSK specialist
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
+    Notfall: 1
+    Privat: 0
+    Gyn: 0
+    Päd: 0
+    MSK: 1      # MSK specialist - can do MSK in any modality
+    Abdomen: 0
+    Chest: 0
+    Cardvask: 0
+    Uro: 0
 
-  # Chest specialist with CT-specific override
+  # Chest specialist
   AN:
-    default:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 1    # Chest specialist
-      Cardvask: 0
-      Uro: 0
-    ct:
-      Notfall: 0  # Only fallback for CT Notfall
+    Notfall: 1
+    Privat: 0
+    Gyn: 0
+    Päd: 0
+    MSK: 0
+    Abdomen: 0
+    Chest: 1    # Chest specialist
+    Cardvask: 0
+    Uro: 0
 
   # Cardiac specialist, excluded from MSK/Chest
   DEMO1:
-    default:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: -1       # NEVER for MSK
-      Abdomen: 0
-      Chest: -1     # NEVER for Chest
-      Cardvask: 1   # Cardiac specialist
-      Uro: 0
+    Notfall: 1
+    Privat: 0
+    Gyn: 0
+    Päd: 0
+    MSK: -1       # NEVER for MSK
+    Abdomen: 0
+    Chest: -1     # NEVER for Chest
+    Cardvask: 1   # Cardiac specialist
+    Uro: 0
+
+  # Junior MSK worker
+  MSK_ANFAENGER:
+    Notfall: 0
+    Privat: 0
+    Gyn: 0
+    Päd: 0
+    MSK: w         # Weighted/assisted - still learning
+    Abdomen: 0
+    Chest: 0
+    Cardvask: 0
+    Uro: 0
 ```
 
-**Precedence:** `worker_skill_roster` > `medweb_mapping.base_skills` > defaults.
+**Value legend:**
+- `1` = **Active** - primary + fallback
+- `0` = **Passive** - fallback only
+- `-1` = **Excluded** - never assign this skill
+- `w` = **Weighted** - assisted/learning (combine with `modifier` in CSV)
 
-**Modality-specific:** Add modality key (e.g., `ct:`) under a worker to override for that modality only.
+**Logic flow:**
+1. **Skill Roster** → defines worker capabilities (what they CAN do)
+2. **CSV Upload** → defines daily assignment (WHERE they work, WHEN)
+3. **System** → combines both: assigns work based on skills + location
 
-**Value legend:** `1` = primary, `0` = fallback, `-1` = never, `w` = weighted/assisted.
+**Note:** Modality-specific skill overrides are no longer supported. Skills represent fundamental worker capabilities that apply across all modalities.
 
 ---
 
@@ -598,10 +614,15 @@ shift_times:
 
 worker_skill_roster:
   DEMO:
-    default:
-      Notfall: 1
-      Cardvask: 1
-      MSK: -1
+    Notfall: 1
+    Privat: 0
+    Gyn: 0
+    Päd: 0
+    MSK: -1        # Excluded from MSK
+    Abdomen: 0
+    Chest: 0
+    Cardvask: 1    # Cardiac specialist
+    Uro: 0
 ```
 
 ---
