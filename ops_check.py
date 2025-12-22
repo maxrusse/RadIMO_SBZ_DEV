@@ -8,15 +8,17 @@ is ready for a test system before starting the server.
 from pprint import pprint
 
 import app
+from config import APP_CONFIG, SKILL_TEMPLATES
+from routes import run_operational_checks
 
 
 def main() -> None:
     print("Loaded modalities:")
-    pprint(app.APP_CONFIG.get('modalities', {}))
+    pprint(APP_CONFIG.get('modalities', {}))
     print("\nConfigured skills (in display order):")
-    pprint([entry['label'] for entry in app.SKILL_TEMPLATES])
+    pprint([entry['label'] for entry in SKILL_TEMPLATES])
     print("\nOperational checks:")
-    pprint(app.run_operational_checks('cli', force=True))
+    pprint(run_operational_checks('cli', force=True))
 
 
 if __name__ == '__main__':
