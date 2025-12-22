@@ -122,19 +122,12 @@ def _build_app_config() -> Dict[str, Any]:
             )
     config['modality_fallbacks'] = normalized_fallbacks
 
-    # Include vendor_mappings and medweb_mapping (with backward compatibility)
+    # Include vendor_mappings
     vendor_configs = raw_config.get('vendor_mappings', {})
     config['vendor_mappings'] = vendor_configs
-    
-    # Backward compatibility: if medweb_mapping exists at top level, use it if not in vendor_configs
-    if 'medweb' not in vendor_configs and 'medweb_mapping' in raw_config:
-        config['medweb_mapping'] = raw_config['medweb_mapping']
-        # Also register it in vendor_configs for uniform access
-        vendor_configs['medweb'] = raw_config['medweb_mapping']
-    elif 'medweb' in vendor_configs:
-        config['medweb_mapping'] = vendor_configs['medweb']
-    else:
-        config['medweb_mapping'] = {}
+
+    # Extract medweb mapping from vendor_mappings (required)
+    config['medweb_mapping'] = vendor_configs.get('medweb', {})
 
     # Include worker_roster
     config['worker_roster'] = raw_config.get('worker_roster', {})

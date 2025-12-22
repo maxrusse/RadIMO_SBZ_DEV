@@ -461,13 +461,10 @@ def preload_from_master():
     return jsonify(result), 400
 
 
-@routes.route('/upload', methods=['GET', 'POST'])
+@routes.route('/upload', methods=['GET'])
 @admin_required
 def upload_file():
-    if request.method == 'POST':
-        # DEPRECATED: Standard CSV management now uses /upload-master-csv and /load-today-from-master
-        return jsonify({"error": "Dieser Endpunkt ist veraltet. Bitte nutzen Sie 'Master CSV Upload' oder 'Load Today'."}), 400
-
+    """Admin dashboard page for CSV management and statistics."""
     modality = resolve_modality_from_request()
     d = modality_data[modality]
 
