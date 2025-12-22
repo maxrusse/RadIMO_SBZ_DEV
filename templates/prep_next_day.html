@@ -170,7 +170,7 @@
     }
 
     .compact-grid .sub-col {
-      min-width: 26px;
+      min-width: 20px;
       font-size: 0.65rem;
     }
 
@@ -184,17 +184,17 @@
     }
 
     .compact-grid .worker-col {
-      min-width: 140px;
+      min-width: 100px;
       text-align: left !important;
     }
 
     .compact-grid .shift-col {
-      min-width: 110px;
+      min-width: 80px;
       text-align: left !important;
     }
 
     .compact-grid .task-col {
-      min-width: 100px;
+      min-width: 70px;
       text-align: left !important;
     }
 
@@ -318,11 +318,11 @@
     }
 
     .grid-modifier {
-      min-width: 42px;
+      min-width: 32px;
     }
 
     .modifier-col {
-      min-width: 50px;
+      min-width: 38px;
     }
 
     .row-skill-flag {
@@ -392,7 +392,7 @@
     }
 
     .skill-bundle {
-      min-width: 100px;
+      min-width: 70px;
     }
 
     /* Modal modality grid */
@@ -447,14 +447,14 @@
     .agg-cell {
       text-align: center;
       font-size: 0.7rem;
-      min-width: 42px;
+      min-width: 32px;
     }
 
     .agg-val {
-      padding: 0.15rem 0.3rem;
+      padding: 0.1rem 0.2rem;
       font-size: 0.72rem;
       display: inline-block;
-      min-width: 26px;
+      min-width: 20px;
       background: #f7f7f7;
       color: #333;
     }
@@ -540,29 +540,45 @@
     /* Filters */
     .filter-bar {
       display: flex;
-      gap: 0.75rem;
+      gap: 0.5rem;
       flex-wrap: wrap;
-      align-items: flex-end;
+      align-items: center;
       margin-bottom: 0.75rem;
+      padding: 0.75rem;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
-    .filter-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.2rem;
+    .filter-bar label {
+      font-weight: 600;
+      margin-right: 0.5rem;
+      color: #333;
+      font-size: 0.85rem;
     }
 
-    .filter-group label {
-      font-size: 0.75rem;
-      color: #555;
-    }
-
-    .filter-group select {
-      padding: 0.3rem;
-      border: 1px solid #ccc;
+    .filter-btn {
+      padding: 0.4rem 1rem;
+      border: 2px solid #ddd;
       border-radius: 4px;
-      font-size: 0.82rem;
-      min-width: 140px;
+      background: white;
+      color: #333;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .filter-btn:hover {
+      background: #f5f5f5;
+      border-color: #999;
+    }
+
+    .filter-btn.active {
+      background: #004892;
+      color: white;
+      border-color: #004892;
     }
 
     .filter-toggle {
@@ -931,30 +947,24 @@
       </div>
 
       <div class="filter-bar">
-        <div class="filter-group">
-          <label>Filter Modality</label>
-          <select id="filter-modality-today" onchange="updateTableFilter('today')">
-            <option value="">All</option>
-            {% for mod in modalities %}
-            <option value="{{ mod|lower }}">{{ mod|upper }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="filter-group">
-          <label>Filter Skill</label>
-          <select id="filter-skill-today" onchange="updateTableFilter('today')">
-            <option value="">All</option>
-            {% for skill in skills %}
-            <option value="{{ skill }}">{{ skill }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <label class="filter-toggle">
+        <label>Modality:</label>
+        <button class="filter-btn active" data-modality="" onclick="filterByModality('today', '')">All</button>
+        {% for mod in modalities %}
+        <button class="filter-btn" data-modality="{{ mod|lower }}" onclick="filterByModality('today', '{{ mod|lower }}')">{{ mod|upper }}</button>
+        {% endfor %}
+        <label class="filter-toggle" style="margin-left: auto;">
           <input type="checkbox" id="filter-hide-zero-today" onchange="updateTableFilter('today')"> Hide 0/-1
         </label>
         <button id="display-order-toggle" class="btn btn-secondary" onclick="toggleDisplayOrder()"
-          title="Current: Modalities as groups, skills as sub-columns. Click to switch." style="margin-left: auto;">Mod
-          → Skill</button>
+          title="Current: Modalities as groups, skills as sub-columns. Click to switch.">Mod → Skill</button>
+      </div>
+
+      <div class="filter-bar">
+        <label>Skill:</label>
+        <button class="filter-btn active" data-skill="" onclick="filterBySkill('today', '')">All</button>
+        {% for skill in skills %}
+        <button class="filter-btn" data-skill="{{ skill }}" onclick="filterBySkill('today', '{{ skill }}')">{{ skill }}</button>
+        {% endfor %}
       </div>
 
       <!-- Worker Table - One row per entry -->
@@ -1017,30 +1027,24 @@
       </div>
 
       <div class="filter-bar">
-        <div class="filter-group">
-          <label>Filter Modality</label>
-          <select id="filter-modality-tomorrow" onchange="updateTableFilter('tomorrow')">
-            <option value="">All</option>
-            {% for mod in modalities %}
-            <option value="{{ mod|lower }}">{{ mod|upper }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="filter-group">
-          <label>Filter Skill</label>
-          <select id="filter-skill-tomorrow" onchange="updateTableFilter('tomorrow')">
-            <option value="">All</option>
-            {% for skill in skills %}
-            <option value="{{ skill }}">{{ skill }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <label class="filter-toggle">
+        <label>Modality:</label>
+        <button class="filter-btn active" data-modality="" onclick="filterByModality('tomorrow', '')">All</button>
+        {% for mod in modalities %}
+        <button class="filter-btn" data-modality="{{ mod|lower }}" onclick="filterByModality('tomorrow', '{{ mod|lower }}')">{{ mod|upper }}</button>
+        {% endfor %}
+        <label class="filter-toggle" style="margin-left: auto;">
           <input type="checkbox" id="filter-hide-zero-tomorrow" onchange="updateTableFilter('tomorrow')"> Hide 0/-1
         </label>
         <button id="display-order-toggle-tomorrow" class="btn btn-secondary" onclick="toggleDisplayOrder()"
-          title="Current: Modalities as groups, skills as sub-columns. Click to switch." style="margin-left: auto;">Mod
-          → Skill</button>
+          title="Current: Modalities as groups, skills as sub-columns. Click to switch.">Mod → Skill</button>
+      </div>
+
+      <div class="filter-bar">
+        <label>Skill:</label>
+        <button class="filter-btn active" data-skill="" onclick="filterBySkill('tomorrow', '')">All</button>
+        {% for skill in skills %}
+        <button class="filter-btn" data-skill="{{ skill }}" onclick="filterBySkill('tomorrow', '{{ skill }}')">{{ skill }}</button>
+        {% endfor %}
       </div>
 
       <!-- Worker Table - One row per entry -->
@@ -1366,10 +1370,50 @@
     }
 
     function updateTableFilter(tab) {
-      const modality = (document.getElementById(`filter-modality-${tab}`)?.value || '').toLowerCase();
-      const skill = document.getElementById(`filter-skill-${tab}`)?.value || '';
       const hideZero = document.getElementById(`filter-hide-zero-${tab}`)?.checked || false;
-      tableFilters[tab] = { modality, skill, hideZero };
+      if (!tableFilters[tab]) {
+        tableFilters[tab] = { modality: '', skill: '', hideZero };
+      } else {
+        tableFilters[tab].hideZero = hideZero;
+      }
+      renderTable(tab);
+    }
+
+    function filterByModality(tab, modality) {
+      // Update button states
+      const buttons = document.querySelectorAll(`[data-modality]`);
+      buttons.forEach(btn => {
+        if (btn.closest('.filter-bar') && btn.onclick && btn.onclick.toString().includes(`'${tab}'`)) {
+          btn.classList.toggle('active', btn.getAttribute('data-modality') === modality);
+        }
+      });
+
+      // Update filter and render
+      const hideZero = document.getElementById(`filter-hide-zero-${tab}`)?.checked || false;
+      tableFilters[tab] = {
+        modality: modality.toLowerCase(),
+        skill: tableFilters[tab]?.skill || '',
+        hideZero
+      };
+      renderTable(tab);
+    }
+
+    function filterBySkill(tab, skill) {
+      // Update button states
+      const buttons = document.querySelectorAll(`[data-skill]`);
+      buttons.forEach(btn => {
+        if (btn.closest('.filter-bar') && btn.onclick && btn.onclick.toString().includes(`'${tab}'`)) {
+          btn.classList.toggle('active', btn.getAttribute('data-skill') === skill);
+        }
+      });
+
+      // Update filter and render
+      const hideZero = document.getElementById(`filter-hide-zero-${tab}`)?.checked || false;
+      tableFilters[tab] = {
+        modality: tableFilters[tab]?.modality || '',
+        skill: skill,
+        hideZero
+      };
       renderTable(tab);
     }
 
@@ -1762,17 +1806,29 @@
           // Copy filter state to new tab
           tableFilters[tab] = { ...prevFilter };
 
-          // Update UI dropdowns for new tab
-          const modalitySelect = document.getElementById(`filter-modality-${tab}`);
-          const skillSelect = document.getElementById(`filter-skill-${tab}`);
+          // Update UI button states for new tab
           const hideZeroCheckbox = document.getElementById(`filter-hide-zero-${tab}`);
 
-          if (modalitySelect && prevFilter.modality !== undefined) {
-            modalitySelect.value = prevFilter.modality;
+          // Update modality button states
+          if (prevFilter.modality !== undefined) {
+            const modalityButtons = document.querySelectorAll(`[data-modality]`);
+            modalityButtons.forEach(btn => {
+              if (btn.onclick && btn.onclick.toString().includes(`'${tab}'`)) {
+                btn.classList.toggle('active', btn.getAttribute('data-modality') === prevFilter.modality);
+              }
+            });
           }
-          if (skillSelect && prevFilter.skill !== undefined) {
-            skillSelect.value = prevFilter.skill;
+
+          // Update skill button states
+          if (prevFilter.skill !== undefined) {
+            const skillButtons = document.querySelectorAll(`[data-skill]`);
+            skillButtons.forEach(btn => {
+              if (btn.onclick && btn.onclick.toString().includes(`'${tab}'`)) {
+                btn.classList.toggle('active', btn.getAttribute('data-skill') === prevFilter.skill);
+              }
+            });
           }
+
           if (hideZeroCheckbox && prevFilter.hideZero !== undefined) {
             hideZeroCheckbox.checked = prevFilter.hideZero;
           }
