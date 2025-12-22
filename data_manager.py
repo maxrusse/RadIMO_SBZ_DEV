@@ -646,6 +646,18 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
                 if 'TIME' in df.columns:
                     df.at[row_index, 'TIME'] = f"{start.strftime(TIME_FORMAT)}-{end.strftime(TIME_FORMAT)}"
 
+            # Resolve any overlapping shifts for this worker (later shift wins)
+            worker_name = df.at[row_index, 'PPL']
+            worker_shifts = df[df['PPL'] == worker_name]
+            if len(worker_shifts) > 1:
+                resolved_df = resolve_overlapping_shifts_df(df)
+                if len(resolved_df) != len(df):
+                    selection_logger.info(
+                        f"Resolved overlapping shifts for {worker_name} after edit: "
+                        f"{len(df)} -> {len(resolved_df)} rows"
+                    )
+                data_dict['working_hours_df'] = resolved_df
+
         backup_dataframe(modality, use_staged=use_staged)
         return True, None
 
@@ -697,6 +709,18 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
                 data_dict['working_hours_df']['is_manual'] = False
             new_row_idx = len(data_dict['working_hours_df']) - 1
             data_dict['working_hours_df'].at[new_row_idx, 'is_manual'] = True
+
+        # Resolve any overlapping shifts for this worker (later shift wins)
+        df = data_dict['working_hours_df']
+        worker_shifts = df[df['PPL'] == ppl_name]
+        if len(worker_shifts) > 1:
+            resolved_df = resolve_overlapping_shifts_df(df)
+            if len(resolved_df) != len(df):
+                selection_logger.info(
+                    f"Resolved overlapping shifts for {ppl_name} after add: "
+                    f"{len(df)} -> {len(resolved_df)} rows"
+                )
+            data_dict['working_hours_df'] = resolved_df
 
         backup_dataframe(modality, use_staged=use_staged)
         new_idx = len(data_dict['working_hours_df']) - 1
@@ -1106,6 +1130,144 @@ def apply_exclusions_to_shifts(work_shifts: List[dict], exclusions: List[dict], 
 
     return result_shifts
 
+
+def resolve_overlapping_shifts(shifts: List[dict], target_date: date) -> List[dict]:
+    """
+    Resolve overlapping shifts for the same worker.
+
+    When two shifts overlap, the later shift wins:
+    - Prior shift's end time is cropped to the beginning of the later shift
+    - If a shift is completely covered by a later shift, it's removed
+    - Shifts are sorted by start time first, then processed
+
+    Args:
+        shifts: List of shift dicts with 'PPL', 'start_time', 'end_time', etc.
+        target_date: The target date for datetime calculations
+
+    Returns:
+        List of resolved shifts without overlaps
+    """
+    if not shifts or len(shifts) <= 1:
+        return shifts
+
+    # Group shifts by worker
+    shifts_by_worker: Dict[str, List[dict]] = {}
+    for shift in shifts:
+        worker = shift.get('PPL', '')
+        if worker not in shifts_by_worker:
+            shifts_by_worker[worker] = []
+        shifts_by_worker[worker].append(shift)
+
+    result_shifts = []
+
+    for worker, worker_shifts in shifts_by_worker.items():
+        if len(worker_shifts) <= 1:
+            result_shifts.extend(worker_shifts)
+            continue
+
+        # Sort by start time (earlier first)
+        sorted_shifts = sorted(
+            worker_shifts,
+            key=lambda s: datetime.combine(target_date, s['start_time'])
+        )
+
+        resolved = []
+        for i, current_shift in enumerate(sorted_shifts):
+            current_start = current_shift['start_time']
+            current_end = current_shift['end_time']
+
+            current_start_dt = datetime.combine(target_date, current_start)
+            current_end_dt = datetime.combine(target_date, current_end)
+            if current_end_dt < current_start_dt:
+                current_end_dt += timedelta(days=1)
+
+            # Check all later shifts to see if they overlap
+            for j in range(i + 1, len(sorted_shifts)):
+                later_shift = sorted_shifts[j]
+                later_start = later_shift['start_time']
+
+                later_start_dt = datetime.combine(target_date, later_start)
+                if later_start_dt < current_start_dt:
+                    later_start_dt += timedelta(days=1)
+
+                # If later shift starts before current ends, crop current end
+                if later_start_dt < current_end_dt:
+                    current_end_dt = later_start_dt
+                    current_end = later_start
+
+            # If shift still has positive duration, add it
+            if current_end_dt > current_start_dt:
+                duration_hours = (current_end_dt - current_start_dt).total_seconds() / 3600
+
+                # Only add if duration is meaningful (at least 6 minutes)
+                if duration_hours >= 0.1:
+                    resolved_shift = current_shift.copy()
+                    resolved_shift['end_time'] = current_end
+                    resolved_shift['shift_duration'] = duration_hours
+
+                    # Update TIME field if present
+                    if 'TIME' in resolved_shift or 'start_time' in resolved_shift:
+                        resolved_shift['TIME'] = f"{current_start.strftime('%H:%M')}-{current_end.strftime('%H:%M')}"
+
+                    resolved.append(resolved_shift)
+                    selection_logger.debug(
+                        f"Shift for {worker}: {current_start.strftime('%H:%M')}-{current_end.strftime('%H:%M')} "
+                        f"(duration: {duration_hours:.2f}h)"
+                    )
+                else:
+                    selection_logger.info(
+                        f"Removed zero-duration shift for {worker} "
+                        f"(was {current_shift['start_time'].strftime('%H:%M')}-{current_shift['end_time'].strftime('%H:%M')})"
+                    )
+
+        result_shifts.extend(resolved)
+
+    return result_shifts
+
+
+def resolve_overlapping_shifts_df(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Resolve overlapping shifts in a DataFrame.
+
+    When two shifts overlap for the same worker, the later shift wins:
+    - Prior shift's end time is cropped to the beginning of the later shift
+    - Gaps (missing time) always win - they are not filled
+
+    Args:
+        df: DataFrame with 'PPL', 'start_time', 'end_time' columns
+
+    Returns:
+        DataFrame with resolved shifts (no overlaps)
+    """
+    if df is None or df.empty:
+        return df
+
+    if 'PPL' not in df.columns or 'start_time' not in df.columns or 'end_time' not in df.columns:
+        return df
+
+    # Use today as base date for datetime calculations
+    base_date = datetime.today().date()
+
+    # Convert to list of dicts for processing
+    shifts = df.to_dict('records')
+
+    # Resolve overlaps
+    resolved_shifts = resolve_overlapping_shifts(shifts, base_date)
+
+    if not resolved_shifts:
+        return pd.DataFrame(columns=df.columns)
+
+    # Convert back to DataFrame
+    result_df = pd.DataFrame(resolved_shifts)
+
+    # Preserve column order from original
+    cols = [c for c in df.columns if c in result_df.columns]
+    extra_cols = [c for c in result_df.columns if c not in cols]
+    result_df = result_df[cols + extra_cols]
+
+    return result_df
+
+
 def build_working_hours_from_medweb(
     csv_path: str,
     target_date: datetime,
@@ -1315,6 +1477,20 @@ def build_working_hours_from_medweb(
 
     if unmatched_activities:
         selection_logger.debug(f"Unmatched activities: {set(unmatched_activities)}")
+
+    # Resolve overlapping shifts: later shift wins, crop prior shift end
+    target_date_obj = target_date.date() if hasattr(target_date, 'date') else target_date
+    for modality in rows_per_modality:
+        if rows_per_modality[modality]:
+            original_count = len(rows_per_modality[modality])
+            rows_per_modality[modality] = resolve_overlapping_shifts(
+                rows_per_modality[modality], target_date_obj
+            )
+            resolved_count = len(rows_per_modality[modality])
+            if original_count != resolved_count:
+                selection_logger.info(
+                    f"Resolved overlapping shifts for {modality}: {original_count} -> {resolved_count} shifts"
+                )
 
     result = {}
     for modality, rows in rows_per_modality.items():
