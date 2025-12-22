@@ -35,6 +35,7 @@ from config import (
     normalize_modality,
     normalize_skill
 )
+import usage_logger
 from utils import (
     get_local_berlin_now,
     get_next_workday,
@@ -1001,6 +1002,12 @@ def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
 
                 canonical_id = update_global_assignment(person, actual_skill, actual_modality)
 
+                # Record skill-modality usage for analytics
+                usage_logger.record_skill_modality_usage(actual_skill, actual_modality)
+
+                # Check if it's time for scheduled export (7:30 AM)
+                usage_logger.check_and_export_at_scheduled_time()
+
                 return jsonify({
                     "selected_person": person,
                     "canonical_id": canonical_id,
@@ -1028,3 +1035,104 @@ def assign_worker_strict_api(modality, role):
     if modality not in modality_data:
         return jsonify({"error": "Invalid modality"}), 400
     return _assign_worker(modality, role, allow_fallback=False)
+
+# Usage Statistics API Endpoints
+
+@routes.route('/api/usage-stats/current', methods=['GET'])
+@requires_auth
+def get_current_usage_stats():
+    """Get current daily usage statistics for skill-modality combinations."""
+    stats = usage_logger.get_current_usage_stats()
+
+    # Convert to list format for easier consumption
+    stats_list = [
+        {
+            'skill': skill,
+            'modality': modality,
+            'count': count
+        }
+        for (skill, modality), count in sorted(stats.items())
+    ]
+
+    return jsonify({
+        'date': datetime.now().strftime('%Y-%m-%d'),
+        'total_combinations': len(stats_list),
+        'total_usages': sum(s['count'] for s in stats_list),
+        'stats': stats_list
+    })
+
+@routes.route('/api/usage-stats/export', methods=['POST'])
+@requires_auth
+def export_usage_stats():
+    """Manually trigger export of current usage statistics to CSV."""
+    try:
+        csv_path = usage_logger.export_current_usage()
+        if csv_path:
+            return jsonify({
+                'success': True,
+                'message': 'Usage statistics exported successfully',
+                'file_path': str(csv_path),
+                'date': datetime.now().strftime('%Y-%m-%d')
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'No usage data to export'
+            })
+    except Exception as e:
+        selection_logger.error(f"Error exporting usage stats: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@routes.route('/api/usage-stats/reset', methods=['POST'])
+@requires_auth
+def reset_usage_stats():
+    """Reset current usage statistics (use with caution)."""
+    try:
+        usage_logger.reset_daily_usage()
+        return jsonify({
+            'success': True,
+            'message': 'Usage statistics reset successfully'
+        })
+    except Exception as e:
+        selection_logger.error(f"Error resetting usage stats: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@routes.route('/api/usage-stats/files', methods=['GET'])
+@requires_auth
+def list_usage_stats_files():
+    """List all available usage statistics CSV files."""
+    try:
+        stats_dir = usage_logger.USAGE_STATS_DIR
+        csv_files = sorted(stats_dir.glob('usage_stats_*.csv'), reverse=True)
+
+        files_list = []
+        for csv_file in csv_files:
+            # Extract date from filename
+            filename = csv_file.name
+            # Format: usage_stats_YYYY-MM-DD.csv
+            date_str = filename.replace('usage_stats_', '').replace('.csv', '')
+
+            files_list.append({
+                'filename': filename,
+                'date': date_str,
+                'path': str(csv_file),
+                'size_bytes': csv_file.stat().st_size if csv_file.exists() else 0
+            })
+
+        return jsonify({
+            'success': True,
+            'files': files_list,
+            'total_files': len(files_list)
+        })
+    except Exception as e:
+        selection_logger.error(f"Error listing usage stats files: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
