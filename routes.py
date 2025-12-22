@@ -318,6 +318,39 @@ def logout():
     modality = resolve_modality_from_request()
     return redirect(url_for('routes.index', modality=modality))
 
+@routes.route('/api/edit_info', methods=['POST'])
+@admin_required
+def edit_info():
+    """Update info texts for a specific modality"""
+    try:
+        data = request.get_json()
+        modality = normalize_modality(data.get('modality', ''))
+        info_text = data.get('info_text', '')
+
+        if not modality or modality not in allowed_modalities:
+            return jsonify({"success": False, "error": "Ungültige Modalität"}), 400
+
+        # Split info_text by newlines and filter out empty lines
+        info_texts = [line.strip() for line in info_text.split('\n') if line.strip()]
+
+        # Update the modality data
+        modality_data[modality]['info_texts'] = info_texts
+
+        # Save the updated state and backup
+        save_state()
+        backup_dataframe(modality)
+
+        selection_logger.info(f"Info texts updated for {modality} by admin")
+
+        return jsonify({
+            "success": True,
+            "info_texts": info_texts,
+            "message": "Info-Texte erfolgreich gespeichert"
+        })
+    except Exception as e:
+        selection_logger.error(f"Error updating info texts: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @routes.route('/api/master-csv-status')
 def master_csv_status():
     if os.path.exists(MASTER_CSV_PATH):
@@ -973,6 +1006,7 @@ def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
 
                 return jsonify({
                     "selected_person": person,
+                    "Assigned Person": person,  # Backward compatibility for templates
                     "canonical_id": canonical_id,
                     "source_modality": actual_modality,
                     "skill_used": actual_skill
