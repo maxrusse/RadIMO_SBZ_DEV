@@ -2,353 +2,354 @@ generated_at: '2025-12-21T20:37:11.789051+00:00'
 source_csv: test_data\medweb_test_multiday.csv
 notes: Review modality/shift guesses. TODO_* markers indicate fields that need manual
   confirmation before merging into config.yaml.
-medweb_mapping:
-  rules:
-  - match: CT Assistent
-    type: shift
-    modality: ct
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: keyword
-      shift: default
-      day_part: ''
-      occurrences: 3
-  - match: CT Spätdienst
-    type: shift
-    modality: ct
-    shift: Spaetdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: keyword
-      shift: description
-      day_part: ''
-      occurrences: 3
-  - match: 'Cortex: CT Privatpatienten'
-    type: shift
-    modality: ct
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: keyword
-      shift: default
-      day_part: ''
-      occurrences: 3
-  - match: MR Assistent
-    type: shift
-    modality: mr
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: keyword
-      shift: default
-      day_part: ''
-      occurrences: 3
-  - match: MR Assistent 1. Monat
-    type: shift
-    modality: mr
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: keyword
-      shift: default
-      day_part: ''
-      occurrences: 3
-  - match: MRT Spätdienst
-    type: shift
-    modality: mr
-    shift: Spaetdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: keyword
-      shift: description
-      day_part: ''
-      occurrences: 3
-  - match: 'Cortex: MRT-OA'
-    type: shift
-    modality: mr
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: keyword
-      shift: default
-      day_part: ''
-      occurrences: 3
-  - match: Chir Assistent
-    type: shift
-    modality: xray
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: heuristic
-      shift: default
-      day_part: ''
-      occurrences: 3
-  - match: OA / FA Chir
-    type: shift
-    modality: xray
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: heuristic
-      shift: default
-      day_part: ''
-      occurrences: 3
-  - match: Mammo Assistent
-    type: shift
-    modality: mammo
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: keyword
-      shift: default
-      day_part: ''
-      occurrences: 3
-  - match: Mammo OA
-    type: shift
-    modality: mammo
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: keyword
-      shift: default
-      day_part: ''
-      occurrences: 3
-  - match: Gyn Team
-    type: shift
-    modality: mammo
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: heuristic
-      shift: default
-      day_part: ''
-      occurrences: 3
-  - match: MSK Team
-    type: shift
-    modality: TODO_modality
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: unknown
-      shift: default
-      day_part: ''
-      occurrences: 3
-    notes: modality unclear
-  - match: Abdomen Team
-    type: shift
-    modality: TODO_modality
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: unknown
-      shift: default
-      day_part: ''
-      occurrences: 3
-    notes: modality unclear
-  - match: Chest Team
-    type: shift
-    modality: TODO_modality
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: unknown
-      shift: default
-      day_part: ''
-      occurrences: 3
-    notes: modality unclear
-  - match: Cardvask Team
-    type: shift
-    modality: TODO_modality
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: unknown
-      shift: default
-      day_part: ''
-      occurrences: 3
-    notes: modality unclear
-  - match: Uro Team
-    type: shift
-    modality: TODO_modality
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: unknown
-      shift: default
-      day_part: ''
-      occurrences: 3
-    notes: modality unclear
-  - match: Päd Team
-    type: shift
-    modality: TODO_modality
-    shift: Fruehdienst
-    base_skills:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: 0
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 0
-      Uro: 0
-    guessed_from:
-      modality: unknown
-      shift: default
-      day_part: ''
-      occurrences: 3
-    notes: modality unclear
+vendor_mappings:
+  medweb:
+    rules:
+    - match: CT Assistent
+      type: shift
+      modality: ct
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: keyword
+        shift: default
+        day_part: ''
+        occurrences: 3
+    - match: CT Spätdienst
+      type: shift
+      modality: ct
+      shift: Spaetdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: keyword
+        shift: description
+        day_part: ''
+        occurrences: 3
+    - match: 'Cortex: CT Privatpatienten'
+      type: shift
+      modality: ct
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: keyword
+        shift: default
+        day_part: ''
+        occurrences: 3
+    - match: MR Assistent
+      type: shift
+      modality: mr
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: keyword
+        shift: default
+        day_part: ''
+        occurrences: 3
+    - match: MR Assistent 1. Monat
+      type: shift
+      modality: mr
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: keyword
+        shift: default
+        day_part: ''
+        occurrences: 3
+    - match: MRT Spätdienst
+      type: shift
+      modality: mr
+      shift: Spaetdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: keyword
+        shift: description
+        day_part: ''
+        occurrences: 3
+    - match: 'Cortex: MRT-OA'
+      type: shift
+      modality: mr
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: keyword
+        shift: default
+        day_part: ''
+        occurrences: 3
+    - match: Chir Assistent
+      type: shift
+      modality: xray
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: heuristic
+        shift: default
+        day_part: ''
+        occurrences: 3
+    - match: OA / FA Chir
+      type: shift
+      modality: xray
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: heuristic
+        shift: default
+        day_part: ''
+        occurrences: 3
+    - match: Mammo Assistent
+      type: shift
+      modality: mammo
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: keyword
+        shift: default
+        day_part: ''
+        occurrences: 3
+    - match: Mammo OA
+      type: shift
+      modality: mammo
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: keyword
+        shift: default
+        day_part: ''
+        occurrences: 3
+    - match: Gyn Team
+      type: shift
+      modality: mammo
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: heuristic
+        shift: default
+        day_part: ''
+        occurrences: 3
+    - match: MSK Team
+      type: shift
+      modality: TODO_modality
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: unknown
+        shift: default
+        day_part: ''
+        occurrences: 3
+      notes: modality unclear
+    - match: Abdomen Team
+      type: shift
+      modality: TODO_modality
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: unknown
+        shift: default
+        day_part: ''
+        occurrences: 3
+      notes: modality unclear
+    - match: Chest Team
+      type: shift
+      modality: TODO_modality
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: unknown
+        shift: default
+        day_part: ''
+        occurrences: 3
+      notes: modality unclear
+    - match: Cardvask Team
+      type: shift
+      modality: TODO_modality
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: unknown
+        shift: default
+        day_part: ''
+        occurrences: 3
+      notes: modality unclear
+    - match: Uro Team
+      type: shift
+      modality: TODO_modality
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: unknown
+        shift: default
+        day_part: ''
+        occurrences: 3
+      notes: modality unclear
+    - match: Päd Team
+      type: shift
+      modality: TODO_modality
+      shift: Fruehdienst
+      base_skills:
+        Notfall: 1
+        Privat: 0
+        Gyn: 0
+        Päd: 0
+        MSK: 0
+        Abdomen: 0
+        Chest: 0
+        Cardvask: 0
+        Uro: 0
+      guessed_from:
+        modality: unknown
+        shift: default
+        day_part: ''
+        occurrences: 3
+      notes: modality unclear

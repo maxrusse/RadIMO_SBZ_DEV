@@ -318,6 +318,39 @@ def logout():
     modality = resolve_modality_from_request()
     return redirect(url_for('routes.index', modality=modality))
 
+@routes.route('/api/edit_info', methods=['POST'])
+@admin_required
+def edit_info():
+    """Update info texts for a specific modality"""
+    try:
+        data = request.get_json()
+        modality = normalize_modality(data.get('modality', ''))
+        info_text = data.get('info_text', '')
+
+        if not modality or modality not in allowed_modalities:
+            return jsonify({"success": False, "error": "Ungültige Modalität"}), 400
+
+        # Split info_text by newlines and filter out empty lines
+        info_texts = [line.strip() for line in info_text.split('\n') if line.strip()]
+
+        # Update the modality data
+        modality_data[modality]['info_texts'] = info_texts
+
+        # Save the updated state and backup
+        save_state()
+        backup_dataframe(modality)
+
+        selection_logger.info(f"Info texts updated for {modality} by admin")
+
+        return jsonify({
+            "success": True,
+            "info_texts": info_texts,
+            "message": "Info-Texte erfolgreich gespeichert"
+        })
+    except Exception as e:
+        selection_logger.error(f"Error updating info texts: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @routes.route('/api/master-csv-status')
 def master_csv_status():
     if os.path.exists(MASTER_CSV_PATH):
@@ -428,13 +461,10 @@ def preload_from_master():
     return jsonify(result), 400
 
 
-@routes.route('/upload', methods=['GET', 'POST'])
+@routes.route('/upload', methods=['GET'])
 @admin_required
 def upload_file():
-    if request.method == 'POST':
-        # DEPRECATED: Standard CSV management now uses /upload-master-csv and /load-today-from-master
-        return jsonify({"error": "Dieser Endpunkt ist veraltet. Bitte nutzen Sie 'Master CSV Upload' oder 'Load Today'."}), 400
-
+    """Admin dashboard page for CSV management and statistics."""
     modality = resolve_modality_from_request()
     d = modality_data[modality]
 
@@ -488,6 +518,7 @@ def upload_file():
         combined_workers=combined_workers,
         modality_stats=modality_stats,
         operational_checks=checks,
+        scheduler_config=APP_CONFIG.get('scheduler', {}),
     )
 
 def run_operational_checks(context: str = 'unknown', force: bool = False) -> dict:
