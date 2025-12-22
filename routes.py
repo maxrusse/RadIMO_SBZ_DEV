@@ -138,6 +138,48 @@ def get_admin_password():
         selection_logger.info("Error loading config.yaml:", e)
         return ""
 
+
+def get_access_password():
+    """Get the basic access password from config."""
+    try:
+        with open("config.yaml", "r") as f:
+            config = yaml.safe_load(f)
+        return config.get("access_password", "change_easy_pw")
+    except Exception as e:
+        selection_logger.info("Error loading config.yaml:", e)
+        return "change_easy_pw"
+
+
+def is_access_protection_enabled():
+    """Check if basic access protection is enabled."""
+    try:
+        with open("config.yaml", "r") as f:
+            config = yaml.safe_load(f)
+        return config.get("access_protection_enabled", True)
+    except Exception as e:
+        selection_logger.info("Error loading config.yaml:", e)
+        return True
+
+
+def access_required(f):
+    """Decorator that requires basic access authentication for non-admin pages.
+
+    Uses a long-lived session cookie so users don't need to re-login frequently.
+    Admin login also grants basic access.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        # Skip if access protection is disabled
+        if not is_access_protection_enabled():
+            return f(*args, **kwargs)
+        # Admin login also grants access
+        if session.get('admin_logged_in') or session.get('access_granted'):
+            return f(*args, **kwargs)
+        modality = resolve_modality_from_request()
+        return redirect(url_for('routes.access_login', modality=modality))
+    return decorated
+
+
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -163,6 +205,7 @@ def inject_modality_settings():
     }
 
 @routes.route('/')
+@access_required
 def index():
     modality = resolve_modality_from_request()
     d = modality_data[modality]
@@ -193,6 +236,7 @@ def index():
     )
 
 @routes.route('/by-skill')
+@access_required
 def index_by_skill():
     skill = request.args.get('skill', SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Notfall')
     skill = normalize_skill(skill)
@@ -229,6 +273,7 @@ def index_by_skill():
     )
 
 @routes.route('/timetable')
+@access_required
 def timetable():
     modality = request.args.get('modality', 'all')
     skill_filter = request.args.get('skill', 'all')
@@ -318,6 +363,44 @@ def logout():
     session.pop('admin_logged_in', None)
     modality = resolve_modality_from_request()
     return redirect(url_for('routes.index', modality=modality))
+
+
+@routes.route('/access-login', methods=['GET', 'POST'])
+def access_login():
+    """Basic access login for non-admin pages.
+
+    Uses a permanent session cookie for long-lived access.
+    """
+    modality = resolve_modality_from_request()
+
+    # If access protection is disabled, redirect to index
+    if not is_access_protection_enabled():
+        return redirect(url_for('routes.index', modality=modality))
+
+    # If already authenticated (either as admin or with basic access), redirect to index
+    if session.get('admin_logged_in') or session.get('access_granted'):
+        return redirect(url_for('routes.index', modality=modality))
+
+    error = None
+    if request.method == 'POST':
+        pw = request.form.get('password', '')
+        if pw == get_access_password():
+            session.permanent = True  # Use permanent session for long-lived cookie
+            session['access_granted'] = True
+            return redirect(url_for('routes.index', modality=modality))
+        else:
+            error = "Falsches Passwort"
+
+    return render_template("access_login.html", error=error, modality=modality)
+
+
+@routes.route('/access-logout')
+def access_logout():
+    """Logout from basic access (keeps admin session if present)."""
+    session.pop('access_granted', None)
+    modality = resolve_modality_from_request()
+    return redirect(url_for('routes.access_login', modality=modality))
+
 
 @routes.route('/api/edit_info', methods=['POST'])
 @admin_required
@@ -1023,6 +1106,7 @@ def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
         return jsonify({"error": str(e)}), 500
 
 @routes.route('/api/<modality>/<role>', methods=['GET'])
+@access_required
 def assign_worker_api(modality, role):
     modality = modality.lower()
     if modality not in modality_data:
@@ -1030,6 +1114,7 @@ def assign_worker_api(modality, role):
     return _assign_worker(modality, role)
 
 @routes.route('/api/<modality>/<role>/strict', methods=['GET'])
+@access_required
 def assign_worker_strict_api(modality, role):
     modality = modality.lower()
     if modality not in modality_data:

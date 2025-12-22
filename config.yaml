@@ -1,4 +1,10 @@
 admin_password: change_pw_for_live
+
+# Basic access protection for non-admin pages (optional)
+# Set to false to disable password protection entirely
+access_protection_enabled: true
+access_password: change_easy_pw
+
 modalities:
   ct:
     label: CT

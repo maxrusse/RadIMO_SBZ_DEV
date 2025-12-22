@@ -2,6 +2,7 @@
 import os
 import atexit
 import logging
+from datetime import timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # Flask imports
@@ -27,6 +28,9 @@ app = Flask(__name__)
 app.secret_key = 'super_secret_key_for_dev'  # Ideally move to config
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
+
+# Configure permanent session lifetime (365 days for basic access cookie persistence)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
 
 # Register Routes
 app.register_blueprint(routes)
