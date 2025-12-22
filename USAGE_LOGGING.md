@@ -42,25 +42,29 @@ Example:
 
 ### CSV Export Format
 
-Usage statistics are exported to CSV files in the `logs/usage_stats/` directory.
+Usage statistics are exported to a single CSV file in **wide format** with one row per day.
 
-**Filename Format**: `usage_stats_YYYY-MM-DD.csv`
+**Filename**: `logs/usage_stats/usage_stats.csv`
 
-**CSV Columns**:
-- `date`: Date of the usage (YYYY-MM-DD)
-- `skill`: Skill name (e.g., Notfall, Privat, MSK)
-- `modality`: Modality name (e.g., ct, mr, xray, mammo)
-- `count`: Number of times this combination was used
-- `timestamp`: When the data was exported (YYYY-MM-DD HH:MM:SS)
+**CSV Structure**:
+- **First Column**: `date` (YYYY-MM-DD format)
+- **Remaining Columns**: One column for each skill-modality combination in format `Skill_modality`
+  - Examples: `Notfall_ct`, `Privat_mr`, `MSK_xray`, `Cardvask_ct`
+  - All columns are always present, with value 0 if not used that day
 
 **Example**:
 ```csv
-date,skill,modality,count,timestamp
-2025-12-22,Notfall,ct,15,2025-12-22 23:59:59
-2025-12-22,Privat,ct,8,2025-12-22 23:59:59
-2025-12-22,MSK,mr,12,2025-12-22 23:59:59
-2025-12-22,Cardvask,ct,5,2025-12-22 23:59:59
+date,Notfall_ct,Notfall_mr,Privat_ct,Privat_mr,MSK_ct,MSK_mr,Cardvask_ct,Cardvask_mr,...
+2025-12-22,15,8,5,2,3,12,5,1,...
+2025-12-23,18,6,7,3,2,10,4,0,...
+2025-12-24,12,10,6,4,5,15,3,2,...
 ```
+
+**Benefits of Wide Format**:
+- One row per day = easy to track trends over time
+- All skill-modality combinations in a single row = simple daily comparison
+- Perfect for spreadsheet analysis, pivot tables, and data visualization
+- Easy to join with other daily data sources
 
 ### Daily Reset
 
@@ -112,13 +116,16 @@ POST /api/usage-stats/export
 
 Manually triggers an export of current usage statistics to CSV without resetting counters.
 
+**Note**: In wide format, this appends the current day's data as a new row to the single CSV file. If you export multiple times on the same day, you'll get multiple rows with the same date (showing different counts as usage accumulates).
+
 **Response Example**:
 ```json
 {
   "success": true,
-  "message": "Usage statistics exported successfully",
-  "file_path": "logs/usage_stats/usage_stats_2025-12-22.csv",
-  "date": "2025-12-22"
+  "message": "Usage statistics exported successfully (appended to CSV)",
+  "file_path": "logs/usage_stats/usage_stats.csv",
+  "date": "2025-12-22",
+  "note": "Data appended as new row in wide format CSV"
 }
 ```
 
@@ -138,28 +145,28 @@ Resets the current usage counters without exporting (use with caution).
 }
 ```
 
-### List CSV Files
+### Get CSV File Info
 
 ```
-GET /api/usage-stats/files
+GET /api/usage-stats/file
 ```
 
-Lists all available usage statistics CSV files.
+Gets information about the usage statistics CSV file (single file in wide format).
 
 **Response Example**:
 ```json
 {
   "success": true,
-  "total_files": 30,
-  "files": [
-    {
-      "filename": "usage_stats_2025-12-22.csv",
-      "date": "2025-12-22",
-      "path": "logs/usage_stats/usage_stats_2025-12-22.csv",
-      "size_bytes": 1024
-    },
-    ...
-  ]
+  "exists": true,
+  "filename": "usage_stats.csv",
+  "path": "logs/usage_stats/usage_stats.csv",
+  "size_bytes": 8192,
+  "total_days": 30,
+  "dates": ["2025-11-23", "2025-11-24", ..., "2025-12-22"],
+  "date_range": {
+    "first": "2025-11-23",
+    "last": "2025-12-22"
+  }
 }
 ```
 
@@ -167,25 +174,50 @@ Lists all available usage statistics CSV files.
 
 ### Monitor Tool Usage vs Actual Work
 
-Compare the daily CSV exports with your actual work entry data:
+The wide format makes it easy to compare with your actual work entry data:
 
-1. Export the usage statistics CSV
-2. Load your work entry data from your external source
-3. Join/merge the data on `(date, skill, modality)`
-4. Calculate the ratio: `tool_clicks / actual_work_entries`
+1. Open the `logs/usage_stats/usage_stats.csv` file
+2. Load your work entry data from your external source (also in wide format with same columns)
+3. Join/merge the data on `date` column
+4. For each skill-modality column, calculate: `tool_clicks / actual_work_entries`
+
+**Example Analysis** (in Excel/Python/R):
+```
+Date        | Notfall_ct (Tool) | Notfall_ct (Actual) | Ratio
+------------|-------------------|---------------------|-------
+2025-12-22  | 15                | 20                  | 0.75
+2025-12-23  | 18                | 18                  | 1.00
+2025-12-24  | 12                | 15                  | 0.80
+```
 
 This helps you understand:
 - Which skill-modality combinations are most frequently used
 - Whether the tool is being used for all work or only specific cases
 - Usage patterns over time
+- Days where tool usage doesn't match actual work (potential training needs)
 
 ### Track Usage Trends
 
-Analyze the historical CSV files to identify:
-- Peak usage times/days
-- Seasonal variations
-- Changes in workflow patterns
-- Most/least used skill-modality combinations
+With wide format, trend analysis is straightforward:
+- Each row is a day, so plotting over time is simple
+- Compare columns side-by-side to see which skill-modality combinations trend together
+- Identify weekly/monthly patterns using date column
+- Easily create time-series charts in Excel or any data visualization tool
+
+**Example**:
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load the CSV
+df = pd.read_csv('logs/usage_stats/usage_stats.csv', parse_dates=['date'])
+
+# Plot Notfall usage across all modalities over time
+df.plot(x='date', y=['Notfall_ct', 'Notfall_mr', 'Notfall_xray'], figsize=(12,6))
+plt.title('Notfall Usage Trends by Modality')
+plt.ylabel('Number of Assignments')
+plt.show()
+```
 
 ### Capacity Planning
 
@@ -196,9 +228,9 @@ Use the usage data to:
 
 ## File Locations
 
-- **CSV Files**: `logs/usage_stats/usage_stats_YYYY-MM-DD.csv`
+- **CSV File**: `logs/usage_stats/usage_stats.csv` (single file, wide format, one row per day)
 - **Module**: `usage_logger.py`
-- **Integration**: `routes.py` (lines 1006-1009, 1041-1138)
+- **Integration**: `routes.py` (lines 1006-1009, 1041-1147)
 
 ## Configuration
 
@@ -233,9 +265,9 @@ The logging system is designed to be lightweight:
 
 ## Troubleshooting
 
-### No CSV Files Generated
+### No CSV File Generated
 
-**Issue**: No CSV files appear in `logs/usage_stats/`
+**Issue**: No CSV file appears in `logs/usage_stats/`
 
 **Solutions**:
 - Check that assignments are being made (usage is only recorded when workers are assigned)
@@ -247,18 +279,21 @@ The logging system is designed to be lightweight:
 **Issue**: Some usage data seems to be missing
 
 **Solutions**:
-- Check if the application was restarted mid-day (current data is lost on restart)
+- Check if the application was restarted mid-day (current data is lost on restart until next export)
 - Verify that the date change logic is working correctly
-- Check the timestamp in the CSV to see when export occurred
+- Check the dates in the CSV file to see which days have been exported
 
-### Duplicate Entries
+### Duplicate Date Rows
 
-**Issue**: Same date appears multiple times in CSV
+**Issue**: Same date appears multiple times in the CSV
 
 **Solutions**:
-- This is expected behavior - the CSV is appended to on each export
-- Use the `timestamp` column to identify the latest export
-- When analyzing, group by `(date, skill, modality)` and sum the counts
+- This can happen if you manually export multiple times on the same day using `/api/usage-stats/export`
+- The automatic daily export (triggered by date change) only exports once per day
+- When analyzing, either:
+  - Use only the last row for each date (most recent counts)
+  - Filter to dates before today (completed days only)
+  - Remove duplicates: `df.drop_duplicates(subset='date', keep='last')`
 
 ## Future Enhancements
 

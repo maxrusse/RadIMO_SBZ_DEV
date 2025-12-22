@@ -10,7 +10,7 @@ import logging
 import os
 from datetime import datetime, date, time
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List, Set
 from collections import defaultdict
 import threading
 
@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 # Directory for usage statistics CSV files
 USAGE_STATS_DIR = Path("logs/usage_stats")
 USAGE_STATS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Single CSV file for all usage statistics (wide format)
+USAGE_STATS_FILE = USAGE_STATS_DIR / "usage_stats.csv"
 
 # Daily usage tracking: {(skill, modality): count}
 _daily_usage: Dict[Tuple[str, str], int] = defaultdict(int)
@@ -52,12 +55,43 @@ def record_skill_modality_usage(skill: str, modality: str) -> None:
         logger.debug(f"Recorded usage: skill={skill}, modality={modality}, daily_count={_daily_usage[key]}")
 
 
+def _get_all_skill_modality_columns() -> List[str]:
+    """
+    Get all possible skill-modality column names in a consistent order.
+
+    Returns:
+        List of column names in format 'skill_modality' (e.g., 'Notfall_ct')
+    """
+    try:
+        # Import here to avoid circular dependencies
+        from config import SKILL_COLUMNS, allowed_modalities
+
+        columns = []
+        for skill in SKILL_COLUMNS:
+            for modality in allowed_modalities:
+                columns.append(f"{skill}_{modality}")
+
+        return columns
+    except ImportError:
+        # Fallback: extract from current usage data
+        logger.warning("Could not import config, using columns from current data")
+        skills = sorted(set(skill for skill, _ in _daily_usage.keys()))
+        modalities = sorted(set(modality for _, modality in _daily_usage.keys()))
+
+        columns = []
+        for skill in skills:
+            for modality in modalities:
+                columns.append(f"{skill}_{modality}")
+
+        return columns
+
+
 def _export_and_reset(export_date: date = None) -> None:
     """
-    Export current usage data to CSV and reset counters.
+    Export current usage data to CSV in wide format (one row per day) and reset counters.
 
     Args:
-        export_date: Date to use for the export filename (defaults to current_date)
+        export_date: Date to use for the export (defaults to current_date)
     """
     global _daily_usage
 
@@ -68,32 +102,40 @@ def _export_and_reset(export_date: date = None) -> None:
         logger.info(f"No usage data to export for {export_date}")
         return
 
-    # Export to CSV
-    csv_path = USAGE_STATS_DIR / f"usage_stats_{export_date.strftime('%Y-%m-%d')}.csv"
-
     try:
-        # Check if file exists to determine if we need headers
-        file_exists = csv_path.exists()
+        # Get all possible skill-modality columns
+        all_columns = _get_all_skill_modality_columns()
 
-        with open(csv_path, 'a', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
+        # Check if file exists to determine if we need headers
+        file_exists = USAGE_STATS_FILE.exists()
+
+        # Prepare row data
+        row_data = {'date': export_date.strftime('%Y-%m-%d')}
+
+        # Add all skill-modality counts (0 if not used)
+        for column in all_columns:
+            # Column format is 'skill_modality', we need to find the count
+            parts = column.rsplit('_', 1)  # Split from right to handle skills with underscores
+            if len(parts) == 2:
+                skill, modality = parts
+                row_data[column] = _daily_usage.get((skill, modality), 0)
+            else:
+                row_data[column] = 0
+
+        # Write to CSV
+        with open(USAGE_STATS_FILE, 'a', newline='', encoding='utf-8') as f:
+            fieldnames = ['date'] + all_columns
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
 
             # Write header if new file
             if not file_exists:
-                writer.writerow(['date', 'skill', 'modality', 'count', 'timestamp'])
+                writer.writeheader()
 
-            # Write data rows
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            for (skill, modality), count in sorted(_daily_usage.items()):
-                writer.writerow([
-                    export_date.strftime('%Y-%m-%d'),
-                    skill,
-                    modality,
-                    count,
-                    timestamp
-                ])
+            # Write data row
+            writer.writerow(row_data)
 
-        logger.info(f"Exported {len(_daily_usage)} skill-modality usage records to {csv_path}")
+        total_usage = sum(_daily_usage.values())
+        logger.info(f"Exported usage data for {export_date} to {USAGE_STATS_FILE} ({total_usage} total assignments)")
 
         # Reset counters
         _daily_usage.clear()
@@ -108,40 +150,52 @@ def export_current_usage() -> Path:
     Manually trigger export of current usage data without resetting.
     Useful for end-of-day exports or manual backups.
 
+    Note: In wide format, this appends the current day's data to the CSV file.
+    If data for the current date already exists in the file, this will add a duplicate row.
+
     Returns:
-        Path to the exported CSV file
+        Path to the exported CSV file, or None if no data to export
     """
     with _lock:
         if not _daily_usage:
             logger.info("No usage data to export")
             return None
 
-        csv_path = USAGE_STATS_DIR / f"usage_stats_{_current_date.strftime('%Y-%m-%d')}.csv"
-
         try:
-            # Always append to existing file
-            file_exists = csv_path.exists()
+            # Get all possible skill-modality columns
+            all_columns = _get_all_skill_modality_columns()
 
-            with open(csv_path, 'a', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f)
+            # Check if file exists to determine if we need headers
+            file_exists = USAGE_STATS_FILE.exists()
+
+            # Prepare row data
+            row_data = {'date': _current_date.strftime('%Y-%m-%d')}
+
+            # Add all skill-modality counts (0 if not used)
+            for column in all_columns:
+                # Column format is 'skill_modality', we need to find the count
+                parts = column.rsplit('_', 1)  # Split from right to handle skills with underscores
+                if len(parts) == 2:
+                    skill, modality = parts
+                    row_data[column] = _daily_usage.get((skill, modality), 0)
+                else:
+                    row_data[column] = 0
+
+            # Write to CSV
+            with open(USAGE_STATS_FILE, 'a', newline='', encoding='utf-8') as f:
+                fieldnames = ['date'] + all_columns
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
 
                 # Write header if new file
                 if not file_exists:
-                    writer.writerow(['date', 'skill', 'modality', 'count', 'timestamp'])
+                    writer.writeheader()
 
-                # Write data rows
-                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                for (skill, modality), count in sorted(_daily_usage.items()):
-                    writer.writerow([
-                        _current_date.strftime('%Y-%m-%d'),
-                        skill,
-                        modality,
-                        count,
-                        timestamp
-                    ])
+                # Write data row
+                writer.writerow(row_data)
 
-            logger.info(f"Exported {len(_daily_usage)} skill-modality usage records to {csv_path}")
-            return csv_path
+            total_usage = sum(_daily_usage.values())
+            logger.info(f"Exported usage data for {_current_date} to {USAGE_STATS_FILE} ({total_usage} total assignments)")
+            return USAGE_STATS_FILE
 
         except Exception as e:
             logger.error(f"Failed to export usage statistics: {e}", exc_info=True)
@@ -205,17 +259,13 @@ def check_and_export_at_scheduled_time() -> bool:
     return False
 
 
-def get_usage_csv_path(target_date: date = None) -> Path:
+def get_usage_csv_path() -> Path:
     """
-    Get the path to the usage stats CSV file for a specific date.
+    Get the path to the usage stats CSV file.
 
-    Args:
-        target_date: Date to get CSV path for (defaults to today)
+    Note: In wide format, there is a single CSV file containing all dates.
 
     Returns:
         Path object for the CSV file
     """
-    if target_date is None:
-        target_date = _current_date
-
-    return USAGE_STATS_DIR / f"usage_stats_{target_date.strftime('%Y-%m-%d')}.csv"
+    return USAGE_STATS_FILE

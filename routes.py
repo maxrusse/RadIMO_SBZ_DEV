@@ -1064,15 +1064,16 @@ def get_current_usage_stats():
 @routes.route('/api/usage-stats/export', methods=['POST'])
 @requires_auth
 def export_usage_stats():
-    """Manually trigger export of current usage statistics to CSV."""
+    """Manually trigger export of current usage statistics to CSV (wide format)."""
     try:
         csv_path = usage_logger.export_current_usage()
         if csv_path:
             return jsonify({
                 'success': True,
-                'message': 'Usage statistics exported successfully',
+                'message': 'Usage statistics exported successfully (appended to CSV)',
                 'file_path': str(csv_path),
-                'date': datetime.now().strftime('%Y-%m-%d')
+                'date': datetime.now().strftime('%Y-%m-%d'),
+                'note': 'Data appended as new row in wide format CSV'
             })
         else:
             return jsonify({
@@ -1103,35 +1104,44 @@ def reset_usage_stats():
             'error': str(e)
         }), 500
 
-@routes.route('/api/usage-stats/files', methods=['GET'])
+@routes.route('/api/usage-stats/file', methods=['GET'])
 @requires_auth
-def list_usage_stats_files():
-    """List all available usage statistics CSV files."""
+def get_usage_stats_file_info():
+    """Get information about the usage statistics CSV file."""
     try:
-        stats_dir = usage_logger.USAGE_STATS_DIR
-        csv_files = sorted(stats_dir.glob('usage_stats_*.csv'), reverse=True)
+        csv_path = usage_logger.USAGE_STATS_FILE
 
-        files_list = []
-        for csv_file in csv_files:
-            # Extract date from filename
-            filename = csv_file.name
-            # Format: usage_stats_YYYY-MM-DD.csv
-            date_str = filename.replace('usage_stats_', '').replace('.csv', '')
-
-            files_list.append({
-                'filename': filename,
-                'date': date_str,
-                'path': str(csv_file),
-                'size_bytes': csv_file.stat().st_size if csv_file.exists() else 0
+        if not csv_path.exists():
+            return jsonify({
+                'success': True,
+                'exists': False,
+                'message': 'No usage statistics file exists yet'
             })
+
+        # Read dates from the CSV
+        import csv
+        dates = []
+        with open(csv_path, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if 'date' in row:
+                    dates.append(row['date'])
 
         return jsonify({
             'success': True,
-            'files': files_list,
-            'total_files': len(files_list)
+            'exists': True,
+            'filename': csv_path.name,
+            'path': str(csv_path),
+            'size_bytes': csv_path.stat().st_size,
+            'total_days': len(dates),
+            'dates': dates,
+            'date_range': {
+                'first': dates[0] if dates else None,
+                'last': dates[-1] if dates else None
+            }
         })
     except Exception as e:
-        selection_logger.error(f"Error listing usage stats files: {e}", exc_info=True)
+        selection_logger.error(f"Error getting usage stats file info: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'error': str(e)
