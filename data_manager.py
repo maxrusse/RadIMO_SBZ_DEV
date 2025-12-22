@@ -166,15 +166,52 @@ def build_valid_skills_map() -> Dict[str, List[str]]:
     return valid_skills_map
 
 
+def normalize_skill_mod_key(key: str) -> str:
+    """
+    Normalize skill_modality key to canonical format: "skill_modality".
+
+    Accepts both "skill_modality" and "modality_skill" formats.
+    Returns canonical "skill_modality" format.
+
+    Examples:
+        "MSK_ct" → "MSK_ct"
+        "ct_MSK" → "MSK_ct"
+        "Notfall_mr" → "Notfall_mr"
+        "mr_Notfall" → "Notfall_mr"
+    """
+    if '_' not in key:
+        return key
+
+    parts = key.split('_', 1)
+    if len(parts) != 2:
+        return key
+
+    part1, part2 = parts
+
+    # Check if part1 is a skill and part2 is a modality
+    if part1 in SKILL_COLUMNS and part2 in allowed_modalities:
+        return f"{part1}_{part2}"  # Already canonical
+
+    # Check if part1 is a modality and part2 is a skill (reversed)
+    if part1 in allowed_modalities and part2 in SKILL_COLUMNS:
+        return f"{part2}_{part1}"  # Normalize to skill_modality
+
+    # Unknown format - return as-is
+    return key
+
+
 def build_disabled_worker_entry() -> Dict[str, Any]:
     """
-    Create a new worker entry with all skills disabled (-1) per modality.
+    Create a new worker entry with all Skill×Modality combinations disabled (-1).
 
-    Format: {'default': {skills}, 'ct': {skills}, 'mr': {skills}, ...}
+    Format: {"skill_modality": -1, ...} (flat structure)
+    Example: {"MSK_ct": -1, "MSK_mr": -1, "Notfall_ct": -1, ...}
     """
-    entry: Dict[str, Any] = {'default': {skill: -1 for skill in SKILL_COLUMNS}}
-    for mod in allowed_modalities:
-        entry[mod] = {skill: -1 for skill in SKILL_COLUMNS}
+    entry: Dict[str, Any] = {}
+    for skill in SKILL_COLUMNS:
+        for mod in allowed_modalities:
+            key = f"{skill}_{mod}"
+            entry[key] = -1
     return entry
 
 
@@ -912,52 +949,67 @@ def match_mapping_rule(activity_desc: str, rules: list) -> Optional[dict]:
             return rule
     return None
 
-def get_worker_skills_from_roster(canonical_id: str, modality: str, worker_roster: dict) -> dict:
+def get_worker_skill_mod_combinations(canonical_id: str, worker_roster: dict) -> dict:
     """
-    Get worker skills from roster for a specific modality.
+    Get worker's Skill×Modality combinations from roster.
 
-    Merges: default skills + modality-specific overrides
-    Returns: {skill: value} dict
+    Returns flat dict: {"skill_modality": value, ...}
+    Normalizes keys to canonical "skill_modality" format.
+    Missing combinations default to 0 (passive).
     """
     if canonical_id not in worker_roster:
-        # Worker not in roster → all skills passive (0)
-        return {skill: 0 for skill in SKILL_COLUMNS}
+        # Worker not in roster → all combinations = 0 (passive)
+        result = {}
+        for skill in SKILL_COLUMNS:
+            for mod in allowed_modalities:
+                result[f"{skill}_{mod}"] = 0
+        return result
 
     worker_data = worker_roster[canonical_id]
-    final_skills = {skill: 0 for skill in SKILL_COLUMNS}
+    result = {}
 
-    # Apply default skills
-    if 'default' in worker_data:
-        for skill, value in worker_data['default'].items():
-            if skill in final_skills:
-                final_skills[skill] = value
+    # Initialize all combinations to 0
+    for skill in SKILL_COLUMNS:
+        for mod in allowed_modalities:
+            result[f"{skill}_{mod}"] = 0
 
-    # Apply modality-specific overrides
-    if modality in worker_data:
-        for skill, value in worker_data[modality].items():
-            if skill in final_skills:
-                final_skills[skill] = value
+    # Apply roster values (normalize keys)
+    for key, value in worker_data.items():
+        normalized_key = normalize_skill_mod_key(key)
+        if normalized_key in result:
+            result[normalized_key] = value
 
-    return final_skills
+    return result
 
 
-def apply_rule_override(roster_skills: dict, rule_base_skills: dict) -> dict:
+def apply_skill_overrides(roster_combinations: dict, rule_overrides: dict) -> dict:
     """
-    Apply CSV rule base_skills override to roster skills.
+    Apply CSV rule skill_overrides to roster Skill×Modality combinations.
 
-    If rule has base_skills → use those (exclusive post)
-    But roster can still exclude with -1
+    Only specified combinations in rule_overrides are updated.
+    Roster -1 (hard exclude) always wins and cannot be overridden.
 
-    Returns: final skills
+    Args:
+        roster_combinations: Worker's baseline skill×modality combinations
+        rule_overrides: CSV rule overrides (e.g., {"MSK_ct": 1, "MSK_mr": 1})
+
+    Returns:
+        Final skill×modality combinations
     """
-    final_skills = rule_base_skills.copy()
+    final = roster_combinations.copy()
 
-    # Roster -1 (excluded) always wins
-    for skill, roster_val in roster_skills.items():
-        if roster_val == -1:
-            final_skills[skill] = -1
+    for key, override_value in rule_overrides.items():
+        normalized_key = normalize_skill_mod_key(key)
 
-    return final_skills
+        if normalized_key in final:
+            # Roster -1 (hard exclude) always wins
+            if final[normalized_key] == -1:
+                continue  # Keep -1, ignore override
+
+            # Apply override
+            final[normalized_key] = override_value
+
+    return final
 
 def compute_time_ranges(row: pd.Series, rule: dict, target_date: datetime, config: dict) -> List[Tuple[time, time]]:
     shift_name = rule.get('shift', 'Fruehdienst')
@@ -1173,19 +1225,26 @@ def build_working_hours_from_medweb(
         if not target_modalities:
             continue
 
+        # Get worker's Skill×Modality combinations from roster (all combinations)
+        roster_combinations = get_worker_skill_mod_combinations(canonical_id, worker_roster)
+
+        # If rule defines skill_overrides → apply them (only specified combinations)
+        # Roster -1 (hard exclude) always wins
+        if 'skill_overrides' in rule and rule['skill_overrides']:
+            final_combinations = apply_skill_overrides(roster_combinations, rule['skill_overrides'])
+        else:
+            # No overrides → use roster combinations directly
+            final_combinations = roster_combinations
+
         time_ranges = compute_time_ranges(row, rule, target_date, config)
 
         for modality in target_modalities:
-            # Get worker skills from roster (default + modality-specific)
-            roster_skills = get_worker_skills_from_roster(canonical_id, modality, worker_roster)
-
-            # If rule defines base_skills → override roster (exclusive post)
-            # But roster -1 (excluded) still wins
-            if 'base_skills' in rule and rule['base_skills']:
-                final_skills = apply_rule_override(roster_skills, rule['base_skills'])
-            else:
-                # No override → use roster skills directly
-                final_skills = roster_skills
+            # Extract skills for THIS modality from combinations
+            # Convert {"MSK_ct": 1, "MSK_mr": 0, ...} → {"MSK": 1, "Gyn": 0, ...} for ct
+            modality_skills = {}
+            for skill in SKILL_COLUMNS:
+                combo_key = f"{skill}_{modality}"
+                modality_skills[skill] = final_combinations.get(combo_key, 0)
 
             for start_time, end_time in time_ranges:
                 start_dt = datetime.combine(target_date.date(), start_time)
@@ -1213,7 +1272,7 @@ def build_working_hours_from_medweb(
                     'Modifier': rule_modifier,
                     'tasks': activity_desc,
                     'counts_for_hours': counts_for_hours,
-                    **final_skills
+                    **modality_skills
                 })
 
     # SECOND PASS
