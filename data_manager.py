@@ -311,17 +311,7 @@ def load_state():
         if 'global_worker_data' in state:
             gwd = state['global_worker_data']
             global_worker_data['worker_ids'] = gwd.get('worker_ids', {})
-            if 'weighted_counts' in gwd:
-                global_worker_data['weighted_counts'] = gwd.get('weighted_counts', {})
-            elif 'weighted_counts_per_mod' in gwd:
-                old_per_mod = gwd.get('weighted_counts_per_mod', {})
-                migrated_counts = {}
-                for mod_counts in old_per_mod.values():
-                    for worker_id, count in mod_counts.items():
-                        migrated_counts[worker_id] = migrated_counts.get(worker_id, 0.0) + count
-                global_worker_data['weighted_counts'] = migrated_counts
-            else:
-                global_worker_data['weighted_counts'] = {}
+            global_worker_data['weighted_counts'] = gwd.get('weighted_counts', {})
             global_worker_data['assignments_per_mod'] = gwd.get('assignments_per_mod', {mod: {} for mod in allowed_modalities})
 
             last_reset_str = gwd.get('last_reset_date')
@@ -826,17 +816,23 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
             'activity': gap_type,
         }
 
+        # Get existing gap_id from row (if this shift is part of a linked gap group)
+        existing_gap_id = row.get('gap_id') if 'gap_id' in df.columns else None
+        if pd.isna(existing_gap_id):
+            existing_gap_id = None
+
         if gap_end_dt <= shift_start_dt or gap_start_dt >= shift_end_dt:
             return False, None, 'Gap is outside worker shift times'
 
         log_prefix = "STAGED: " if use_staged else ""
 
         if gap_start_dt <= shift_start_dt and gap_end_dt >= shift_end_dt:
-            # Case 1: Gap covers entire shift
-            if gap_id and 'gap_id' in df.columns:
-                 data_dict['working_hours_df'] = df[df['gap_id'] != gap_id].reset_index(drop=True)
+            # Case 1: Gap covers entire shift - delete row(s)
+            if existing_gap_id:
+                # Delete all rows sharing the same gap_id (linked split shifts)
+                data_dict['working_hours_df'] = df[df['gap_id'] != existing_gap_id].reset_index(drop=True)
             else:
-                 data_dict['working_hours_df'] = df.drop(index=row_index).reset_index(drop=True)
+                data_dict['working_hours_df'] = df.drop(index=row_index).reset_index(drop=True)
             
             backup_dataframe(modality, use_staged=use_staged)
             selection_logger.info(f"{log_prefix}Gap ({gap_type}) covers entire shift for {worker_name} - row(s) deleted")
