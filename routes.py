@@ -802,7 +802,7 @@ def prep_next_day():
     medweb_rules = APP_CONFIG.get('medweb_mapping', {}).get('rules', [])
     task_roles = []
     for rule in medweb_rules:
-        rule_type = rule.get('type', 'gap' if rule.get('exclusion') else 'shift')
+        rule_type = rule.get('type', 'shift')
         hours_counting_config = APP_CONFIG.get('balancer', {}).get('hours_counting', {})
         if 'counts_for_hours' in rule:
             counts_for_hours = rule['counts_for_hours']
@@ -811,23 +811,45 @@ def prep_next_day():
         else:
             counts_for_hours = hours_counting_config.get('shift_default', True)
 
+        # Extract modalities from skill_overrides (REQUIRED for shifts)
+        skill_overrides = rule.get('skill_overrides', {})
+        derived_modalities = set()
+        for key in skill_overrides.keys():
+            # Skip shortcut keys (all, skill names, modality names)
+            if key.lower() == 'all':
+                # "all" shortcut means all modalities
+                derived_modalities.update(allowed_modalities)
+                continue
+            if key in SKILL_COLUMNS:
+                # Skill shortcut (e.g., "MSK") means all modalities
+                derived_modalities.update(allowed_modalities)
+                continue
+            if key.lower() in allowed_modalities:
+                # Modality shortcut (e.g., "ct")
+                derived_modalities.add(key.lower())
+                continue
+            # Full key like "MSK_ct"
+            if '_' in key:
+                parts = key.split('_', 1)
+                if len(parts) == 2:
+                    mod = parts[1].lower()
+                    if mod in allowed_modalities:
+                        derived_modalities.add(mod)
+
+        modalities_list = list(derived_modalities)
+
         task_role = {
             'name': rule.get('match', ''),
             'type': rule_type,
-            'exclusion': rule.get('exclusion', False),
-            'modality': rule.get('modality'),
-            'modalities': rule.get('modalities', []),
-            'shift': rule.get('shift', 'Fruehdienst'),
-            'skill_overrides': rule.get('skill_overrides', {}),
+            'modalities': modalities_list,
+            'times': rule.get('times', {}),
+            'gaps': rule.get('gaps', {}),
+            'skill_overrides': skill_overrides,
             'modifier': rule.get('modifier', 1.0),
-            'schedule': rule.get('schedule', {}),
             'counts_for_hours': counts_for_hours,
         }
-        if task_role['modality'] and not task_role['modalities']:
-            task_role['modalities'] = [task_role['modality']]
         task_roles.append(task_role)
 
-    exclusion_rules = [r for r in task_roles if r.get('exclusion')]
     worker_skills = load_worker_skill_json()
 
     return render_template(
@@ -839,12 +861,9 @@ def prep_next_day():
         skill_settings=SKILL_SETTINGS,
         modalities=list(MODALITY_SETTINGS.keys()),
         modality_settings=MODALITY_SETTINGS,
-        shift_times=APP_CONFIG.get('shift_times', {}),
-        medweb_mapping=APP_CONFIG.get('medweb_mapping', {}),
         worker_list=worker_list,
         worker_skills=worker_skills,
         task_roles=task_roles,
-        exclusion_rules=exclusion_rules,
         skill_value_colors=APP_CONFIG.get('skill_value_colors', {}),
         ui_colors=APP_CONFIG.get('ui_colors', {})
     )

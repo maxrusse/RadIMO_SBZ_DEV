@@ -1107,10 +1107,8 @@
       "modalities": {{ modalities|default ([]) | tojson }},
       "modality_settings": {{ modality_settings|default ({}) | tojson }},
       "skill_settings": {{ skill_settings|default ({}) | tojson }},
-      "shift_times": {{ shift_times|default ({}) | tojson }},
       "worker_skills": {{ worker_skills|default ({}) | tojson }},
       "task_roles": {{ task_roles|default ([]) | tojson }},
-      "exclusion_rules": {{ exclusion_rules|default ([]) | tojson }},
       "skill_value_colors": {{ skill_value_colors|default ({}) | tojson }},
       "ui_colors": {{ ui_colors|default ({}) | tojson }}
     }
@@ -1124,10 +1122,8 @@
     const MODALITIES = CONFIG.modalities;
     const MODALITY_SETTINGS = CONFIG.modality_settings;
     const SKILL_SETTINGS = CONFIG.skill_settings;
-    const SHIFT_TIMES = CONFIG.shift_times;
     const WORKER_SKILLS = CONFIG.worker_skills;
     const TASK_ROLES = CONFIG.task_roles;
-    const EXCLUSION_RULES = CONFIG.exclusion_rules;
     const SKILL_VALUE_COLORS = CONFIG.skill_value_colors;
     const UI_COLORS = CONFIG.ui_colors;
 
@@ -1198,6 +1194,31 @@
       tasks: []  // Array of { task, modality, start_time, end_time, modifier, skills }
     };
 
+    /**
+     * Get shift times from task config.
+     * Structure: task.times = { default: "07:00-15:00", Freitag: "07:00-13:00", ... }
+     * @param {Object} taskConfig - The task role configuration
+     * @param {string} targetDay - German weekday name (Montag, Dienstag, etc.)
+     * @returns {Object} { start: "07:00", end: "15:00" }
+     */
+    function getShiftTimes(taskConfig, targetDay) {
+      const defaultTimes = { start: '07:00', end: '15:00' };
+
+      if (!taskConfig) return defaultTimes;
+
+      const times = taskConfig.times || {};
+      if (Object.keys(times).length === 0) return defaultTimes;
+
+      // Check day-specific first, then 'friday' alias, then default
+      let timeStr = times[targetDay] || times.default || '07:00-15:00';
+      // Also check for 'friday' alias when targetDay is 'Freitag'
+      if (targetDay === 'Freitag' && times.friday && !times.Freitag) {
+        timeStr = times.friday;
+      }
+      const [start, end] = timeStr.split('-');
+      return { start: start?.trim() || '07:00', end: end?.trim() || '15:00' };
+    }
+
     function toggleDisplayOrder() {
       displayOrder = displayOrder === 'modality-first' ? 'skill-first' : 'modality-first';
       const newText = displayOrder === 'modality-first' ? 'Mod → Skill' : 'Skill → Mod';
@@ -1246,14 +1267,14 @@
       return v === 0 || v === 1 || isWeightedSkill(v);
     }
 
-    // Helper: Get shifts (type='shift', non-exclusion)
+    // Helper: Get shifts (type='shift')
     function getShiftRoles() {
-      return TASK_ROLES.filter(t => t.type === 'shift' && !t.exclusion);
+      return TASK_ROLES.filter(t => t.type === 'shift');
     }
 
-    // Helper: Get gaps (type='gap', exclusion=true)
+    // Helper: Get gaps (type='gap')
     function getGapTasks() {
-      return TASK_ROLES.filter(t => t.type === 'gap' || t.exclusion);
+      return TASK_ROLES.filter(t => t.type === 'gap');
     }
 
     // Helper: Get the target weekday name (German) based on current tab
@@ -1306,7 +1327,7 @@
         html += '<optgroup label="Tasks / Gaps (makes -1)">';
         gaps.forEach(t => {
           const selected = t.name === selectedValue ? 'selected' : '';
-          const dataAttrs = `data-type="gap" data-schedule='${JSON.stringify(t.schedule || {})}' data-exclusion="true"`;
+          const dataAttrs = `data-type="gap" data-times='${JSON.stringify(t.times || {})}'`;
           html += `<option value="${escapeHtml(t.name)}" ${dataAttrs} ${selected}>${escapeHtml(t.name)}</option>`;
         });
         html += '</optgroup>';
@@ -1971,17 +1992,21 @@
           let endTime = row.end_time;
           if ((!startTime || !endTime) && roleConfig) {
             if (isGapRow) {
-              const schedule = roleConfig.schedule || {};
-              // Use targetDay (computed based on tab) instead of current day
-              if (schedule[targetDay]) {
-                [startTime, endTime] = schedule[targetDay].split('-');
+              // Use 'times' field (unified with shifts)
+              const times = roleConfig.times || {};
+              const dayTimes = times[targetDay] || times.default;
+              if (dayTimes) {
+                // Handle both array format and string format
+                const firstTime = Array.isArray(dayTimes) ? dayTimes[0] : dayTimes;
+                if (firstTime) {
+                  [startTime, endTime] = firstTime.split('-');
+                }
               }
             } else {
-              const shiftName = roleConfig.shift || 'Fruehdienst';
-              const shiftConfig = SHIFT_TIMES[shiftName] || {};
-              const [start, end] = (shiftConfig.default || '07:00-15:00').split('-');
-              startTime = startTime || start;
-              endTime = endTime || end;
+              // Use getShiftTimes helper for day-specific times
+              const shiftTimes = getShiftTimes(roleConfig, targetDay);
+              startTime = startTime || shiftTimes.start;
+              endTime = endTime || shiftTimes.end;
             }
           }
           if (!startTime || !endTime) {
@@ -2954,19 +2979,24 @@
       const taskConfig = TASK_ROLES.find(t => t.name === taskName);
       if (!taskConfig) return;
 
-      const isGap = taskConfig.type === 'gap' || taskConfig.exclusion;
+      const isGap = taskConfig.type === 'gap';
       const { tab, groupIdx } = currentEditEntry || {};
 
       if (isGap) {
-        // Gap selected - set all skills to -1 and use schedule times for target day
-        const schedule = taskConfig.schedule || {};
+        // Gap selected - set all skills to -1 and use times for target day
+        const times = taskConfig.times || {};
         const targetDay = getTargetWeekdayName(tab || currentTab);
-        if (schedule[targetDay]) {
-          const [startTime, endTime] = schedule[targetDay].split('-');
-          const startEl = document.getElementById(`edit-shift-${shiftIdx}-start`);
-          const endEl = document.getElementById(`edit-shift-${shiftIdx}-end`);
-          if (startEl) startEl.value = startTime;
-          if (endEl) endEl.value = endTime;
+        const dayTimes = times[targetDay] || times.default;
+        if (dayTimes) {
+          // Handle both array format and string format
+          const firstTime = Array.isArray(dayTimes) ? dayTimes[0] : dayTimes;
+          if (firstTime) {
+            const [startTime, endTime] = firstTime.split('-');
+            const startEl = document.getElementById(`edit-shift-${shiftIdx}-start`);
+            const endEl = document.getElementById(`edit-shift-${shiftIdx}-end`);
+            if (startEl) startEl.value = startTime;
+            if (endEl) endEl.value = endTime;
+          }
         }
         const modifierEl = document.getElementById(`edit-shift-${shiftIdx}-modifier`);
         if (modifierEl) modifierEl.value = '1.0';
@@ -2980,14 +3010,13 @@
           });
         });
       } else {
-        // Regular shift selected
-        const shiftConfig = SHIFT_TIMES[taskConfig.shift || 'Fruehdienst'] || {};
-        const shiftDefault = shiftConfig.default || '07:00-15:00';
-        const [startTime, endTime] = shiftDefault.split('-');
+        // Regular shift selected - use day-specific times
+        const targetDay = getTargetWeekdayName(tab || currentTab);
+        const times = getShiftTimes(taskConfig, targetDay);
         const startEl = document.getElementById(`edit-shift-${shiftIdx}-start`);
         const endEl = document.getElementById(`edit-shift-${shiftIdx}-end`);
-        if (startEl) startEl.value = startTime;
-        if (endEl) endEl.value = endTime;
+        if (startEl) startEl.value = times.start;
+        if (endEl) endEl.value = times.end;
 
         const modifierEl = document.getElementById(`edit-shift-${shiftIdx}-modifier`);
         if (modifierEl && taskConfig.modifier) modifierEl.value = taskConfig.modifier.toString();
@@ -3069,21 +3098,33 @@
         return;
       }
 
-      const isGap = option.dataset.type === 'gap' || option.dataset.exclusion === 'true';
+      const taskName = option.value;
+      const taskConfig = TASK_ROLES.find(t => t.name === taskName);
+      const isGap = option.dataset.type === 'gap';
       const { tab, groupIdx } = currentEditEntry || {};
 
       // Set times - use target day based on current tab (today vs tomorrow)
-      const shiftName = option.dataset.shift || 'Fruehdienst';
-      const shiftConfig = SHIFT_TIMES[shiftName] || {};
-      const schedule = JSON.parse(option.dataset.schedule || '{}');
       const targetDay = getTargetWeekdayName(tab || currentTab);
-      if (isGap && schedule[targetDay]) {
-        const [startTime, endTime] = schedule[targetDay].split('-');
-        document.getElementById('modal-add-start').value = startTime;
-        document.getElementById('modal-add-end').value = endTime;
+      const times = taskConfig?.times || {};
+      const dayTimes = times[targetDay] || times.default;
+
+      if (isGap && dayTimes) {
+        // Handle both array format and string format
+        const firstTime = Array.isArray(dayTimes) ? dayTimes[0] : dayTimes;
+        if (firstTime) {
+          const [startTime, endTime] = firstTime.split('-');
+          document.getElementById('modal-add-start').value = startTime;
+          document.getElementById('modal-add-end').value = endTime;
+        }
+      } else if (!isGap && taskConfig) {
+        // Use day-specific times from task config
+        const times = getShiftTimes(taskConfig, targetDay);
+        document.getElementById('modal-add-start').value = times.start;
+        document.getElementById('modal-add-end').value = times.end;
       } else {
-        const shiftDefault = shiftConfig.default || (isGap ? '12:00-13:00' : '07:00-15:00');
-        const [startTime, endTime] = shiftDefault.split('-');
+        // Fallback defaults
+        const defaultTime = isGap ? '12:00-13:00' : '07:00-15:00';
+        const [startTime, endTime] = defaultTime.split('-');
         document.getElementById('modal-add-start').value = startTime;
         document.getElementById('modal-add-end').value = endTime;
       }
@@ -3290,15 +3331,19 @@
       endInput.disabled = false;
 
       const option = select.options[select.selectedIndex];
-      if (option.value !== 'custom' && option.dataset.schedule) {
-        const schedule = JSON.parse(option.dataset.schedule);
+      if (option.value !== 'custom' && option.dataset.times) {
+        const times = JSON.parse(option.dataset.times);
         // Use target day based on current tab (today vs tomorrow)
         const { tab } = currentEditEntry || {};
         const targetDay = getTargetWeekdayName(tab || currentTab);
-        if (schedule[targetDay]) {
-          const [start, end] = schedule[targetDay].split('-');
-          startInput.value = start;
-          endInput.value = end;
+        const dayTimes = times[targetDay] || times.default;
+        if (dayTimes) {
+          const firstTime = Array.isArray(dayTimes) ? dayTimes[0] : dayTimes;
+          if (firstTime) {
+            const [start, end] = firstTime.split('-');
+            startInput.value = start;
+            endInput.value = end;
+          }
         }
       }
     }
@@ -3443,16 +3488,14 @@
         }
       }
 
-      // Update shift times from task config
-      const shiftName = task.shift || 'Fruehdienst';
-      const shiftConfig = SHIFT_TIMES[shiftName] || {};
-      const shiftDefault = shiftConfig.default || '07:00-15:00';
-      const [startTime, endTime] = shiftDefault.split('-');
+      // Update shift times from task config (day-specific)
+      const targetDay = getTargetWeekdayName(tab || currentTab);
+      const times = getShiftTimes(task, targetDay);
 
       const startEl = document.getElementById(`edit-shift-${shiftIdx}-start`);
       const endEl = document.getElementById(`edit-shift-${shiftIdx}-end`);
-      if (startEl) startEl.value = startTime;
-      if (endEl) endEl.value = endTime;
+      if (startEl) startEl.value = times.start;
+      if (endEl) endEl.value = times.end;
     }
 
     // Apply worker roster skills to all modalities in a shift
@@ -3587,11 +3630,13 @@
     }
 
     function addTaskToAddWorkerModal() {
-      // Find default task to prefill
-      const defaultTask = TASK_ROLES.find(t => !t.exclusion) || {};
+      // Find default task to prefill (prefer shifts over gaps)
+      const defaultTask = TASK_ROLES.find(t => t.type === 'shift') || TASK_ROLES[0] || {};
       const defaultMod = (defaultTask.modalities && defaultTask.modalities[0]) || MODALITIES[0] || 'ct';
-      const shiftConfig = SHIFT_TIMES[defaultTask.shift || 'Fruehdienst'] || {};
-      const [startTime, endTime] = (shiftConfig.default || '07:00-15:00').split('-');
+
+      // Get day-specific times from task config
+      const targetDay = getTargetWeekdayName(addWorkerModalState.tab || currentTab);
+      const times = getShiftTimes(defaultTask, targetDay);
 
       // Default skills from task
       const defaultSkills = {};
@@ -3602,8 +3647,8 @@
       addWorkerModalState.tasks.push({
         task: defaultTask.name || '',
         modality: defaultMod,
-        start_time: startTime,
-        end_time: endTime,
+        start_time: times.start,
+        end_time: times.end,
         modifier: defaultTask.modifier || 1.0,
         counts_for_hours: defaultTask.counts_for_hours !== false,  // Default true unless task says false
         skills: defaultSkills
@@ -3628,23 +3673,28 @@
         const taskConfig = TASK_ROLES.find(t => t.name === value);
         if (taskConfig) {
           const task = addWorkerModalState.tasks[idx];
-          const isGap = taskConfig.type === 'gap' || taskConfig.exclusion;
+          const isGap = taskConfig.type === 'gap';
 
           // Update counts_for_hours from task config
           task.counts_for_hours = taskConfig.counts_for_hours !== false;
 
           if (isGap) {
-            // Gap selected - set all skills to -1 and use schedule times for target day
+            // Gap selected - set all skills to -1 and use times for target day
             task.modifier = 1.0;
             task.counts_for_hours = false;  // Gaps typically don't count for hours
 
-            // Get schedule-based times for the target day (based on modal's tab)
-            const schedule = taskConfig.schedule || {};
+            // Get times for the target day (based on modal's tab)
+            const times = taskConfig.times || {};
             const targetDay = getTargetWeekdayName(addWorkerModalState.tab || currentTab);
-            if (schedule[targetDay]) {
-              const [startTime, endTime] = schedule[targetDay].split('-');
-              task.start_time = startTime;
-              task.end_time = endTime;
+            const dayTimes = times[targetDay] || times.default;
+            if (dayTimes) {
+              // Handle both array format and string format
+              const firstTime = Array.isArray(dayTimes) ? dayTimes[0] : dayTimes;
+              if (firstTime) {
+                const [startTime, endTime] = firstTime.split('-');
+                task.start_time = startTime;
+                task.end_time = endTime;
+              }
             } else {
               task.start_time = '12:00';
               task.end_time = '13:00';
@@ -3661,10 +3711,11 @@
               task.modality = validModalities[0];
             }
 
-            const shiftConfig = SHIFT_TIMES[taskConfig.shift || 'Fruehdienst'] || {};
-            const [startTime, endTime] = (shiftConfig.default || '07:00-15:00').split('-');
-            task.start_time = startTime;
-            task.end_time = endTime;
+            // Get day-specific times from task config
+            const targetDay = getTargetWeekdayName(addWorkerModalState.tab || currentTab);
+            const times = getShiftTimes(taskConfig, targetDay);
+            task.start_time = times.start;
+            task.end_time = times.end;
             task.modifier = taskConfig.modifier || 1.0;
 
             // Update skills from task config
