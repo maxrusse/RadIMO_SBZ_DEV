@@ -286,7 +286,7 @@ balancer:
   min_assignments_per_skill: 5    # Minimum weighted assignments
   imbalance_threshold_pct: 30     # Trigger fallback at 30% imbalance
   allow_fallback_on_imbalance: true
-  modifier_applies_to_active_only: true  # Modifier only for skill=1
+  disable_overflow_at_shift_end_minutes: 30  # Don't assign overflow in last X minutes
 
   # Hours counting for workload calculation
   hours_counting:
@@ -598,7 +598,7 @@ balancer:
   min_assignments_per_skill: 5
   imbalance_threshold_pct: 30
   allow_fallback_on_imbalance: true
-  modifier_applies_to_active_only: true
+  disable_overflow_at_shift_end_minutes: 30
   hours_counting:
     shift_default: true
     gap_default: false
