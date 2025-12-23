@@ -606,6 +606,15 @@ vendor_mappings:
         Donnerstag:
           - "10:00-11:00"
 
+    # ===========================================
+    # GENERIC GAP - For manual entries on prep page
+    # This gap has no schedule, so it won't match from CSV automatically.
+    # Users can select it in the UI and set custom times.
+    # ===========================================
+    - match: "[Gap]"
+      type: "gap"
+      schedule: {}  # Empty - manual entry only, set times in UI
+
 # Worker skill roster - Skill×Modality combinations (flat structure)
 # Format: "skill_modality": value (or "modality_skill" - both accepted)
 # Values: 1 = active, 0 = passive/fallback, -1 = hard exclude (cannot be overridden), w = weighted/assisted
