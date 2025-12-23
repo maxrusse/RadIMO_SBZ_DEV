@@ -4,6 +4,11 @@ Verification script to check all fixes are in place.
 Run this after pulling the latest code to verify the deployment is ready.
 """
 import sys
+import os
+
+# Get project root directory
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 
 def check_line(filepath, line_num, expected_content):
     """Check if a specific line contains expected content."""
@@ -23,38 +28,38 @@ def check_line(filepath, line_num, expected_content):
 checks = [
     {
         'name': 'routes.py line 1042 - @admin_required (was @requires_auth)',
-        'file': 'routes.py',
+        'file': os.path.join(PROJECT_ROOT, 'routes.py'),
         'line': 1042,
         'expected': '@admin_required'
     },
     {
         'name': 'routes.py line 1065 - @admin_required (was @requires_auth)',
-        'file': 'routes.py',
+        'file': os.path.join(PROJECT_ROOT, 'routes.py'),
         'line': 1065,
         'expected': '@admin_required'
     },
     {
         'name': 'routes.py line 1091 - @admin_required (was @requires_auth)',
-        'file': 'routes.py',
+        'file': os.path.join(PROJECT_ROOT, 'routes.py'),
         'line': 1091,
         'expected': '@admin_required'
     },
     {
         'name': 'routes.py line 1108 - @admin_required (was @requires_auth)',
-        'file': 'routes.py',
+        'file': os.path.join(PROJECT_ROOT, 'routes.py'),
         'line': 1108,
         'expected': '@admin_required'
     },
     {
         'name': 'routes.py line 537 - APP_CONFIG (was app.APP_CONFIG)',
-        'file': 'routes.py',
+        'file': os.path.join(PROJECT_ROOT, 'routes.py'),
         'line': 537,
         'expected': 'scheduler_conf = APP_CONFIG.get'
     },
     {
         'name': 'ops_check.py - proper imports',
-        'file': 'ops_check.py',
-        'line': 11,
+        'file': os.path.join(SCRIPT_DIR, 'ops_check.py'),
+        'line': 15,
         'expected': 'from config import'
     },
 ]
