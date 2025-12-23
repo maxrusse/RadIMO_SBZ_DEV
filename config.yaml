@@ -207,37 +207,24 @@ balancer:
     gap_default: false    # type: "gap" entries don't count towards hours (default)
 
   # Exclusion-based routing configuration
+  # Define which workers to EXCLUDE when requesting each skill
+  # Workers with excluded_skill=1 won't receive work for this skill
+  # Two-level fallback: (1) All except exclusions → (2) Skill>=0 → (3) None
+  #
+  # Format (shortcut style like skill_overrides):
+  #   SkillName: []           # No exclusions - anyone can get this work
+  #   SkillName: [Skill1]     # Exclude workers with Skill1=1
+  #   SkillName: [Skill1, Skill2]  # Exclude workers with Skill1=1 or Skill2=1
   exclusion_rules:
-    # Define which workers to EXCLUDE when requesting each skill
-    # Workers with excluded_skill=1 won't receive work for this skill
-    # Two-level fallback: (1) All except exclusions → (2) Skill>=0 → (3) None
-
-    Notfall:
-      exclude_skills: []  # No exclusions - anyone can get Notfall work
-
-    Privat:
-      exclude_skills: []  # No exclusions - anyone can get Privat work
-
-    Gyn:
-      exclude_skills: []
-
-    Päd:
-      exclude_skills: []
-
-    MSK:
-      exclude_skills: []
-
-    Abdomen:
-      exclude_skills: []
-
-    Chest:
-      exclude_skills: []
-
-    Cardvask:
-      exclude_skills: []
-
-    Uro:
-      exclude_skills: []
+    Notfall: []      # No exclusions - anyone can get Notfall work
+    Privat: []       # No exclusions - anyone can get Privat work
+    Gyn: []
+    Päd: []
+    MSK: []
+    Abdomen: []
+    Chest: []
+    Cardvask: []
+    Uro: []
 
 # =============================================================================
 # MEDWEB CSV MAPPING CONFIGURATION (NEW UNIFIED STRUCTURE)

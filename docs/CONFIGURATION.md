@@ -294,27 +294,21 @@ balancer:
     gap_default: false    # type: "gap" entries don't count towards hours (default)
 
   # Exclusion-based routing configuration
+  # Define which workers to EXCLUDE when requesting each skill
+  # Workers with excluded_skill=1 won't receive work for this skill
+  # Format (shortcut style like skill_overrides):
+  #   SkillName: []           # No exclusions
+  #   SkillName: [Skill1]     # Exclude workers with Skill1=1
   exclusion_rules:
-    # Define which workers to EXCLUDE when requesting each skill
-    # Workers with excluded_skill=1 won't receive work for this skill
-    Notfall:
-      exclude_skills: []  # No exclusions
-    Privat:
-      exclude_skills: []
-    Gyn:
-      exclude_skills: []
-    Päd:
-      exclude_skills: []
-    MSK:
-      exclude_skills: []
-    Abdomen:
-      exclude_skills: []
-    Chest:
-      exclude_skills: []
-    Cardvask:
-      exclude_skills: []
-    Uro:
-      exclude_skills: []
+    Notfall: []      # No exclusions
+    Privat: []
+    Gyn: []
+    Päd: []
+    MSK: []
+    Abdomen: []
+    Chest: []
+    Cardvask: []
+    Uro: []
 ```
 
 ### Exclusion-Based Routing
@@ -339,8 +333,7 @@ Use exclusions to block specific specialists from receiving unrelated work (e.g.
 **Example:** Keep Cardvask requests away from MSK specialists unless no one else is available.
 ```yaml
 exclusion_rules:
-  Cardvask:
-    exclude_skills: [MSK]
+  Cardvask: [MSK]
 ```
 
 ### Two-Phase Minimum Balancer
@@ -603,10 +596,8 @@ balancer:
     shift_default: true
     gap_default: false
   exclusion_rules:
-    Cardvask:
-      exclude_skills: [MSK]
-    Notfall:
-      exclude_skills: []
+    Cardvask: [MSK]
+    Notfall: []
 
 modality_fallbacks:
   xray: [[ct, mr]]
