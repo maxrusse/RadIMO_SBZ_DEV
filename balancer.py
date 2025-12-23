@@ -141,6 +141,22 @@ def _filter_near_shift_end(df: pd.DataFrame, current_dt: datetime, buffer_minute
     mask = df.apply(is_not_near_shift_end, axis=1)
     return df[mask].copy()
 
+def _filter_near_shift_start(df: pd.DataFrame, current_dt: datetime, buffer_minutes: int) -> pd.DataFrame:
+    """
+    Filter out workers who are within buffer_minutes of their shift start.
+    Used to prevent overflow assignments at beginning of shift.
+    """
+    if df is None or df.empty or buffer_minutes <= 0:
+        return df
+
+    def is_not_near_shift_start(row):
+        start_dt, end_dt = compute_shift_window(row['start_time'], row['end_time'], current_dt)
+        minutes_since_start = (current_dt - start_dt).total_seconds() / 60
+        return minutes_since_start > buffer_minutes
+
+    mask = df.apply(is_not_near_shift_start, axis=1)
+    return df[mask].copy()
+
 def _get_effective_assignment_load(
     worker: str,
     column: str,
@@ -268,14 +284,16 @@ def _get_worker_exclusion_based(
 
     # Get exclusion list and overflow settings
     exclude_skills = EXCLUSION_RULES.get(primary_skill, [])
-    specialist_threshold = BALANCER_SETTINGS.get('specialist_overflow_threshold', 0)
+    imbalance_threshold_pct = BALANCER_SETTINGS.get('imbalance_threshold_pct', 30)
+    shift_start_buffer = BALANCER_SETTINGS.get('disable_overflow_at_shift_start_minutes', 0)
+    shift_end_buffer = BALANCER_SETTINGS.get('disable_overflow_at_shift_end_minutes', 0)
 
     selection_logger.info(
-        "Specialist-first routing for skill %s in modality %s: exclude %s=1, threshold=%.2f",
+        "Specialist-first routing for skill %s in modality %s: exclude %s=1, imbalance_threshold=%d%%",
         primary_skill,
         modality,
         exclude_skills if exclude_skills else 'none',
-        specialist_threshold,
+        imbalance_threshold_pct,
     )
 
     # Helper function to try selection with given filters
@@ -296,6 +314,14 @@ def _get_worker_exclusion_based(
 
         # Filter by skill >= 0 (excludes skill=-1)
         skill_filtered = active_df[active_df[primary_skill] >= 0]
+        if skill_filtered.empty:
+            return None
+
+        # Apply shift start/end buffers (per-worker per-shift)
+        if shift_start_buffer > 0:
+            skill_filtered = _filter_near_shift_start(skill_filtered, current_dt, shift_start_buffer)
+        if shift_end_buffer > 0:
+            skill_filtered = _filter_near_shift_end(skill_filtered, current_dt, shift_end_buffer)
         if skill_filtered.empty:
             return None
 
@@ -332,17 +358,28 @@ def _get_worker_exclusion_based(
             specialist_workers = specialists_to_check['PPL'].unique()
             specialist_ratios = {p: weighted_ratio(p) for p in specialist_workers}
 
-            # Check if overflow threshold is enabled and if all specialists are overloaded
+            # Check if should overflow to generalists based on imbalance
             overflow_triggered = False
-            if specialist_threshold > 0 and specialist_ratios:
+            if not generalists_df.empty and imbalance_threshold_pct > 0:
+                # Calculate min ratios for both pools
                 min_specialist_ratio = min(specialist_ratios.values())
-                if min_specialist_ratio > specialist_threshold:
-                    overflow_triggered = True
-                    selection_logger.info(
-                        "Specialist overflow triggered: min_ratio=%.4f > threshold=%.2f, checking generalists",
-                        min_specialist_ratio,
-                        specialist_threshold,
-                    )
+
+                generalist_workers = generalists_df['PPL'].unique()
+                generalist_ratios = {p: weighted_ratio(p) for p in generalist_workers}
+                min_generalist_ratio = min(generalist_ratios.values())
+
+                # Check if specialists are imbalanced compared to generalists
+                if min_generalist_ratio < min_specialist_ratio and min_specialist_ratio > 0:
+                    imbalance_pct = ((min_specialist_ratio - min_generalist_ratio) / min_specialist_ratio) * 100
+                    if imbalance_pct >= imbalance_threshold_pct:
+                        overflow_triggered = True
+                        selection_logger.info(
+                            "Specialist overflow triggered: specialist_min=%.4f, generalist_min=%.4f, imbalance=%.1f%% >= %d%%",
+                            min_specialist_ratio,
+                            min_generalist_ratio,
+                            imbalance_pct,
+                            imbalance_threshold_pct,
+                        )
 
             # If overflow not triggered, use specialist with lowest ratio
             if not overflow_triggered:

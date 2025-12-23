@@ -319,32 +319,36 @@ The system prioritizes specialists while using pooled workers (skill=0) as backu
 
 1. **Filter workers in requested modality:**
    - Include workers with skill≥0 (excludes skill=-1)
+   - Apply shift start/end buffers (per-worker per-shift)
    - Apply exclusion rules (e.g., notfall_ct team won't get mammo_gyn)
 
 2. **Split into pools:**
    - **Specialists:** skill=1 or 'w' (trained for this work)
    - **Generalists:** skill=0 (trained in modality, can help when needed)
 
-3. **Specialist-first selection:**
-   - Calculate workload ratio for each worker (weighted_count / hours_worked)
-   - If ANY specialist has ratio ≤ threshold: assign to specialist with lowest ratio
-   - If ALL specialists have ratio > threshold: overflow to generalist with lowest ratio
+3. **Minimum balancer (fair distribution among specialists):**
+   - Ensure all specialists get minimum weighted assignments before overflow
+   - Prevents strange effects at start of day
 
-4. **Fallback without exclusions:**
+4. **Specialist-first selection with imbalance overflow:**
+   - Calculate workload ratio for each worker (weighted_count / hours_worked)
+   - Compare min_specialist_ratio vs min_generalist_ratio
+   - If imbalance ≥ threshold%: overflow to generalist with lowest ratio
+   - Otherwise: assign to specialist with lowest ratio
+
+5. **Fallback without exclusions:**
    - If no workers available after exclusions, retry without exclusion filters
    - Maintains specialist-first logic
 
-**Overflow threshold configuration:**
+**Configuration:**
 ```yaml
 balancer:
-  specialist_overflow_threshold: 1.5  # Overflow when ALL specialists exceed 1.5 assignments/hour
-                                      # Set to 0 to disable (always use lowest ratio)
-```
-
-**Exclusion rules** block specific teams from receiving unrelated work:
-```yaml
-exclusion_rules:
-  Cardvask: [MSK]  # MSK specialists won't get Cardvask work unless no one else available
+  min_assignments_per_skill: 3             # All specialists get 3 weighted assignments before overflow
+  imbalance_threshold_pct: 30              # Overflow when specialists 30%+ more loaded than generalists
+  disable_overflow_at_shift_start_minutes: 15  # Don't assign overflow in first 15min of shift
+  disable_overflow_at_shift_end_minutes: 30    # Don't assign overflow in last 30min of shift
+  exclusion_rules:
+    Cardvask: [MSK]  # MSK specialists won't get Cardvask work unless no one else available
 ```
 
 ### Two-Phase Minimum Balancer
@@ -585,11 +589,11 @@ skill_dashboard:
 
 balancer:
   enabled: true
-  min_assignments_per_skill: 5
+  min_assignments_per_skill: 3
   imbalance_threshold_pct: 30
   allow_fallback_on_imbalance: true
+  disable_overflow_at_shift_start_minutes: 15
   disable_overflow_at_shift_end_minutes: 30
-  specialist_overflow_threshold: 1.5
   hours_counting:
     shift_default: true
     gap_default: false

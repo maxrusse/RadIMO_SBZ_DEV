@@ -38,11 +38,11 @@ DEFAULT_ACCESS_PASSWORD = 'change_easy_pw'  # Basic access password for non-admi
 
 DEFAULT_BALANCER = {
     'enabled': True,
-    'min_assignments_per_skill': 5,
+    'min_assignments_per_skill': 3,
     'imbalance_threshold_pct': 30,
     'allow_fallback_on_imbalance': True,
+    'disable_overflow_at_shift_start_minutes': 0,  # 0 = disabled
     'disable_overflow_at_shift_end_minutes': 0,  # 0 = disabled
-    'specialist_overflow_threshold': 0,  # 0 = disabled (always use lowest ratio regardless of skill level)
 }
 
 # -----------------------------------------------------------

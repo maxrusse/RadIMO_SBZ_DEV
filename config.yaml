@@ -186,11 +186,11 @@ scheduler:
 
 balancer:
   enabled: true
-  min_assignments_per_skill: 5
+  min_assignments_per_skill: 3
   imbalance_threshold_pct: 30
   allow_fallback_on_imbalance: true
-  disable_overflow_at_shift_end_minutes: 30  # Don't assign overflow work in last X minutes of shift (0 = disabled)
-  specialist_overflow_threshold: 1.5  # Overflow to skill=0 workers when ALL skill=1/w workers have workload ratio > threshold (0 = disabled, always use lowest ratio)
+  disable_overflow_at_shift_start_minutes: 15  # Don't assign overflow work in first X minutes of shift (0 = disabled, per-shift)
+  disable_overflow_at_shift_end_minutes: 30    # Don't assign overflow work in last X minutes of shift (0 = disabled, per-shift)
 
   # Hours counting for load balancing
   # Controls which entries count towards a worker's total hours in workload calculations
