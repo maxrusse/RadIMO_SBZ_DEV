@@ -469,20 +469,6 @@ vendor_mappings:
         all: -1
 ```
 
-### Key Differences from Legacy Format
-
-**Times are embedded in each rule:**
-- ✅ NEW: `times: {default: "07:00-15:00", Freitag: "07:00-13:00"}`
-- ❌ OLD: `shift: "Fruehdienst"` (referencing separate shift_times section)
-
-**Skill assignments use Skill×Modality format:**
-- ✅ NEW: `skill_overrides: {Notfall_ct: 1, MSK_mr: 1}`
-- ❌ OLD: `base_skills: {Notfall: 1, MSK: 1}` + `modality: "ct"`
-
-**Gaps use times field (not schedule):**
-- ✅ NEW: `times: {Montag: ["15:30-17:00"]}`
-- ❌ OLD: `schedule: {Montag: "15:30-17:00"}`
-
 ### Rule Matching
 
 **First match wins.** Order rules from specific to general.

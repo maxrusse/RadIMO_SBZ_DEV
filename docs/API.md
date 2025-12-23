@@ -442,28 +442,6 @@ Scan current schedules for workers missing from the roster and add them with def
 
 ---
 
-## Legacy Data Upload (DEPRECATED)
-
-> [!WARNING]
-> Use `/upload-master-csv` instead. This endpoint is kept for legacy compatibility but is dangerous as it overwrites the Master CSV.
-
-### Upload Medweb CSV (for specific date)
-
-```http
-POST /upload
-Content-Type: multipart/form-data
-```
-
-Upload medweb CSV for specific date.
-
-**Parameters:**
-| Name | Type | Description |
-|------|------|-------------|
-| file | file | Medweb CSV file |
-| target_date | form | Date (YYYY-MM-DD) |
-
----
-
 ## Error Responses
 
 All endpoints may return error responses:
