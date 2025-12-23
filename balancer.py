@@ -256,8 +256,8 @@ def _get_worker_exclusion_based(
         role_lower = 'normal'
     primary_skill = ROLE_MAP[role_lower]
 
-    skill_exclusions = EXCLUSION_RULES.get(primary_skill, {})
-    exclude_skills = skill_exclusions.get('exclude_skills', [])
+    # Get exclusion list directly (simplified config format)
+    exclude_skills = EXCLUSION_RULES.get(primary_skill, [])
 
     modality_search = [modality] + MODALITY_FALLBACK_CHAIN.get(modality, [])
 
