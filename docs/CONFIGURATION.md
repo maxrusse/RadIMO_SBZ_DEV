@@ -362,192 +362,229 @@ balancer:
 
 ---
 
-## Medweb CSV Mapping
+## Vendor Mappings (Medweb CSV)
 
-Map activity descriptions from medweb CSV to modalities and skills. Rules support **shifts** (work assignments) and **gaps** (unavailability such as boards/meetings). Pre/post buffers are no longer supported—gaps use only the scheduled window.
+Map activity descriptions from vendor CSV files to shifts and gaps. The current implementation uses **vendor_mappings** with a unified structure where times are embedded directly in each rule.
 
 ```yaml
-medweb_mapping:
-  # Rules are evaluated in order; first match wins
-  rules:
-    # ============================
-    # SHIFTS / ROLES
-    # ============================
+vendor_mappings:
+  medweb:
+    # Column name mappings for this vendor
+    columns:
+      date: "Datum"
+      activity: "Beschreibung der Aktivität"
+      employee_name: "Name des Mitarbeiters"
+      employee_code: "Code des Mitarbeiters"
+      day_part: "Tageszeit"  # Optional: VM/NM split heuristic
+
+    # Rules for mapping activities to shifts/gaps
+    # Rules are evaluated in order; first match wins
+    rules:
+    # ===========================================
+    # SHIFTS - Work assignments with times and skill_overrides
+    # ===========================================
+
+    # CT Shifts
     - match: "CT Spätdienst"
       type: "shift"
-      modality: "ct"
-      shift: "Spaetdienst"
-      base_skills: {Notfall: 1, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
+      times:
+        default: "13:00-21:00"
+        Freitag: "13:00-19:00"
+      skill_overrides:
+        Notfall_ct: 1
+        Privat_ct: 1
+        MSK_ct: 0
+        Abdomen_ct: 0
+        Chest_ct: 0
+        Cardvask_ct: 0
+        Uro_ct: 0
+        Gyn_ct: 0
+        Päd_ct: 0
 
+    - match: "CT Assistent"
+      type: "shift"
+      times:
+        default: "07:00-15:00"
+        Freitag: "07:00-13:00"
+      skill_overrides:
+        Notfall_ct: 1
+        Privat_ct: 1
+        MSK_ct: 0
+
+    # Weighted entry (beginner/assisted worker)
     - match: "MR Assistent 1. Monat"
       type: "shift"
-      modality: "mr"
-      shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
+      times:
+        default: "07:00-15:00"
+        Freitag: "07:00-13:00"
+      modifier: 0.5  # Beginner: counts double toward their load
+      skill_overrides:
+        Notfall_mr: w
+        Privat_mr: 0
 
-    # Multi-modality assignment
-    - match: "MSK Assistent"
+    # Multi-modality team
+    - match: "MSK Team"
       type: "shift"
-      modalities: ["xray", "ct", "mr"]
-      shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 0, Gyn: 0, Päd: 0, MSK: 1, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
+      times:
+        default: "07:00-15:00"
+        Freitag: "07:00-13:00"
+      skill_overrides:
+        MSK_ct: 1
+        MSK_mr: 1
+        MSK_xray: 1
 
-    # Weighted entry (assisted worker)
-    - match: "MSK Anfänger"
-      type: "shift"
-      modalities: ["xray", "ct"]
-      shift: "Fruehdienst"
-      base_skills: {Notfall: 0, Privat: 0, Gyn: 0, Päd: 0, MSK: w, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
-      modifier: 0.5  # Lower capacity → counts double toward load
-
-    # Hours that should NOT count toward load balancing
+    # Administrative shift that doesn't count toward load balancing
     - match: "Cortex Aufklärung"
       type: "shift"
-      modality: "ct"
-      shift: "Fruehdienst"
+      times:
+        default: "07:00-15:00"
+        Freitag: "07:00-13:00"
       label: "Aufklärung"
-      counts_for_hours: false
-      base_skills: {Notfall: 0, Privat: 0, Gyn: 0, Päd: 0, MSK: 0, Abdomen: 0, Chest: 0, Cardvask: 0, Uro: 0}
+      counts_for_hours: false  # Administrative task
+      skill_overrides:
+        Notfall_ct: 0  # Minimal skill, just to have a modality
 
-    # ============================
-    # GAPS / TASKS (unavailability)
-    # ============================
+    # ===========================================
+    # GAPS - Time exclusions (worker unavailable)
+    # ===========================================
+
     - match: "Kopf-Hals-Board"
       type: "gap"
-      exclusion: true
-      schedule:
-        Montag: "15:30-17:00"
+      times:
+        Montag:
+          - "15:30-17:00"
+      skill_overrides:
+        all: -1
 
     - match: "Board"
       type: "gap"
-      exclusion: true
-      schedule:
-        Dienstag: "15:00-17:00"
-        Mittwoch: "10:00-12:00"
-        Donnerstag: "14:00-16:00"
+      times:
+        Dienstag:
+          - "15:00-17:00"
+        Mittwoch:
+          - "10:00-12:00"
+        Donnerstag:
+          - "14:00-16:00"
+      skill_overrides:
+        all: -1
 ```
 
-**Rule matching:** First match wins. Order rules from specific to general.
+### Key Differences from Legacy Format
 
-**Multi-modality:** Use `modalities: [...]` instead of a single `modality` key.
+**Times are embedded in each rule:**
+- ✅ NEW: `times: {default: "07:00-15:00", Freitag: "07:00-13:00"}`
+- ❌ OLD: `shift: "Fruehdienst"` (referencing separate shift_times section)
 
-**Weighted / assisted shifts:** Use `base_skills: {Skill: w}` plus a `modifier` (0.5–1.5) to set workload impact.
+**Skill assignments use Skill×Modality format:**
+- ✅ NEW: `skill_overrides: {Notfall_ct: 1, MSK_mr: 1}`
+- ❌ OLD: `base_skills: {Notfall: 1, MSK: 1}` + `modality: "ct"`
 
-**Hours counting:**
-- Shifts count toward workload unless `counts_for_hours: false`.
-- Gaps do **not** count toward workload unless `counts_for_hours: true` (defaults come from `balancer.hours_counting`).
+**Gaps use times field (not schedule):**
+- ✅ NEW: `times: {Montag: ["15:30-17:00"]}`
+- ❌ OLD: `schedule: {Montag: "15:30-17:00"}`
 
-**Time exclusions:** Gaps simply block the scheduled window—there are no pre/post buffers.
+### Rule Matching
 
----
+**First match wins.** Order rules from specific to general.
 
-## Shift Times
+### Skill Override Shortcuts
 
-Define shift time windows with optional Friday exceptions.
+The `skill_overrides` field supports shortcuts:
+- `all: -1` → all Skill×Modality combinations = -1
+- `MSK: 1` → all MSK_* combinations = 1 (MSK_ct, MSK_mr, etc.)
+- `ct: 1` → all *_ct combinations = 1 (Notfall_ct, MSK_ct, etc.)
 
+### Weighted/Assisted Workers
+
+Use `skill_overrides: {Skill_mod: w}` plus a `modifier` (0.5–1.5):
 ```yaml
-shift_times:
-  Fruehdienst:
-    default: "07:00-15:00"
-    friday: "07:00-13:00"    # Shorter Friday shift
-  Spaetdienst:
-    default: "13:00-21:00"
-    friday: "13:00-19:00"
+- match: "MSK Anfänger"
+  modifier: 0.5  # Beginner: counts double toward their load
+  skill_overrides:
+    MSK_ct: w
+    MSK_xray: w
 ```
 
-Overnight shifts (e.g., `22:00-06:00`) are automatically handled by rolling end time to next day.
+### Hours Counting
+
+- **Shifts** count toward workload unless `counts_for_hours: false`
+- **Gaps** do NOT count toward workload (defaults from `balancer.hours_counting`)
+
+### Day-Specific Times
+
+Times support day-specific overrides:
+- `default`: Monday-Thursday (or all days if no day-specific override)
+- `Montag`, `Dienstag`, `Mittwoch`, `Donnerstag`, `Freitag`: Day overrides
+
+Gaps support multiple time blocks per day (arrays):
+```yaml
+times:
+  Montag:
+    - "10:00-11:00"
+    - "14:00-15:00"
+```
 
 ---
 
 ## Worker Skill Matrix
 
-Defines Skill×Modality combinations for each worker as a **flat structure**.
+Defines Skill×Modality combinations for each worker. The worker roster is stored in `worker_skill_roster.json` and can be edited via the Skill Matrix admin page (`/skill-roster`).
 
 **Format:** `"skill_modality": value` (e.g., `"MSK_ct": 1`)
 
 Both `"skill_modality"` and `"modality_skill"` formats are accepted and normalized automatically.
 
-```yaml
-worker_skill_roster:
-  # MSK specialist - can do MSK in CT, MR, X-ray
-  AA:
-    "MSK_ct": 1           # Can do MSK in CT
-    "MSK_mr": 1           # Can do MSK in MR
-    "MSK_xray": 1         # Can do MSK in X-ray
-    "MSK_mammo": 0        # Only fallback for Mammo
-    "Notfall_ct": 1
-    "Notfall_mr": 1
-    "Notfall_xray": 1
+### Example (worker_skill_roster.json)
+
+```json
+{
+  "AA": {
+    "MSK_ct": 1,
+    "MSK_mr": 1,
+    "MSK_xray": 1,
+    "MSK_mammo": 0,
+    "Notfall_ct": 1,
+    "Notfall_mr": 1,
+    "Notfall_xray": 1,
     "Notfall_mammo": 0
-    "Privat_ct": 0
-    "Privat_mr": 0
-    # ... (all Skill×Modality combinations) ...
-
-  # Chest specialist with CT Notfall as fallback only
-  AN:
-    "Chest_ct": 1         # Chest specialist in CT
-    "Chest_mr": 1
-    "Chest_xray": 1
-    "Chest_mammo": 0
-    "Notfall_ct": 0       # Only fallback for CT Notfall
-    "Notfall_mr": 1       # Active for MR Notfall
-    "Notfall_xray": 1
-    # ... (all other combinations) ...
-
-  # Cardiac specialist - hard exclude from MSK/Chest
-  DEMO1:
-    "Cardvask_ct": 1
-    "Cardvask_mr": 1
-    "Notfall_ct": 1
-    "Notfall_mr": 1
-    "MSK_ct": -1          # Hard exclude - cannot be overridden
-    "MSK_mr": -1
-    "MSK_xray": -1
-    "Chest_ct": -1        # Hard exclude
-    "Chest_mr": -1
-    # ... (all other combinations) ...
-
-  # MSK junior with weighted proficiency
-  MSK_ANFAENGER:
-    "MSK_ct": w           # Weighted/assisted - still learning
-    "MSK_xray": w
+  },
+  "DEMO1": {
+    "Cardvask_ct": 1,
+    "Cardvask_mr": 1,
+    "Notfall_ct": 1,
+    "Notfall_mr": 1,
+    "MSK_ct": -1,
+    "MSK_mr": -1,
+    "Chest_ct": -1
+  },
+  "MSK_ANFAENGER": {
+    "MSK_ct": "w",
+    "MSK_xray": "w",
     "MSK_mr": 0
-    # ... (all other combinations) ...
+  }
+}
 ```
 
-**Value legend:**
-- `1` = **Active** - primary + fallback
-- `0` = **Passive** - fallback only
-- `-1` = **Hard exclude** - cannot be overridden by CSV rules
-- `w` = **Weighted** - assisted/learning (combine with `modifier` in CSV)
+### Value Legend
 
-**CSV Rules Override:**
+- `1` = **Active** - primary assignment + fallback
+- `0` = **Passive** - fallback only (generalist pool)
+- `-1` = **Hard exclude** - cannot be overridden by vendor CSV rules
+- `"w"` = **Weighted** - assisted/learning (combine with `modifier` in vendor rules)
 
-CSV rules can use `skill_overrides` to override **specific** combinations:
+### Override Precedence
 
-```yaml
-medweb_mapping:
-  rules:
-    - match: "MSK Team"
-      type: "shift"
-      modalities: ["ct", "mr", "xray"]
-      skill_overrides:
-        "MSK_ct": 1           # Override only this combination
-        "MSK_mr": 1
-        "MSK_xray": 1
-        # Other combinations remain from roster
-```
+When combining roster values with vendor CSV `skill_overrides`:
 
-**Precedence:**
-1. **Roster combinations** - baseline for all Skill×Modality pairs
-2. **CSV rule skill_overrides** - overrides only specified combinations
+1. **Worker roster** - baseline for all Skill×Modality pairs
+2. **Vendor rule skill_overrides** - overrides only specified combinations
 3. **Roster -1 (hard exclude)** - always wins, cannot be overridden
 
 **Example:**
-- Dr. Müller roster: `{"MSK_ct": 1, "MSK_mr": 1, "Gyn_ct": 0, "Gyn_mr": 0, ...}`
-- CSV assigns "Gyn Team" with `skill_overrides: {"Gyn_ct": 1, "Gyn_mr": 1}`
-- Result: Gyn combinations → 1, MSK combinations remain → 1 (both active)
-- If roster had `"MSK_ct": -1`, it would stay -1 (hard exclude wins)
+- Worker roster: `{"MSK_ct": 1, "MSK_mr": 1, "Gyn_ct": 0, "Gyn_mr": 0}`
+- CSV rule assigns "Gyn Team" with `skill_overrides: {"Gyn_ct": 1, "Gyn_mr": 1}`
+- Result: Gyn → 1, MSK → 1 (both active for this worker on this day)
+- If roster had `"MSK_ct": -1`, it stays -1 (hard exclude wins)
 
 ---
 
@@ -555,33 +592,44 @@ medweb_mapping:
 
 ```yaml
 admin_password: change_for_production
+skill_roster_auto_import: true
 
 modalities:
   ct:
     label: CT
+    nav_color: '#1a5276'
     factor: 1.0
   mr:
     label: MR
+    nav_color: '#777777'
     factor: 1.2
   xray:
-    label: XRAY
+    label: X-ray
+    nav_color: '#239b56'
     factor: 0.33
   mammo:
     label: Mammo
+    nav_color: '#e91e63'
     factor: 0.5
     valid_skills: [Notfall, Privat, Gyn]
 
 skills:
   Notfall:
+    label: Notfall
     weight: 1.1
     optional: false
+    display_order: 0
   Privat:
+    label: Privat
     weight: 1.2
     optional: true
+    display_order: 1
   Cardvask:
+    label: Cardvask
     weight: 1.2
     optional: true
     special: true
+    display_order: 7
 
 skill_modality_overrides:
   mr:
@@ -604,43 +652,40 @@ balancer:
     cardvask: [msk]
     notfall: []
 
-medweb_mapping:
-  rules:
-    - match: "CT Assistent"
-      type: "shift"
-      modality: "ct"
-      shift: "Fruehdienst"
-      base_skills: {Notfall: 1, Privat: 0, Cardvask: 0}
-    - match: "Kopf-Hals-Board"
-      type: "gap"
-      exclusion: true
-      schedule:
-        Montag: "15:30-17:00"
-
-shift_times:
-  Fruehdienst:
-    default: "07:00-15:00"
-    friday: "07:00-13:00"
-
-worker_skill_roster:
-  DEMO:
-    default:
-      Notfall: 1
-      Privat: 0
-      Gyn: 0
-      Päd: 0
-      MSK: -1        # Excluded from MSK
-      Abdomen: 0
-      Chest: 0
-      Cardvask: 1    # Cardiac specialist
-      Uro: 0
+vendor_mappings:
+  medweb:
+    columns:
+      date: "Datum"
+      activity: "Beschreibung der Aktivität"
+      employee_name: "Name des Mitarbeiters"
+      employee_code: "Code des Mitarbeiters"
+    rules:
+      - match: "CT Assistent"
+        type: "shift"
+        times:
+          default: "07:00-15:00"
+          Freitag: "07:00-13:00"
+        skill_overrides:
+          Notfall_ct: 1
+          Privat_ct: 0
+          Cardvask_ct: 0
+      - match: "Kopf-Hals-Board"
+        type: "gap"
+        times:
+          Montag:
+            - "15:30-17:00"
+        skill_overrides:
+          all: -1
 ```
+
+**Note:** Worker skill roster is stored in `worker_skill_roster.json` (not in config.yaml). See Worker Skill Matrix section above for format.
 
 ---
 
 ## Tips
 
-1. **Adding new activity**: Add rule to `medweb_mapping.rules`, restart app
-2. **Adjusting worker skills**: Update `worker_skill_roster`, restart app
+1. **Adding new activity**: Add rule to `vendor_mappings.medweb.rules`, restart app
+2. **Adjusting worker skills**: Use the Skill Matrix admin page (`/skill-roster`) or edit `worker_skill_roster.json` directly
 3. **Fine-tuning balance**: Adjust `skill_modality_overrides` for specific combinations
 4. **Testing config**: Run `python scripts/ops_check.py` to validate
+5. **Generating rules from CSV**: Use `python scripts/prepare_config.py --input <csv>` to bootstrap vendor mapping rules

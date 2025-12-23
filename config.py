@@ -128,9 +128,6 @@ def _build_app_config() -> Dict[str, Any]:
     # Include skill_modality_overrides
     config['skill_modality_overrides'] = raw_config.get('skill_modality_overrides', {})
 
-    # Include shift_times
-    config['shift_times'] = raw_config.get('shift_times', {})
-
     # Include UI colors (needed for prep page)
     config['ui_colors'] = raw_config.get('ui_colors', {})
     config['skill_value_colors'] = raw_config.get('skill_value_colors', {})
@@ -314,7 +311,7 @@ def _normalize_exclude_skills(raw_exclude_skills: Dict[str, List[str]]) -> Dict[
 BALANCER_SETTINGS = APP_CONFIG.get('balancer', DEFAULT_BALANCER)
 
 # Normalize exclude_skills from balancer config
-raw_exclude_skills = BALANCER_SETTINGS.get('exclude_skills', BALANCER_SETTINGS.get('exclusion_rules', {}))
+raw_exclude_skills = BALANCER_SETTINGS.get('exclude_skills', {})
 EXCLUDE_SKILLS = _normalize_exclude_skills(raw_exclude_skills)
 
 # -----------------------------------------------------------
