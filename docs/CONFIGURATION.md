@@ -296,19 +296,22 @@ balancer:
   # Exclusion-based routing configuration
   # Define which workers to EXCLUDE when requesting each skill
   # Workers with excluded_skill=1 won't receive work for this skill
-  # Format (shortcut style like skill_overrides):
-  #   SkillName: []           # No exclusions
-  #   SkillName: [Skill1]     # Exclude workers with Skill1=1
-  exclusion_rules:
-    Notfall: []      # No exclusions
-    Privat: []
-    Gyn: []
-    Päd: []
-    MSK: []
-    Abdomen: []
-    Chest: []
-    Cardvask: []
-    Uro: []
+  # Format (shortcut style - supports skill, modality, or skill_mod combos):
+  #   skill: []                    # No exclusions
+  #   skill: [skill1]              # Exclude workers with skill1=1 (all modalities)
+  #   skill: [skill1, skill2]      # Exclude workers with skill1=1 OR skill2=1
+  #   skill_mod: [skill1_mod]      # Exclude specific combo (e.g., cardvask_ct: [msk_ct])
+  #   mod: [skill1]                # Modality-wide (all *_mod skills exclude skill1)
+  exclude_skills:
+    notfall: []      # No exclusions
+    privat: []
+    gyn: []
+    paed: []
+    msk: []
+    abdomen: []
+    chest: []
+    cardvask: []     # Example: cardvask: [msk] means cardvask work excludes MSK specialists
+    uro: []
 ```
 
 ### Specialist-First Assignment with Pooled Worker Overflow
@@ -347,8 +350,8 @@ balancer:
   imbalance_threshold_pct: 30              # Overflow when specialists 30%+ more loaded than generalists
   disable_overflow_at_shift_start_minutes: 15  # Don't assign overflow in first 15min of shift
   disable_overflow_at_shift_end_minutes: 30    # Don't assign overflow in last 30min of shift
-  exclusion_rules:
-    Cardvask: [MSK]  # MSK specialists won't get Cardvask work unless no one else available
+  exclude_skills:
+    cardvask: [msk]  # MSK specialists won't get Cardvask work unless no one else available
 ```
 
 ### Two-Phase Minimum Balancer
@@ -597,9 +600,9 @@ balancer:
   hours_counting:
     shift_default: true
     gap_default: false
-  exclusion_rules:
-    Cardvask: [MSK]
-    Notfall: []
+  exclude_skills:
+    cardvask: [msk]
+    notfall: []
 
 medweb_mapping:
   rules:

@@ -9,9 +9,8 @@ import pandas as pd
 from config import (
     BALANCER_SETTINGS,
     SKILL_COLUMNS,
-    EXCLUSION_RULES,
+    EXCLUDE_SKILLS,
     ROLE_MAP,
-    MODALITY_FALLBACK_CHAIN,
     default_modality,
     selection_logger,
     get_skill_modality_weight,
@@ -283,7 +282,7 @@ def _get_worker_exclusion_based(
     primary_skill = ROLE_MAP[role_lower]
 
     # Get exclusion list and overflow settings
-    exclude_skills = EXCLUSION_RULES.get(primary_skill, [])
+    exclude_skills = EXCLUDE_SKILLS.get(primary_skill, [])
     imbalance_threshold_pct = BALANCER_SETTINGS.get('imbalance_threshold_pct', 30)
     shift_start_buffer = BALANCER_SETTINGS.get('disable_overflow_at_shift_start_minutes', 0)
     shift_end_buffer = BALANCER_SETTINGS.get('disable_overflow_at_shift_end_minutes', 0)

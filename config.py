@@ -223,10 +223,99 @@ SKILL_COLUMNS, SKILL_SLUG_MAP, SKILL_FORM_KEYS, SKILL_TEMPLATES, skill_weights =
 # Build dynamic role map from config (slug -> canonical name)
 ROLE_MAP = {slug.lower(): name for name, slug in SKILL_SLUG_MAP.items()}
 
+def _normalize_exclude_skills(raw_exclude_skills: Dict[str, List[str]]) -> Dict[str, List[str]]:
+    """
+    Normalize exclude_skills shortcuts to canonical skill names.
+
+    Supports:
+    - Skill only: msk → MSK (all MSK_* combinations)
+    - Modality only: ct → all *_ct combinations
+    - skill_mod: msk_ct → MSK_ct
+    - mod_skill: ct_msk → MSK_ct
+
+    Returns: {canonical_skill_name: [canonical_excluded_skills]}
+    """
+    result = {}
+
+    for key, exclude_list in raw_exclude_skills.items():
+        if not isinstance(exclude_list, list):
+            continue
+
+        key_lower = key.lower().strip()
+
+        # Determine if key is skill, modality, or combo
+        is_skill_only = key_lower in ROLE_MAP or any(s.lower() == key_lower for s in SKILL_COLUMNS)
+        is_modality_only = key_lower in allowed_modalities_map
+        is_combo = '_' in key_lower
+
+        # Normalize the key to canonical skill name(s)
+        canonical_keys = []
+
+        if is_combo:
+            # Handle skill_mod or mod_skill combo
+            parts = key_lower.split('_')
+            if len(parts) == 2:
+                # Try skill_mod first
+                skill_candidate = ROLE_MAP.get(parts[0])
+                modality_candidate = allowed_modalities_map.get(parts[1])
+
+                if skill_candidate and modality_candidate:
+                    # Valid skill_mod combo
+                    canonical_keys.append(f"{skill_candidate}_{modality_candidate}")
+                else:
+                    # Try mod_skill
+                    skill_candidate = ROLE_MAP.get(parts[1])
+                    modality_candidate = allowed_modalities_map.get(parts[0])
+                    if skill_candidate and modality_candidate:
+                        canonical_keys.append(f"{skill_candidate}_{modality_candidate}")
+
+        elif is_skill_only:
+            # Expand to all modalities for this skill
+            canonical_skill = ROLE_MAP.get(key_lower)
+            if canonical_skill:
+                for mod in allowed_modalities:
+                    canonical_keys.append(f"{canonical_skill}_{mod}")
+
+        elif is_modality_only:
+            # Expand to all skills for this modality
+            canonical_modality = allowed_modalities_map.get(key_lower)
+            if canonical_modality:
+                for skill in SKILL_COLUMNS:
+                    canonical_keys.append(f"{skill}_{canonical_modality}")
+
+        # Normalize the exclude list
+        normalized_excludes = []
+        for exclude_item in exclude_list:
+            if not isinstance(exclude_item, str):
+                continue
+
+            exclude_lower = exclude_item.lower().strip()
+
+            # Check if it's a skill name (canonical)
+            if exclude_lower in ROLE_MAP:
+                normalized_excludes.append(ROLE_MAP[exclude_lower])
+            elif any(s.lower() == exclude_lower for s in SKILL_COLUMNS):
+                # Find canonical name
+                for s in SKILL_COLUMNS:
+                    if s.lower() == exclude_lower:
+                        normalized_excludes.append(s)
+                        break
+
+        # Add to result
+        for canonical_key in canonical_keys:
+            if canonical_key not in result:
+                result[canonical_key] = []
+            result[canonical_key].extend(normalized_excludes)
+            # Remove duplicates
+            result[canonical_key] = list(set(result[canonical_key]))
+
+    return result
+
 BALANCER_SETTINGS = APP_CONFIG.get('balancer', DEFAULT_BALANCER)
 
-# Exclusion rules
-EXCLUSION_RULES = BALANCER_SETTINGS.get('exclusion_rules', {})
+# Normalize exclude_skills from balancer config
+raw_exclude_skills = BALANCER_SETTINGS.get('exclude_skills', BALANCER_SETTINGS.get('exclusion_rules', {}))
+EXCLUDE_SKILLS = _normalize_exclude_skills(raw_exclude_skills)
 
 # -----------------------------------------------------------
 # Helper function
