@@ -432,9 +432,6 @@ def load_staged_dataframe(modality: str) -> bool:
                         axis=1
                     )
 
-                if 'PPL' in df.columns:
-                    df['canonical_id'] = df['PPL'].apply(get_canonical_worker_id)
-
                 if 'counts_for_hours' not in df.columns:
                     df['counts_for_hours'] = True
 
@@ -500,11 +497,9 @@ def initialize_data(file_path: str, modality: str):
                 axis=1
             )
 
-            df['canonical_id'] = df['PPL'].apply(get_canonical_worker_id)
-
-            col_order = ['PPL', 'canonical_id', 'Modifier', 'TIME', 'start_time', 'end_time', 'shift_duration', 'tasks', 'counts_for_hours']
+            col_order = ['PPL', 'Modifier', 'TIME', 'start_time', 'end_time', 'shift_duration', 'tasks', 'counts_for_hours']
             skill_cols = [skill for skill in SKILL_COLUMNS if skill in df.columns]
-            col_order = col_order[:4] + skill_cols + col_order[4:]
+            col_order = col_order[:3] + skill_cols + col_order[3:]
 
             if 'tasks' not in df.columns:
                 df['tasks'] = ''
@@ -607,7 +602,6 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
                 df.at[row_index, col] = float(value)
             elif col == 'PPL':
                 df.at[row_index, col] = value
-                df.at[row_index, 'canonical_id'] = get_canonical_worker_id(value)
             elif col == 'tasks':
                 if isinstance(value, list):
                     df.at[row_index, 'tasks'] = ', '.join(value)
@@ -663,13 +657,14 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
         ppl_name = worker_data.get('PPL', 'Neuer Worker (NW)')
         new_row = {
             'PPL': ppl_name,
-            'canonical_id': get_canonical_worker_id(ppl_name),
             'start_time': datetime.strptime(worker_data.get('start_time', '07:00'), TIME_FORMAT).time(),
             'end_time': datetime.strptime(worker_data.get('end_time', '15:00'), TIME_FORMAT).time(),
             'Modifier': float(worker_data.get('Modifier', 1.0)),
         }
 
-        new_row['TIME'] = f"{new_row['start_time'].strftime(TIME_FORMAT)}-{new_row['end_time'].strftime(TIME_FORMAT)}"
+        # Only add TIME if the existing df has TIME column (for consistency)
+        if df is not None and 'TIME' in df.columns:
+            new_row['TIME'] = f"{new_row['start_time'].strftime(TIME_FORMAT)}-{new_row['end_time'].strftime(TIME_FORMAT)}"
 
         for skill in SKILL_COLUMNS:
             new_row[skill] = normalize_skill_value(worker_data.get(skill, 0))
@@ -840,7 +835,8 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
 
         elif gap_start_dt <= shift_start_dt < gap_end_dt < shift_end_dt:
             df.at[row_index, 'start_time'] = gap_end_time
-            df.at[row_index, 'TIME'] = f"{gap_end_time.strftime(TIME_FORMAT)}-{shift_end.strftime(TIME_FORMAT)}"
+            if 'TIME' in df.columns:
+                df.at[row_index, 'TIME'] = f"{gap_end_time.strftime(TIME_FORMAT)}-{shift_end.strftime(TIME_FORMAT)}"
             new_start_dt = datetime.combine(base_date, gap_end_time)
             df.at[row_index, 'shift_duration'] = (shift_end_dt - new_start_dt).seconds / 3600
             df.at[row_index, 'gaps'] = json.dumps(merge_gap(parse_gap_list(row.get('gaps')), gap_entry))
@@ -850,7 +846,8 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
 
         elif shift_start_dt < gap_start_dt < shift_end_dt and gap_end_dt >= shift_end_dt:
             df.at[row_index, 'end_time'] = gap_start_time
-            df.at[row_index, 'TIME'] = f"{shift_start.strftime(TIME_FORMAT)}-{gap_start_time.strftime(TIME_FORMAT)}"
+            if 'TIME' in df.columns:
+                df.at[row_index, 'TIME'] = f"{shift_start.strftime(TIME_FORMAT)}-{gap_start_time.strftime(TIME_FORMAT)}"
             new_end_dt = datetime.combine(base_date, gap_start_time)
             df.at[row_index, 'shift_duration'] = (new_end_dt - shift_start_dt).seconds / 3600
             df.at[row_index, 'gaps'] = json.dumps(merge_gap(parse_gap_list(row.get('gaps')), gap_entry))
@@ -861,9 +858,10 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
         else:
             # Case 4: Gap in middle - SPLIT into two rows
             new_gap_id = f"gap_{worker_name}_{datetime.now().strftime('%H%M%S')}"
-            
+
             df.at[row_index, 'end_time'] = gap_start_time
-            df.at[row_index, 'TIME'] = f"{shift_start.strftime(TIME_FORMAT)}-{gap_start_time.strftime(TIME_FORMAT)}"
+            if 'TIME' in df.columns:
+                df.at[row_index, 'TIME'] = f"{shift_start.strftime(TIME_FORMAT)}-{gap_start_time.strftime(TIME_FORMAT)}"
             new_end_dt = datetime.combine(base_date, gap_start_time)
             df.at[row_index, 'shift_duration'] = (new_end_dt - shift_start_dt).seconds / 3600
             df.at[row_index, 'gap_id'] = new_gap_id
@@ -873,7 +871,8 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
             new_row = row.to_dict()
             new_row['start_time'] = gap_end_time
             new_row['end_time'] = shift_end
-            new_row['TIME'] = f"{gap_end_time.strftime(TIME_FORMAT)}-{shift_end.strftime(TIME_FORMAT)}"
+            if 'TIME' in df.columns:
+                new_row['TIME'] = f"{gap_end_time.strftime(TIME_FORMAT)}-{shift_end.strftime(TIME_FORMAT)}"
             new_start_dt = datetime.combine(base_date, gap_end_time)
             new_row['shift_duration'] = (shift_end_dt - new_start_dt).seconds / 3600
             new_row['gap_id'] = new_gap_id
@@ -1329,8 +1328,8 @@ def resolve_overlapping_shifts(shifts: List[dict], target_date: date) -> List[di
                     resolved_shift['end_time'] = current_end
                     resolved_shift['shift_duration'] = duration_hours
 
-                    # Update TIME field if present
-                    if 'TIME' in resolved_shift or 'start_time' in resolved_shift:
+                    # Update TIME field only if it was present in original shift
+                    if 'TIME' in current_shift:
                         resolved_shift['TIME'] = f"{current_start.strftime('%H:%M')}-{current_end.strftime('%H:%M')}"
 
                     resolved.append(resolved_shift)
