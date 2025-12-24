@@ -2,26 +2,27 @@
 """Export and import examination values (Skill×Modality weights) to/from CSV.
 
 This standalone script allows admins to:
-1. EXPORT: Generate a CSV showing the calculated weight for each Skill×Modality combination
-2. IMPORT: Generate YAML template entries from a CSV to paste into config.yaml
+1. EXPORT: Generate CSV showing exam values from config
+2. IMPORT: Generate YAML template entries from CSV to paste into config.yaml
+
+Modes:
+- single: Export/import skill weights and modality factors separately
+- combi:  Export/import combined Skill×Modality values (default)
 
 Usage:
-    # Export current config to CSV
+    # Export in combi mode (default) - combined values
     python exam_values.py export --config config.yaml --output exam_values.csv
 
-    # Import from CSV to generate YAML template
-    python exam_values.py import --input exam_values.csv --output exam_values_template.yaml
+    # Export in single mode - separate skill weights and modality factors
+    python exam_values.py export --mode single --config config.yaml --output exam_values.csv
 
-CSV Format:
-    skill,ct,mr,xray,mammo
-    Notfall,1.10,1.32,0.36,0.55
-    MSK,0.80,0.96,0.26,0.40
-    ...
+    # Import with smart detection to minimize config
+    python exam_values.py import --input exam_values.csv --config config.yaml --output template.yaml
 
 Notes:
 - Default weight = skill.weight × modality.factor
 - skill_modality_overrides in config.yaml can override specific combinations
-- The CSV uses skills as rows and modalities as columns for readability
+- Import analyzes patterns to minimize config (prefer base weights over overrides)
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ import argparse
 import csv
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import yaml
 
@@ -40,6 +41,7 @@ DEFAULT_SKILLS = [
     "Abdomen", "Chest", "Cardvask", "Uro"
 ]
 DEFAULT_MODALITIES = ["ct", "mr", "xray", "mammo"]
+TOLERANCE = 0.005  # Tolerance for float comparison
 
 
 def load_config(config_path: Path) -> Dict[str, Any]:
@@ -58,7 +60,6 @@ def get_skills(config: Dict[str, Any]) -> List[str]:
     """Extract skill names from config, preserving order."""
     skills_config = config.get("skills", {})
     if skills_config:
-        # Sort by display_order if available
         sorted_skills = sorted(
             skills_config.items(),
             key=lambda x: x[1].get("display_order", 999)
@@ -75,18 +76,18 @@ def get_modalities(config: Dict[str, Any]) -> List[str]:
     return DEFAULT_MODALITIES
 
 
-def calculate_exam_value(
-    skill: str,
-    modality: str,
-    config: Dict[str, Any]
-) -> float:
-    """Calculate the exam value (weight) for a Skill×Modality combination.
+def get_skill_weight(skill: str, config: Dict[str, Any]) -> float:
+    """Get skill weight from config."""
+    return config.get("skills", {}).get(skill, {}).get("weight", 1.0)
 
-    Default: skill.weight × modality.factor
-    Can be overridden via skill_modality_overrides.
-    """
-    skills_config = config.get("skills", {})
-    modalities_config = config.get("modalities", {})
+
+def get_modality_factor(modality: str, config: Dict[str, Any]) -> float:
+    """Get modality factor from config."""
+    return config.get("modalities", {}).get(modality, {}).get("factor", 1.0)
+
+
+def calculate_exam_value(skill: str, modality: str, config: Dict[str, Any]) -> float:
+    """Calculate the exam value (weight) for a Skill×Modality combination."""
     overrides = config.get("skill_modality_overrides", {})
 
     # Check for explicit override first
@@ -94,14 +95,53 @@ def calculate_exam_value(
         return float(overrides[modality][skill])
 
     # Calculate default: skill.weight × modality.factor
-    skill_weight = skills_config.get(skill, {}).get("weight", 1.0)
-    modality_factor = modalities_config.get(modality, {}).get("factor", 1.0)
-
-    return skill_weight * modality_factor
+    return get_skill_weight(skill, config) * get_modality_factor(modality, config)
 
 
-def export_to_csv(config_path: Path, output_path: Path) -> None:
-    """Export exam values from config to CSV.
+def format_value(value: float) -> str:
+    """Format float value, stripping trailing zeros."""
+    return f"{value:.3f}".rstrip('0').rstrip('.')
+
+
+# =============================================================================
+# EXPORT FUNCTIONS
+# =============================================================================
+
+def export_single_mode(config_path: Path, output_path: Path) -> None:
+    """Export skill weights and modality factors separately (single mode).
+
+    CSV format:
+        type,name,weight
+        skill,Notfall,1.1
+        skill,MSK,0.8
+        modality,ct,1.0
+        modality,mr,1.2
+    """
+    config = load_config(config_path)
+    skills = get_skills(config)
+    modalities = get_modalities(config)
+
+    with output_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["type", "name", "weight"])
+
+        # Skill weights
+        for skill in skills:
+            weight = get_skill_weight(skill, config)
+            writer.writerow(["skill", skill, format_value(weight)])
+
+        # Modality factors
+        for modality in modalities:
+            factor = get_modality_factor(modality, config)
+            writer.writerow(["modality", modality, format_value(factor)])
+
+    print(f"Exported {len(skills)} skill weights + {len(modalities)} modality factors")
+    print(f"Mode: single (separate weights and factors)")
+    print(f"Written to {output_path}")
+
+
+def export_combi_mode(config_path: Path, output_path: Path) -> None:
+    """Export combined Skill×Modality values (combi mode).
 
     CSV format: skill as rows, modalities as columns
     """
@@ -111,155 +151,318 @@ def export_to_csv(config_path: Path, output_path: Path) -> None:
 
     with output_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
-
-        # Header row: skill + modality columns
         writer.writerow(["skill"] + modalities)
 
-        # Data rows: one per skill
         for skill in skills:
             row = [skill]
             for modality in modalities:
                 value = calculate_exam_value(skill, modality, config)
-                # Use 3 decimal places for precision, strip trailing zeros
-                formatted = f"{value:.3f}".rstrip('0').rstrip('.')
-                row.append(formatted)
+                row.append(format_value(value))
             writer.writerow(row)
 
-    print(f"Exported {len(skills)} skills × {len(modalities)} modalities to {output_path}")
-    print(f"Skills: {skills}")
-    print(f"Modalities: {modalities}")
+    print(f"Exported {len(skills)} skills × {len(modalities)} modalities")
+    print(f"Mode: combi (combined Skill×Modality values)")
+    print(f"Written to {output_path}")
 
 
-def import_from_csv(input_path: Path, output_path: Path, config_path: Path | None) -> None:
-    """Import exam values from CSV and generate YAML template entries.
+# =============================================================================
+# IMPORT FUNCTIONS
+# =============================================================================
 
-    Generates skill_modality_overrides for any values that differ from defaults.
-    """
-    if not input_path.exists():
-        raise SystemExit(f"Input CSV not found: {input_path}")
+def detect_csv_format(fieldnames: List[str]) -> str:
+    """Detect CSV format: 'single' or 'combi'."""
+    if set(fieldnames) == {"type", "name", "weight"}:
+        return "single"
+    if "skill" in [f.lower() for f in fieldnames]:
+        return "combi"
+    raise SystemExit(f"Unknown CSV format. Headers: {fieldnames}")
 
-    # Load existing config for default calculation (optional)
-    config: Dict[str, Any] = {}
-    if config_path and config_path.exists():
-        config = load_config(config_path)
 
-    # Read CSV
-    with input_path.open("r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    if not rows:
-        raise SystemExit("CSV file is empty")
-
-    # Get modalities from CSV headers (all columns except 'skill')
-    fieldnames = reader.fieldnames or []
-    modalities = [col for col in fieldnames if col.lower() != "skill"]
-
-    # Build overrides structure
-    overrides: Dict[str, Dict[str, float]] = {}
+def import_single_mode(
+    rows: List[Dict[str, str]],
+    config: Dict[str, Any],
+    input_path: Path
+) -> Dict[str, Any]:
+    """Import from single-mode CSV (skill weights + modality factors)."""
     skill_weights: Dict[str, float] = {}
     modality_factors: Dict[str, float] = {}
 
+    for row in rows:
+        row_type = row.get("type", "").strip().lower()
+        name = row.get("name", "").strip()
+        weight_str = row.get("weight", "").strip()
+
+        if not name or not weight_str:
+            continue
+
+        try:
+            weight = float(weight_str)
+        except ValueError:
+            print(f"Warning: Invalid weight '{weight_str}' for {name}, skipping")
+            continue
+
+        if row_type == "skill":
+            skill_weights[name] = weight
+        elif row_type == "modality":
+            modality_factors[name] = weight
+
+    # Build result - only include changes from current config
+    result: Dict[str, Any] = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "source_csv": str(input_path),
+        "mode": "single",
+    }
+
+    # Check which skill weights changed
+    skills_changed = {}
+    for skill, new_weight in skill_weights.items():
+        current = get_skill_weight(skill, config)
+        if abs(new_weight - current) > TOLERANCE:
+            skills_changed[skill] = new_weight
+
+    # Check which modality factors changed
+    modalities_changed = {}
+    for modality, new_factor in modality_factors.items():
+        current = get_modality_factor(modality, config)
+        if abs(new_factor - current) > TOLERANCE:
+            modalities_changed[modality] = new_factor
+
+    if skills_changed:
+        result["skill_weight_updates"] = {
+            "notes": "Update these in config.yaml under skills.<name>.weight",
+            "changes": skills_changed
+        }
+
+    if modalities_changed:
+        result["modality_factor_updates"] = {
+            "notes": "Update these in config.yaml under modalities.<name>.factor",
+            "changes": modalities_changed
+        }
+
+    if not skills_changed and not modalities_changed:
+        result["notes"] = "No changes detected - all values match current config"
+    else:
+        result["notes"] = (
+            f"Found {len(skills_changed)} skill weight changes, "
+            f"{len(modalities_changed)} modality factor changes"
+        )
+
+    print(f"Mode: single")
+    print(f"Skill weight changes: {len(skills_changed)}")
+    print(f"Modality factor changes: {len(modalities_changed)}")
+
+    return result
+
+
+def import_combi_mode(
+    rows: List[Dict[str, str]],
+    fieldnames: List[str],
+    config: Dict[str, Any],
+    input_path: Path
+) -> Dict[str, Any]:
+    """Import from combi-mode CSV with smart detection to minimize config.
+
+    Strategy:
+    1. Try to find optimal skill weights and modality factors that explain the data
+    2. Only generate overrides for values that can't be explained by base weights
+    """
+    modalities = [col for col in fieldnames if col.lower() != "skill"]
+
+    # Parse all values into a matrix
+    matrix: Dict[str, Dict[str, float]] = {}  # skill -> modality -> value
     skills = []
+
     for row in rows:
         skill = row.get("skill", "").strip()
         if not skill:
             continue
         skills.append(skill)
+        matrix[skill] = {}
 
         for modality in modalities:
-            csv_value = row.get(modality, "").strip()
-            if not csv_value:
+            val_str = row.get(modality, "").strip()
+            if val_str:
+                try:
+                    matrix[skill][modality] = float(val_str)
+                except ValueError:
+                    pass
+
+    if not skills or not modalities:
+        raise SystemExit("No valid data in CSV")
+
+    # Try to decompose into skill weights × modality factors
+    # Use first modality as reference (factor = 1.0) to derive skill weights
+    ref_modality = modalities[0]
+
+    # Derive skill weights from reference modality column
+    derived_skill_weights: Dict[str, float] = {}
+    for skill in skills:
+        if ref_modality in matrix.get(skill, {}):
+            derived_skill_weights[skill] = matrix[skill][ref_modality]
+
+    # Derive modality factors by comparing ratios across all skills
+    derived_modality_factors: Dict[str, float] = {ref_modality: 1.0}
+
+    for modality in modalities[1:]:
+        ratios = []
+        for skill in skills:
+            if skill in derived_skill_weights and derived_skill_weights[skill] > 0:
+                if modality in matrix.get(skill, {}):
+                    ratio = matrix[skill][modality] / derived_skill_weights[skill]
+                    ratios.append(ratio)
+
+        if ratios:
+            # Use median ratio as the modality factor (robust to outliers)
+            ratios.sort()
+            derived_modality_factors[modality] = ratios[len(ratios) // 2]
+
+    # Calculate what can be explained by derived weights/factors
+    # and what needs overrides
+    overrides: Dict[str, Dict[str, float]] = {}
+
+    for skill in skills:
+        skill_weight = derived_skill_weights.get(skill, 1.0)
+        for modality in modalities:
+            if modality not in matrix.get(skill, {}):
                 continue
 
-            try:
-                value = float(csv_value)
-            except ValueError:
-                print(f"Warning: Invalid value '{csv_value}' for {skill}_{modality}, skipping")
-                continue
+            actual = matrix[skill][modality]
+            expected = skill_weight * derived_modality_factors.get(modality, 1.0)
 
-            # Calculate what the default would be
-            default_value = calculate_exam_value(skill, modality, config)
-
-            # Only add override if different from default
-            # Use tolerance of 0.005 to account for CSV rounding (2 decimal places)
-            if abs(value - default_value) > 0.005:
+            if abs(actual - expected) > TOLERANCE:
                 if modality not in overrides:
                     overrides[modality] = {}
-                overrides[modality][skill] = value
+                overrides[modality][skill] = actual
 
-    # Also generate full skill and modality definitions for reference
-    for row in rows:
-        skill = row.get("skill", "").strip()
-        if not skill:
-            continue
+    # Compare derived values to current config to find what changed
+    skill_weight_changes = {}
+    for skill, weight in derived_skill_weights.items():
+        current = get_skill_weight(skill, config)
+        if abs(weight - current) > TOLERANCE:
+            skill_weight_changes[skill] = weight
 
-        # Estimate skill weight from CT column (assumes CT factor = 1.0)
-        if "ct" in row and row["ct"].strip():
-            try:
-                ct_value = float(row["ct"])
-                ct_factor = config.get("modalities", {}).get("ct", {}).get("factor", 1.0)
-                estimated_weight = ct_value / ct_factor
-                skill_weights[skill] = estimated_weight
-            except ValueError:
-                pass
+    modality_factor_changes = {}
+    for modality, factor in derived_modality_factors.items():
+        current = get_modality_factor(modality, config)
+        if abs(factor - current) > TOLERANCE:
+            modality_factor_changes[modality] = factor
 
-    # Generate output YAML
-    result = {
+    # Build result
+    result: Dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source_csv": str(input_path),
-        "notes": (
-            "This file contains skill_modality_overrides for values that differ from "
-            "the default calculation (skill.weight × modality.factor). "
-            "Copy the skill_modality_overrides section to your config.yaml."
-        ),
+        "mode": "combi (smart decomposition)",
     }
 
+    # Summarize what we found
+    total_overrides = sum(len(v) for v in overrides.values())
+    total_cells = len(skills) * len(modalities)
+
+    result["analysis"] = {
+        "total_cells": total_cells,
+        "explained_by_base_weights": total_cells - total_overrides,
+        "requires_overrides": total_overrides,
+        "reference_modality": f"{ref_modality} (factor=1.0)",
+    }
+
+    # Include changes if any
+    if skill_weight_changes:
+        result["skill_weight_updates"] = {
+            "notes": "Update in config.yaml: skills.<name>.weight",
+            "changes": {k: float(f"{v:.3f}") for k, v in skill_weight_changes.items()}
+        }
+
+    if modality_factor_changes:
+        result["modality_factor_updates"] = {
+            "notes": "Update in config.yaml: modalities.<name>.factor",
+            "changes": {k: float(f"{v:.3f}") for k, v in modality_factor_changes.items()}
+        }
+
     if overrides:
-        result["skill_modality_overrides"] = overrides
-        result["overrides_summary"] = (
-            f"Found {sum(len(v) for v in overrides.values())} overrides "
-            f"across {len(overrides)} modalities"
-        )
-    else:
-        result["skill_modality_overrides"] = {}
-        result["overrides_summary"] = (
-            "No overrides needed - all values match default calculations"
+        result["skill_modality_overrides"] = {
+            mod: {sk: float(f"{v:.3f}") for sk, v in skills_dict.items()}
+            for mod, skills_dict in overrides.items()
+        }
+        result["overrides_notes"] = (
+            "These values cannot be explained by skill.weight × modality.factor. "
+            "Copy to config.yaml under skill_modality_overrides."
         )
 
-    # Include reference for skill weights if we estimated any
-    if skill_weights:
-        result["estimated_skill_weights"] = {
-            "notes": "Estimated from CT column (assuming CT factor = 1.0)",
-            "skills": skill_weights
-        }
+    if not skill_weight_changes and not modality_factor_changes and not overrides:
+        result["notes"] = "No changes needed - all values match current config"
+    else:
+        parts = []
+        if skill_weight_changes:
+            parts.append(f"{len(skill_weight_changes)} skill weights")
+        if modality_factor_changes:
+            parts.append(f"{len(modality_factor_changes)} modality factors")
+        if overrides:
+            parts.append(f"{total_overrides} overrides")
+        result["notes"] = f"Changes: {', '.join(parts)}"
+
+    print(f"Mode: combi (smart decomposition)")
+    print(f"Reference modality: {ref_modality} (factor=1.0)")
+    print(f"Skill weight changes: {len(skill_weight_changes)}")
+    print(f"Modality factor changes: {len(modality_factor_changes)}")
+    print(f"Overrides needed: {total_overrides} / {total_cells} cells")
+
+    return result
+
+
+def import_from_csv(input_path: Path, output_path: Path, config_path: Path | None) -> None:
+    """Import exam values from CSV and generate YAML template entries."""
+    if not input_path.exists():
+        raise SystemExit(f"Input CSV not found: {input_path}")
+
+    config: Dict[str, Any] = {}
+    if config_path and config_path.exists():
+        config = load_config(config_path)
+
+    with input_path.open("r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+        fieldnames = reader.fieldnames or []
+
+    if not rows:
+        raise SystemExit("CSV file is empty")
+
+    # Auto-detect format
+    csv_format = detect_csv_format(fieldnames)
+    print(f"Detected CSV format: {csv_format}")
+
+    if csv_format == "single":
+        result = import_single_mode(rows, config, input_path)
+    else:
+        result = import_combi_mode(rows, fieldnames, config, input_path)
 
     with output_path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(result, f, sort_keys=False, allow_unicode=True)
 
-    print(f"Processed {len(skills)} skills × {len(modalities)} modalities")
-    if overrides:
-        override_count = sum(len(v) for v in overrides.values())
-        print(f"Generated {override_count} overrides in {output_path}")
-    else:
-        print(f"No overrides needed - all values match defaults")
     print(f"Template written to {output_path}")
 
+
+# =============================================================================
+# CLI
+# =============================================================================
 
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Export/import examination values (Skill×Modality weights)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+Modes:
+  single  Export/import skill weights and modality factors separately
+  combi   Export/import combined Skill×Modality values (default)
+
 Examples:
-    # Export current exam values to CSV
-    python exam_values.py export --config config.yaml --output exam_values.csv
+    # Export combined values (combi mode)
+    python exam_values.py export -c config.yaml -o exam_values.csv
 
-    # Import from edited CSV and generate config template
-    python exam_values.py import --input exam_values.csv --output exam_overrides.yaml
+    # Export separate weights/factors (single mode)
+    python exam_values.py export --mode single -c config.yaml -o weights.csv
 
-    # Import with reference to existing config (for delta detection)
-    python exam_values.py import --input exam_values.csv --config config.yaml --output exam_overrides.yaml
+    # Import with smart detection (auto-detects format)
+    python exam_values.py import -i exam_values.csv -c config.yaml -o template.yaml
 """
     )
 
@@ -269,6 +472,12 @@ Examples:
     export_parser = subparsers.add_parser(
         "export",
         help="Export exam values from config.yaml to CSV"
+    )
+    export_parser.add_argument(
+        "--mode", "-m",
+        choices=["single", "combi"],
+        default="combi",
+        help="Export mode: single (weights+factors) or combi (combined values)"
     )
     export_parser.add_argument(
         "--config", "-c",
@@ -299,16 +508,20 @@ Examples:
     import_parser.add_argument(
         "--config", "-c",
         default=None,
-        help="Optional: existing config.yaml to compare against for delta detection"
+        help="Optional: existing config.yaml for delta detection"
     )
 
     args = parser.parse_args()
 
     if args.command == "export":
-        export_to_csv(
-            config_path=Path(args.config),
-            output_path=Path(args.output)
-        )
+        config_path = Path(args.config)
+        output_path = Path(args.output)
+
+        if args.mode == "single":
+            export_single_mode(config_path, output_path)
+        else:
+            export_combi_mode(config_path, output_path)
+
     elif args.command == "import":
         import_from_csv(
             input_path=Path(args.input),
