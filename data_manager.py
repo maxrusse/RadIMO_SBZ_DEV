@@ -432,9 +432,6 @@ def load_staged_dataframe(modality: str) -> bool:
                         axis=1
                     )
 
-                if 'PPL' in df.columns:
-                    df['canonical_id'] = df['PPL'].apply(get_canonical_worker_id)
-
                 if 'counts_for_hours' not in df.columns:
                     df['counts_for_hours'] = True
 
@@ -500,11 +497,9 @@ def initialize_data(file_path: str, modality: str):
                 axis=1
             )
 
-            df['canonical_id'] = df['PPL'].apply(get_canonical_worker_id)
-
-            col_order = ['PPL', 'canonical_id', 'Modifier', 'TIME', 'start_time', 'end_time', 'shift_duration', 'tasks', 'counts_for_hours']
+            col_order = ['PPL', 'Modifier', 'TIME', 'start_time', 'end_time', 'shift_duration', 'tasks', 'counts_for_hours']
             skill_cols = [skill for skill in SKILL_COLUMNS if skill in df.columns]
-            col_order = col_order[:4] + skill_cols + col_order[4:]
+            col_order = col_order[:3] + skill_cols + col_order[3:]
 
             if 'tasks' not in df.columns:
                 df['tasks'] = ''

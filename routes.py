@@ -506,9 +506,6 @@ def preload_from_master():
                                     axis=1
                                 )
 
-                            if 'PPL' in df.columns:
-                                df['canonical_id'] = df['PPL'].apply(get_canonical_worker_id)
-
                             if 'counts_for_hours' not in df.columns:
                                 df['counts_for_hours'] = True
 
