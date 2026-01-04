@@ -41,8 +41,8 @@ modalities:
     # Visibility filters (both optional, can combine):
     # - valid_skills: positive filter - only show these skills
     # - hidden_skills: negative filter - hide these skills
-    valid_skills: [Notfall, Privat, Gyn]
-    # hidden_skills: [MSK, Chest]  # Example: hide specific skills
+    valid_skills: [Notfall, Gyn]  # Privat excluded - mammography has no private patients
+    # hidden_skills: [MSK, Chest]  # Alternative: use blacklist instead of whitelist
 
 skills:
   Notfall:
@@ -61,6 +61,7 @@ skills:
     weight: 1.2
     optional: true
     special: false
+    hidden_modalities: [mammo]  # Mammography has no private patients
     display_order: 1
     slug: privat
   Gyn:
@@ -140,10 +141,6 @@ skill_modality_overrides:
     Cardvask: 1.8    # Cardiac work in MR weighted higher
   # ct:
   #   Chest: 1.0     # Override CT×Chest
-
-# Skill dashboard behavior
-skill_dashboard:
-  hide_invalid_combinations: false
 
 # Skill value display colors (for prep page table)
 # These define how skill values 1, 0, -1, and 'w' are displayed

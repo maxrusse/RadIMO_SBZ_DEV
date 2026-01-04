@@ -216,19 +216,6 @@ skill_modality_overrides:
 
 ---
 
-## Skill Dashboard
-
-Guardrails for the skill selector UI.
-
-```yaml
-skill_dashboard:
-  hide_invalid_combinations: false  # Hide skill buttons that don't apply to the modality
-```
-
-Set to `true` to hide non-applicable skills on each modality tab. Uses `valid_skills`/`hidden_skills` on modalities and `valid_modalities`/`hidden_modalities` on skills.
-
----
-
 ## Skill Value Colors
 
 How skill values appear in the prep page table.
@@ -611,9 +598,6 @@ skills:
 skill_modality_overrides:
   mr:
     Cardvask: 1.8  # MR cardiac work weighted higher
-
-skill_dashboard:
-  hide_invalid_combinations: false
 
 balancer:
   enabled: true

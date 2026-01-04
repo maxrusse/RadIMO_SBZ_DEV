@@ -136,16 +136,6 @@ def _build_app_config() -> Dict[str, Any]:
     config['ui_colors'] = raw_config.get('ui_colors', {})
     config['skill_value_colors'] = raw_config.get('skill_value_colors', {})
 
-    # Skill dashboard behavior
-    skill_dashboard_config = raw_config.get('skill_dashboard', {})
-    if not isinstance(skill_dashboard_config, dict):
-        skill_dashboard_config = {}
-    config['skill_dashboard'] = {
-        'hide_invalid_combinations': bool(
-            skill_dashboard_config.get('hide_invalid_combinations', False)
-        )
-    }
-
     # Scheduler settings
     config['scheduler'] = raw_config.get('scheduler', {
         'daily_reset_time': '07:30',

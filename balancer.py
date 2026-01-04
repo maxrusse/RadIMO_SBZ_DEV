@@ -52,9 +52,11 @@ def get_global_assignments(canonical_id):
     return totals
 
 def _get_or_create_assignments(modality: str, canonical_id: str) -> dict:
-    # Ensure modality exists in assignments_per_mod (defensive check)
-    if modality not in global_worker_data['assignments_per_mod']:
-        global_worker_data['assignments_per_mod'][modality] = {}
+    """Get or create assignment tracking dict for a worker in a modality.
+
+    Note: modality must be validated before calling this function.
+    All modalities are pre-initialized in global_worker_data at module load.
+    """
     assignments = global_worker_data['assignments_per_mod'][modality]
     if canonical_id not in assignments:
         assignments[canonical_id] = {skill: 0 for skill in SKILL_COLUMNS}
