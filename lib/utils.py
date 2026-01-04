@@ -27,47 +27,6 @@ def coerce_int(value: Any, default: int = 0) -> int:
         return default
 
 # -----------------------------------------------------------
-# Helper for Config Normalization
-# -----------------------------------------------------------
-def normalize_modality_fallback_entries(
-    entries: Any,
-    source_modality: str,
-    valid_modalities: List[str],
-) -> List[Any]:
-    normalized: List[Any] = []
-    if not isinstance(entries, list):
-        return normalized
-
-    valid_set = {m.lower(): m for m in valid_modalities}
-    source_key = source_modality.lower()
-
-    def _resolve(value: str) -> Optional[str]:
-        key = value.lower()
-        if key == source_key:
-            return None
-        return valid_set.get(key)
-
-    for entry in entries:
-        if isinstance(entry, list):
-            group: List[str] = []
-            seen: set = set()
-            for candidate in entry:
-                if not isinstance(candidate, str):
-                    continue
-                resolved = _resolve(candidate)
-                if resolved and resolved not in seen:
-                    group.append(resolved)
-                    seen.add(resolved)
-            if group:
-                normalized.append(group)
-        elif isinstance(entry, str):
-            resolved = _resolve(entry)
-            if resolved:
-                normalized.append(resolved)
-
-    return normalized
-
-# -----------------------------------------------------------
 # TIME / DATE HELPERS
 # -----------------------------------------------------------
 TIME_FORMAT = '%H:%M'
@@ -198,11 +157,9 @@ def validate_excel_structure(df: pd.DataFrame, required_columns: List[str], skil
         except Exception as e:
             return False, f"Modifier-Spalte ungültiges Format: {str(e)}"
 
-    # Check integer columns for core skills
-    for skill in skill_columns:
-        if skill in df.columns:
-            if not pd.api.types.is_numeric_dtype(df[skill]):
-                return False, f"Spalte '{skill}' sollte numerisch sein"
+    # Note: Skill columns can contain numeric values (-1, 0, 1) or 'w' for weighted.
+    # The normalize_skill_value function handles all normalization, so we don't
+    # enforce strict numeric type here. This allows 'w' values in skill columns.
 
     return True, ""
 

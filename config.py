@@ -258,7 +258,14 @@ def _normalize_exclude_skills(raw_exclude_skills: Dict[str, List[str]]) -> Dict[
 
         elif is_skill_only:
             # Expand to all modalities for this skill
+            # First try ROLE_MAP (slug -> canonical), then try direct canonical name match
             canonical_skill = ROLE_MAP.get(key_lower)
+            if not canonical_skill:
+                # Try to find canonical name directly in SKILL_COLUMNS
+                for s in SKILL_COLUMNS:
+                    if s.lower() == key_lower:
+                        canonical_skill = s
+                        break
             if canonical_skill:
                 for mod in allowed_modalities:
                     canonical_keys.append(f"{canonical_skill}_{mod}")
