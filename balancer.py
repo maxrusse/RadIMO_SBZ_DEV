@@ -52,6 +52,9 @@ def get_global_assignments(canonical_id):
     return totals
 
 def _get_or_create_assignments(modality: str, canonical_id: str) -> dict:
+    # Ensure modality exists in assignments_per_mod (defensive check)
+    if modality not in global_worker_data['assignments_per_mod']:
+        global_worker_data['assignments_per_mod'][modality] = {}
     assignments = global_worker_data['assignments_per_mod'][modality]
     if canonical_id not in assignments:
         assignments[canonical_id] = {skill: 0 for skill in SKILL_COLUMNS}
@@ -105,7 +108,7 @@ def calculate_work_hours_now(current_dt: datetime, modality: str) -> dict:
     df_copy = d['working_hours_df'].copy()
 
     if 'counts_for_hours' in df_copy.columns:
-        df_copy = df_copy[df_copy['counts_for_hours'] == True].copy()
+        df_copy = df_copy[df_copy['counts_for_hours'].fillna(False).astype(bool)].copy()
 
     if df_copy.empty:
         return {}

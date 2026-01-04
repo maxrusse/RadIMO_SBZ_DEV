@@ -91,11 +91,14 @@ def startup_initialization():
 
 
 # -----------------------------------------------------------
-# Main Entry Point
+# Module-level initialization (runs for both Gunicorn and direct execution)
+# -----------------------------------------------------------
+startup_initialization()
+
+# -----------------------------------------------------------
+# Main Entry Point (development only)
 # -----------------------------------------------------------
 if __name__ == '__main__':
-    startup_initialization()
-    
     # In production, use a proper WSGI server (gunicorn/waitress)
     # For development/local use:
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
