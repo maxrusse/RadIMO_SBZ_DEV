@@ -60,6 +60,24 @@ def _load_raw_config() -> Dict[str, Any]:
         selection_logger.warning("Failed to load config.yaml: %s", exc)
         return {}
 
+def _validate_name(name: str, name_type: str) -> None:
+    """Warn if a modality or skill name contains problematic characters.
+
+    Underscores and spaces in names would break the skill_modality key format
+    (e.g., 'MSK_ct') which uses '_' as the separator.
+    """
+    if '_' in name:
+        selection_logger.warning(
+            "%s name '%s' contains underscore - this will break skill_modality key parsing. "
+            "Please rename to remove underscores.", name_type, name
+        )
+    if ' ' in name:
+        selection_logger.warning(
+            "%s name '%s' contains space - this may cause inconsistencies. "
+            "Consider removing spaces.", name_type, name
+        )
+
+
 def _build_app_config() -> Dict[str, Any]:
     raw_config = _load_raw_config()
     config: Dict[str, Any] = {
@@ -75,6 +93,7 @@ def _build_app_config() -> Dict[str, Any]:
     user_modalities = raw_config.get('modalities') or {}
     if isinstance(user_modalities, dict):
         for key, mod_data in user_modalities.items():
+            _validate_name(key, "Modality")
             if isinstance(mod_data, dict):
                 merged_modalities[key] = dict(mod_data)
 
@@ -93,6 +112,7 @@ def _build_app_config() -> Dict[str, Any]:
     user_skills = raw_config.get('skills') or {}
     if isinstance(user_skills, dict):
         for key, skill_data in user_skills.items():
+            _validate_name(key, "Skill")
             if isinstance(skill_data, dict):
                 merged_skills[key] = dict(skill_data)
 
