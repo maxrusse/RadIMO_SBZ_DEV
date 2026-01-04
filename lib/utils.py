@@ -95,8 +95,8 @@ def parse_time_range(time_range: str) -> Tuple[time, time]:
     Example: "08:00-16:00" -> (time(8,0), time(16,0))
     """
     start_str, end_str = time_range.split('-')
-    start_time = datetime.strptime(start_str.strip(), '%H:%M').time()
-    end_time   = datetime.strptime(end_str.strip(), '%H:%M').time()
+    start_time = datetime.strptime(start_str.strip(), TIME_FORMAT).time()
+    end_time   = datetime.strptime(end_str.strip(), TIME_FORMAT).time()
     return start_time, end_time
 
 def compute_shift_window(

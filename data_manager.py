@@ -1106,8 +1106,8 @@ def compute_time_ranges(row: pd.Series, rule: dict, target_date: datetime, confi
 
     try:
         start_str, end_str = time_str.split('-')
-        start_time = datetime.strptime(start_str.strip(), '%H:%M').time()
-        end_time = datetime.strptime(end_str.strip(), '%H:%M').time()
+        start_time = datetime.strptime(start_str.strip(), TIME_FORMAT).time()
+        end_time = datetime.strptime(end_str.strip(), TIME_FORMAT).time()
         return [(start_time, end_time)]
     except Exception:
         return [(time(7, 0), time(15, 0))]
@@ -1171,8 +1171,8 @@ def parse_gap_times(times_config: dict, weekday_name: str) -> List[Tuple[time, t
     for time_range_str in time_ranges:
         try:
             start_str, end_str = time_range_str.split('-')
-            start_time = datetime.strptime(start_str.strip(), '%H:%M').time()
-            end_time = datetime.strptime(end_str.strip(), '%H:%M').time()
+            start_time = datetime.strptime(start_str.strip(), TIME_FORMAT).time()
+            end_time = datetime.strptime(end_str.strip(), TIME_FORMAT).time()
             gaps.append((start_time, end_time))
         except Exception as e:
             selection_logger.warning(f"Could not parse gap time range '{time_range_str}': {e}")
@@ -1330,17 +1330,17 @@ def resolve_overlapping_shifts(shifts: List[dict], target_date: date) -> List[di
 
                     # Update TIME field only if it was present in original shift
                     if 'TIME' in current_shift:
-                        resolved_shift['TIME'] = f"{current_start.strftime('%H:%M')}-{current_end.strftime('%H:%M')}"
+                        resolved_shift['TIME'] = f"{current_start.strftime(TIME_FORMAT)}-{current_end.strftime(TIME_FORMAT)}"
 
                     resolved.append(resolved_shift)
                     selection_logger.debug(
-                        f"Shift for {worker}: {current_start.strftime('%H:%M')}-{current_end.strftime('%H:%M')} "
+                        f"Shift for {worker}: {current_start.strftime(TIME_FORMAT)}-{current_end.strftime(TIME_FORMAT)} "
                         f"(duration: {duration_hours:.2f}h)"
                     )
                 else:
                     selection_logger.info(
                         f"Removed zero-duration shift for {worker} "
-                        f"(was {current_shift['start_time'].strftime('%H:%M')}-{current_shift['end_time'].strftime('%H:%M')})"
+                        f"(was {current_shift['start_time'].strftime(TIME_FORMAT)}-{current_shift['end_time'].strftime(TIME_FORMAT)})"
                     )
 
         result_shifts.extend(resolved)
