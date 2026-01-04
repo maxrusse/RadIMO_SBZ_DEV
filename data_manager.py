@@ -346,7 +346,8 @@ def _calculate_total_work_hours(df: pd.DataFrame) -> dict:
         return {}
 
     if 'counts_for_hours' in df.columns:
-        hours_df = df[df['counts_for_hours'].fillna(False).astype(bool)]
+        # Default to True (count for hours) if value is missing
+        hours_df = df[df['counts_for_hours'].fillna(True).astype(bool)]
     else:
         hours_df = df
 
@@ -400,7 +401,7 @@ def backup_dataframe(modality: str, use_staged: bool = False):
                 d['last_prepped_at'] = d['last_modified'].strftime('%d.%m.%Y %H:%M')
         except Exception as e:
             mode_label = "staged" if use_staged else "live"
-            selection_logger.info(f"Error backing up {mode_label} DataFrame for modality {modality}: {e}")
+            selection_logger.error(f"Error backing up {mode_label} DataFrame for modality {modality}: {e}")
 
 
 def load_staged_dataframe(modality: str) -> bool:
@@ -857,7 +858,8 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
 
         else:
             # Case 4: Gap in middle - SPLIT into two rows
-            new_gap_id = f"gap_{worker_name}_{datetime.now().strftime('%H%M%S')}"
+            # Use microseconds for uniqueness to prevent ID collisions
+            new_gap_id = f"gap_{worker_name}_{datetime.now().strftime('%H%M%S%f')}"
 
             df.at[row_index, 'end_time'] = gap_start_time
             if 'TIME' in df.columns:

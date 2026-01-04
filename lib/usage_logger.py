@@ -216,7 +216,9 @@ def check_and_export_at_scheduled_time() -> bool:
     """
     global _current_date
 
-    now = datetime.now()
+    # Use local timezone-aware time for consistent behavior
+    from lib.utils import get_local_now
+    now = get_local_now()
     current_time = now.time()
     today = now.date()
 
