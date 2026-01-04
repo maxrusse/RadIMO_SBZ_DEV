@@ -1,12 +1,8 @@
-<!DOCTYPE html>
-<html lang="de">
+{% extends 'base.html' %}
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RadIMO Cortex | {% if login_type == 'admin' %}Admin Login{% else %}Zugang{% endif %}</title>
-  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
-  <style>
+{% block title %}RadIMO Cortex | {% if login_type == 'admin' %}Admin Login{% else %}Zugang{% endif %}{% endblock %}
+
+{% block styles %}
     :root {
       /* Color Variables */
       --header-bg: #fff;
@@ -24,8 +20,6 @@
       max-width: 1400px;
       margin: 0 auto;
     }
-
-    {% include 'partials/header_styles.html' %}
 
     /* Card Container */
     .card {
@@ -91,11 +85,12 @@
       font-size: 0.9rem;
       margin-top: 1rem;
     }
-  </style>
-</head>
+{% endblock %}
 
-<body data-modality="{{ modality }}">
-  {% set header_title = 'RadIMO Cortex' %}
+{% block body_attrs %} data-modality="{{ modality }}"{% endblock %}
+
+{% block content %}
+  {% set header_title = 'RadIMO Cortex | ' ~ ('Admin Login' if login_type == 'admin' else 'Zugang') %}
   {% set header_subtitle = 'Admin Login' if login_type == 'admin' else 'Zugangskontrolle' %}
   {% set header_mode = 'scoped' %}
   {% set selector_links %}
@@ -149,6 +144,4 @@
       });
     })();
   </script>
-</body>
-
-</html>
+{% endblock %}

@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html lang="de">
+{% extends 'base.html' %}
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RadIMO Cortex | {{ skill_labels[skill] }} Dashboard</title>
-  <style>
+{% block title %}RadIMO Cortex | {{ skill_labels[skill] }} Dashboard{% endblock %}
+
+{% block styles %}
     :root {
       --disabled-color: #888;
 
@@ -49,8 +46,6 @@
     .clipboard-note {
       background: var(--skill-bg, #fff);
     }
-
-    {% include 'partials/header_styles.html' %}
 
     .card {
       background: var(--card-bg);
@@ -210,11 +205,12 @@
     .last-assignment.visible {
       display: block;
     }
-  </style>
-</head>
+{% endblock %}
 
-<body data-skill="{{ skill }}">
-  {% set header_title = 'RadIMO Cortex' %}
+{% block body_attrs %} data-skill="{{ skill }}"{% endblock %}
+
+{% block content %}
+  {% set header_title = 'RadIMO Cortex | ' ~ skill_labels[skill] ~ ' Dashboard' %}
   {% set header_subtitle = 'Intelligent Radiology Orchestration' %}
   {% set header_mode = 'scoped' %}
   {% set header_links = [
@@ -444,6 +440,4 @@
       }
     }
   </script>
-</body>
-
-</html>
+{% endblock %}

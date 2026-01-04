@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html lang="de">
+{% extends 'base.html' %}
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RadIMO Cortex | {{ modality_labels[modality] }} Dashboard</title>
-  <style>
+{% block title %}RadIMO Cortex | {{ modality_labels[modality] }} Dashboard{% endblock %}
+
+{% block styles %}
     :root {
       --disabled-color: #888;
       /* Global & Other Colors */
@@ -48,8 +45,6 @@
     .clipboard-note {
       background: var(--modality-bg, #fff);
     }
-
-    {% include 'partials/header_styles.html' %}
 
     .card {
       background: var(--card-bg);
@@ -326,11 +321,12 @@
     .last-assignment.visible {
       display: block;
     }
-  </style>
-</head>
+{% endblock %}
 
-<body data-modality="{{ modality }}">
-  {% set header_title = 'RadIMO Cortex' %}
+{% block body_attrs %} data-modality="{{ modality }}"{% endblock %}
+
+{% block content %}
+  {% set header_title = 'RadIMO Cortex | ' ~ modality_labels[modality] ~ ' Dashboard' %}
   {% set header_subtitle = 'Intelligent Radiology Orchestration' %}
   {% set header_mode = 'scoped' %}
   {% set header_links = [
@@ -666,6 +662,4 @@
     setupAdminFunctions();
   </script>
   {% endif %}
-</body>
-
-</html>
+{% endblock %}
