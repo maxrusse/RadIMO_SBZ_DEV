@@ -49,42 +49,7 @@
       background: var(--modality-bg, #fff);
     }
 
-    /* Premium Header with Modality Selector */
-    .premium-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: var(--header-bg);
-      padding: 1rem 2rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      margin-bottom: 1rem;
-    }
-
-    .premium-header h1 {
-      font-size: 1.75rem;
-      margin: 0;
-    }
-
-    .modality-selector {
-      display: flex;
-      gap: 1rem;
-    }
-
-    .modality-selector a {
-      text-decoration: none;
-      font-weight: bold;
-      padding: 0.5rem 1rem;
-      border-radius: 20px;
-      background: var(--tab-bg);
-      color: var(--tab-color);
-      border: 2px solid #ddd;
-      transition: border-width 0.2s;
-    }
-
-    .modality-selector a.active {
-      border-width: 4px;
-    }
+    {% include 'partials/header_styles.html' %}
 
     .card {
       background: var(--card-bg);
@@ -365,43 +330,28 @@
 </head>
 
 <body data-modality="{{ modality }}">
-  <!-- Premium Header with Navigation -->
-  <header class="premium-header">
-    <div>
-      <h1>RadIMO Cortex</h1>
-      <p style="margin: 0; opacity: 0.8; font-size: 0.9rem;">Intelligent Radiology Orchestration</p>
-    </div>
-    <nav style="display: flex; gap: 1rem; align-items: center;">
-      <a href="{{ url_for('routes.index', modality=modality) }}"
-        style="font-weight: bold; color: #004892; text-decoration: none; border-bottom: 2px solid #004892;">Dashboard</a>
-      <a href="{{ url_for('routes.timetable', modality=modality) }}"
-        style="color: #333; text-decoration: none;">Timetable</a>
-      <a href="{{ url_for('routes.upload_file', modality=modality) }}"
-        style="color: #333; text-decoration: none; padding: 0.4rem 0.8rem; background: #004892; color: white; border-radius: 4px;">Admin</a>
-    </nav>
-  </header>
-
-  <!-- Modality Selector -->
-  <div
-    style="background: white; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <div class="modality-selector" style="display: flex; gap: 0.5rem;">
-        {% for mod in modality_order %}
-        <a href="{{ url_for('routes.index', modality=mod) }}" data-modality="{{ mod }}"
-          class="{% if modality == mod %}active{% endif %}">
-          {{ modality_labels[mod] }}
-        </a>
-        {% endfor %}
-      </div>
-      <div style="display: flex; gap: 0.5rem; align-items: center;">
-        <span style="font-size: 0.9rem; color: #666;">View by:</span>
-        <a href="{{ url_for('routes.index', modality=modality) }}"
-          style="padding: 0.4rem 0.8rem; background: #004892; color: white; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">Modality</a>
-        <a href="{{ url_for('routes.index_by_skill') }}"
-          style="padding: 0.4rem 0.8rem; background: #e0e0e0; color: #333; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">Skill</a>
-      </div>
-    </div>
-  </div>
+  {% set header_title = 'RadIMO Cortex' %}
+  {% set header_subtitle = 'Intelligent Radiology Orchestration' %}
+  {% set header_mode = 'scoped' %}
+  {% set header_links = [
+    {'href': url_for('routes.index', modality=modality), 'label': 'Dashboard', 'active': True},
+    {'href': url_for('routes.timetable', modality=modality), 'label': 'Timetable'},
+    {'href': url_for('routes.upload_file', modality=modality), 'label': 'Admin', 'accent': True}
+  ] %}
+  {% set view_toggle_label = 'View by:' %}
+  {% set view_toggle_items = [
+    {'href': url_for('routes.index', modality=modality), 'label': 'Modality', 'active': True},
+    {'href': url_for('routes.index_by_skill'), 'label': 'Skill'}
+  ] %}
+  {% set selector_links %}
+    {% for mod in modality_order %}
+    <a href="{{ url_for('routes.index', modality=mod) }}" data-modality="{{ mod }}"
+      class="selector-link{% if modality == mod %} selector-link--active{% endif %}">
+      {{ modality_labels[mod] }}
+    </a>
+    {% endfor %}
+  {% endset %}
+  {% include 'partials/header.html' %}
 
   <!-- Main Assignment Panel -->
   <section class="card">
@@ -481,7 +431,7 @@
       }
 
       // Border colors for modality selector
-      document.querySelectorAll('.modality-selector a').forEach(a => {
+      document.querySelectorAll('.header-selector .selector-link').forEach(a => {
         const mod = a.getAttribute('data-modality');
         if (modalities[mod]) {
           a.style.borderColor = modalities[mod].nav_color;

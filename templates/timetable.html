@@ -42,6 +42,8 @@
       background: var(--modality-bg, var(--body-bg));
     }
 
+    {% include 'partials/header_styles.html' %}
+
     /* Filter bars */
     .skill-filter-bar {
       display: flex;
@@ -281,40 +283,19 @@
       font-size: 1.1rem;
     }
 
-    .premium-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: var(--header-bg);
-      padding: 1rem 2rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      margin-bottom: 1rem;
-    }
-
-    .premium-header h1 {
-      margin: 0;
-      font-size: 1.5rem;
-      color: var(--primary-color);
-    }
   </style>
 </head>
 
 <body data-modality="{{ modality }}">
-  <header class="premium-header">
-    <div>
-      <h1>RadIMO Cortex</h1>
-      <p style="margin: 0; opacity: 0.8; font-size: 0.9rem;">Intelligent Radiology Orchestration</p>
-    </div>
-    <nav style="display: flex; gap: 1rem; align-items: center;">
-      <a href="{{ url_for('routes.index', modality=modality) }}"
-        style="color: #333; text-decoration: none;">Dashboard</a>
-      <a href="{{ url_for('routes.timetable', modality=modality) }}"
-        style="font-weight: bold; color: #004892; text-decoration: none; border-bottom: 2px solid #004892;">Timetable</a>
-      <a href="{{ url_for('routes.upload_file', modality=modality) }}"
-        style="color: #333; text-decoration: none; padding: 0.4rem 0.8rem; background: #004892; color: white; border-radius: 4px;">Admin</a>
-    </nav>
-  </header>
+  {% set header_title = 'RadIMO Cortex' %}
+  {% set header_subtitle = 'Intelligent Radiology Orchestration' %}
+  {% set header_mode = 'global' %}
+  {% set header_links = [
+    {'href': url_for('routes.index', modality=modality), 'label': 'Dashboard'},
+    {'href': url_for('routes.timetable', modality=modality), 'label': 'Timetable', 'active': True},
+    {'href': url_for('routes.upload_file', modality=modality), 'label': 'Admin', 'accent': True}
+  ] %}
+  {% include 'partials/header.html' %}
 
   <!-- Modality Filter Bar -->
   <div class="skill-filter-bar" id="modalityFilterBar">
