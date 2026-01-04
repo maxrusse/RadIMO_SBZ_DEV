@@ -5,6 +5,10 @@ admin_password: change_pw_for_live
 access_protection_enabled: true
 access_password: change_easy_pw
 
+# Timezone for all date/time operations
+# Examples: Europe/Berlin, Europe/Zurich, America/New_York
+timezone: Europe/Berlin
+
 modalities:
   ct:
     label: CT

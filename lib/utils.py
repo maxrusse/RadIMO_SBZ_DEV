@@ -72,11 +72,26 @@ def normalize_modality_fallback_entries(
 # -----------------------------------------------------------
 TIME_FORMAT = '%H:%M'
 
-def get_local_berlin_now() -> datetime:
-    tz = pytz.timezone("Europe/Berlin")
+# Import timezone from config (circular import safe - uses lazy import)
+def _get_configured_timezone() -> str:
+    """Lazy-load timezone to avoid circular import."""
+    try:
+        from config import TIMEZONE
+        return TIMEZONE
+    except ImportError:
+        return "Europe/Berlin"
+
+def get_local_now() -> datetime:
+    """Get current local time in configured timezone (defaults to Europe/Berlin)."""
+    tz = pytz.timezone(_get_configured_timezone())
     aware_now = datetime.now(tz)
     naive_now = aware_now.replace(tzinfo=None)
     return naive_now
+
+# Alias for backward compatibility
+def get_local_berlin_now() -> datetime:
+    """Deprecated: Use get_local_now() instead."""
+    return get_local_now()
 
 def parse_time_range(time_range: str) -> Tuple[time, time]:
     """

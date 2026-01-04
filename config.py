@@ -36,6 +36,7 @@ if not selection_logger.handlers:
 DEFAULT_ADMIN_PASSWORD = 'change_pw_for_live'
 DEFAULT_ACCESS_PASSWORD = 'change_easy_pw'  # Basic access password for non-admin pages
 DEFAULT_SECRET_KEY = 'super_secret_key_for_dev'  # Change this in production
+DEFAULT_TIMEZONE = 'Europe/Berlin'  # Default timezone for all date/time operations
 
 DEFAULT_BALANCER = {
     'enabled': True,
@@ -66,6 +67,7 @@ def _build_app_config() -> Dict[str, Any]:
         'access_password': raw_config.get('access_password', DEFAULT_ACCESS_PASSWORD),
         'access_protection_enabled': raw_config.get('access_protection_enabled', True),
         'secret_key': raw_config.get('secret_key', DEFAULT_SECRET_KEY),
+        'timezone': raw_config.get('timezone', DEFAULT_TIMEZONE),
     }
 
     # Load modalities directly from config.yaml (no hardcoded defaults)
@@ -200,6 +202,7 @@ MODALITY_SETTINGS = APP_CONFIG['modalities']
 SKILL_SETTINGS = APP_CONFIG['skills']
 SKILL_DASHBOARD_SETTINGS = APP_CONFIG.get('skill_dashboard', {})
 SKILL_ROSTER_AUTO_IMPORT = APP_CONFIG.get('skill_roster_auto_import', True)
+TIMEZONE = APP_CONFIG.get('timezone', DEFAULT_TIMEZONE)
 
 allowed_modalities = list(MODALITY_SETTINGS.keys())
 allowed_modalities_map = {m.lower(): m for m in allowed_modalities}
