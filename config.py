@@ -159,7 +159,7 @@ def _build_app_config() -> Dict[str, Any]:
 
     return config
 
-def _build_skill_metadata(skills_config: Dict[str, Dict[str, Any]]) -> Tuple[List[str], Dict[str, str], Dict[str, str], List[Dict[str, Any]], Dict[str, float]]:
+def _build_skill_metadata(skills_config: Dict[str, Dict[str, Any]]) -> Tuple[List[str], Dict[str, str], List[Dict[str, Any]], Dict[str, float]]:
     ordered_skills = sorted(
         skills_config.items(),
         key=lambda item: (coerce_int(item[1].get('display_order', 0)), item[0])
@@ -167,24 +167,20 @@ def _build_skill_metadata(skills_config: Dict[str, Dict[str, Any]]) -> Tuple[Lis
 
     columns: List[str] = []
     slug_map: Dict[str, str] = {}
-    form_keys: Dict[str, str] = {}
     templates: List[Dict[str, Any]] = []
     weights: Dict[str, float] = {}
 
     for name, data in ordered_skills:
         slug = data.get('slug') or name.lower().replace(' ', '_')
-        form_key = data.get('form_key') or slug
 
         columns.append(name)
         slug_map[name] = slug
-        form_keys[name] = form_key
         weights[name] = coerce_float(data.get('weight', 1.0))
 
         templates.append({
             'name': name,
             'label': data.get('label', name),
             'slug': slug,
-            'form_key': form_key,
             'button_color': data.get('button_color', '#004892'),
             'text_color': data.get('text_color', '#ffffff'),
             'optional': bool(data.get('optional', False)),
@@ -192,7 +188,7 @@ def _build_skill_metadata(skills_config: Dict[str, Dict[str, Any]]) -> Tuple[Lis
             'always_visible': bool(data.get('always_visible', True)),
         })
 
-    return columns, slug_map, form_keys, templates, weights
+    return columns, slug_map, templates, weights
 
 # -----------------------------------------------------------
 # Global Configuration Objects
@@ -200,7 +196,6 @@ def _build_skill_metadata(skills_config: Dict[str, Dict[str, Any]]) -> Tuple[Lis
 APP_CONFIG = _build_app_config()
 MODALITY_SETTINGS = APP_CONFIG['modalities']
 SKILL_SETTINGS = APP_CONFIG['skills']
-SKILL_DASHBOARD_SETTINGS = APP_CONFIG.get('skill_dashboard', {})
 SKILL_ROSTER_AUTO_IMPORT = APP_CONFIG.get('skill_roster_auto_import', True)
 TIMEZONE = APP_CONFIG.get('timezone', DEFAULT_TIMEZONE)
 
@@ -220,7 +215,7 @@ modality_factors = {
 skill_modality_overrides = APP_CONFIG.get('skill_modality_overrides', {})
 
 # Build skill metadata
-SKILL_COLUMNS, SKILL_SLUG_MAP, SKILL_FORM_KEYS, SKILL_TEMPLATES, skill_weights = _build_skill_metadata(SKILL_SETTINGS)
+SKILL_COLUMNS, SKILL_SLUG_MAP, SKILL_TEMPLATES, skill_weights = _build_skill_metadata(SKILL_SETTINGS)
 
 # Build dynamic role map from config (slug -> canonical name)
 ROLE_MAP = {slug.lower(): name for name, slug in SKILL_SLUG_MAP.items()}

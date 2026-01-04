@@ -102,7 +102,6 @@ skills:
     special: false
     display_order: 0
     slug: notfall
-    form_key: notfall
 
   Privat:
     label: Privat
@@ -113,7 +112,6 @@ skills:
     special: false
     display_order: 1
     slug: privat
-    form_key: privat
 
   Gyn:
     label: Gyn
@@ -126,7 +124,6 @@ skills:
     # hidden_modalities: [xray]      # Optional: hide on these modalities
     display_order: 2
     slug: gyn
-    form_key: gyn
 
   Päd:
     label: Päd
@@ -137,7 +134,6 @@ skills:
     special: true
     display_order: 3
     slug: paed
-    form_key: paed
 
   MSK:
     label: MSK
@@ -148,7 +144,6 @@ skills:
     special: true
     display_order: 4
     slug: msk
-    form_key: msk
 
   Abdomen:
     label: Abdomen
@@ -160,7 +155,6 @@ skills:
     always_visible: true  # If true, button stays even if no worker available
     display_order: 5
     slug: abdomen
-    form_key: abdomen
 
   Chest:
     label: Chest
@@ -171,7 +165,6 @@ skills:
     special: true
     display_order: 6
     slug: chest
-    form_key: chest
 
   Cardvask:
     label: Cardvask
@@ -182,7 +175,6 @@ skills:
     special: true
     display_order: 7
     slug: cardvask
-    form_key: cardvask
 
   Uro:
     label: Uro
@@ -193,7 +185,6 @@ skills:
     special: true
     display_order: 8
     slug: uro
-    form_key: uro
 ```
 
 **Optional vs. special:**

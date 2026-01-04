@@ -1,5 +1,9 @@
 admin_password: change_pw_for_live
 
+# Flask secret key for session management (required for production)
+# Generate a secure random key: python -c "import secrets; print(secrets.token_hex(32))"
+# secret_key: your_secure_random_key_here
+
 # Basic access protection for non-admin pages (optional)
 # Set to false to disable password protection entirely
 access_protection_enabled: true
@@ -48,10 +52,8 @@ skills:
     weight: 1.1
     optional: false
     special: false
-
     display_order: 0
     slug: notfall
-    form_key: notfall
   Privat:
     label: Privat
     button_color: '#ffc107'
@@ -59,10 +61,8 @@ skills:
     weight: 1.2
     optional: true
     special: false
-
     display_order: 1
     slug: privat
-    form_key: privat
   Gyn:
     label: Gyn
     button_color: '#e91e63'
@@ -75,7 +75,6 @@ skills:
     # hidden_modalities: [xray]      # or hide in these modalities
     display_order: 2
     slug: gyn
-    form_key: gyn
   Päd:
     label: Päd
     button_color: '#4caf50'
@@ -83,10 +82,8 @@ skills:
     weight: 1.0
     optional: true
     special: true
-
     display_order: 3
     slug: paed
-    form_key: paed
   MSK:
     label: MSK
     button_color: '#9c27b0'
@@ -94,10 +91,8 @@ skills:
     weight: 0.8
     optional: true
     special: true
-
     display_order: 4
     slug: msk
-    form_key: msk
   Abdomen:
     label: Abdomen
     button_color: '#00bcd4'
@@ -105,10 +100,8 @@ skills:
     weight: 1.0
     optional: true
     special: true
-
     display_order: 5
     slug: abdomen
-    form_key: abdomen
   Chest:
     label: Chest
     button_color: '#ff9800'
@@ -116,10 +109,8 @@ skills:
     weight: 0.8
     optional: true
     special: true
-
     display_order: 6
     slug: chest
-    form_key: chest
   Cardvask:
     label: Cardvask
     button_color: '#28a745'
@@ -127,10 +118,8 @@ skills:
     weight: 1.2
     optional: true
     special: true
-
     display_order: 7
     slug: cardvask
-    form_key: cardvask
   Uro:
     label: Uro
     button_color: '#795548'
@@ -138,10 +127,8 @@ skills:
     weight: 1.0
     optional: true
     special: true
-
     display_order: 8
     slug: uro
-    form_key: uro
 
 # Skill×Modality weight overrides (Optional)
 # Use this to override the default skill_weight × modality_factor calculation
