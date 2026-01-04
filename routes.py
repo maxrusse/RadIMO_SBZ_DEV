@@ -797,8 +797,8 @@ def prep_next_day():
                 # "all" shortcut means all modalities
                 derived_modalities.update(allowed_modalities)
                 continue
-            if key in SKILL_COLUMNS:
-                # Skill shortcut (e.g., "MSK") means all modalities
+            if normalize_skill(key) in SKILL_COLUMNS:
+                # Skill shortcut (e.g., "MSK" or "msk") means all modalities
                 derived_modalities.update(allowed_modalities)
                 continue
             if key.lower() in allowed_modalities:
@@ -1107,7 +1107,7 @@ def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
 @routes.route('/api/<modality>/<role>', methods=['GET'])
 @access_required
 def assign_worker_api(modality, role):
-    modality = modality.lower()
+    modality = normalize_modality(modality)
     if modality not in modality_data:
         return jsonify({"error": "Invalid modality"}), 400
     return _assign_worker(modality, role)
@@ -1115,7 +1115,7 @@ def assign_worker_api(modality, role):
 @routes.route('/api/<modality>/<role>/strict', methods=['GET'])
 @access_required
 def assign_worker_strict_api(modality, role):
-    modality = modality.lower()
+    modality = normalize_modality(modality)
     if modality not in modality_data:
         return jsonify({"error": "Invalid modality"}), 400
     return _assign_worker(modality, role, allow_fallback=False)
@@ -1139,7 +1139,7 @@ def get_current_usage_stats():
     ]
 
     return jsonify({
-        'date': datetime.now().strftime('%Y-%m-%d'),
+        'date': get_local_now().strftime('%Y-%m-%d'),
         'total_combinations': len(stats_list),
         'total_usages': sum(s['count'] for s in stats_list),
         'stats': stats_list
