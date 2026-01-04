@@ -20,6 +20,7 @@ from config import (
     allowed_modalities,
     SKILL_COLUMNS,
     allowed_modalities_map,
+    skill_columns_map,
     default_modality,
     SKILL_ROSTER_AUTO_IMPORT,
     selection_logger,
@@ -170,13 +171,13 @@ def normalize_skill_mod_key(key: str) -> str:
     Normalize skill_modality key to canonical format: "skill_modality".
 
     Accepts both "skill_modality" and "modality_skill" formats.
-    Returns canonical "skill_modality" format.
+    Returns canonical "skill_modality" format with case-insensitive matching.
 
     Examples:
         "MSK_ct" → "MSK_ct"
         "ct_MSK" → "MSK_ct"
+        "msk_CT" → "MSK_ct"  (case-insensitive)
         "Notfall_mr" → "Notfall_mr"
-        "mr_Notfall" → "Notfall_mr"
     """
     if '_' not in key:
         return key
@@ -185,15 +186,19 @@ def normalize_skill_mod_key(key: str) -> str:
     if len(parts) != 2:
         return key
 
-    part1, part2 = parts
+    part1_lower, part2_lower = parts[0].lower(), parts[1].lower()
 
     # Check if part1 is a skill and part2 is a modality
-    if part1 in SKILL_COLUMNS and part2 in allowed_modalities:
-        return f"{part1}_{part2}"  # Already canonical
+    skill1 = skill_columns_map.get(part1_lower)
+    mod2 = allowed_modalities_map.get(part2_lower)
+    if skill1 and mod2:
+        return f"{skill1}_{mod2}"  # skill_modality format
 
     # Check if part1 is a modality and part2 is a skill (reversed)
-    if part1 in allowed_modalities and part2 in SKILL_COLUMNS:
-        return f"{part2}_{part1}"  # Normalize to skill_modality
+    mod1 = allowed_modalities_map.get(part1_lower)
+    skill2 = skill_columns_map.get(part2_lower)
+    if mod1 and skill2:
+        return f"{skill2}_{mod1}"  # Normalize to skill_modality
 
     # Unknown format - return as-is
     return key
@@ -1016,7 +1021,7 @@ def expand_skill_overrides(rule_overrides: dict) -> dict:
         rule_overrides: Raw skill_overrides dict from config
 
     Returns:
-        Expanded dict with full skill_modality keys
+        Expanded dict with full skill_modality keys (canonical names)
     """
     expanded = {}
 
@@ -1030,16 +1035,18 @@ def expand_skill_overrides(rule_overrides: dict) -> dict:
                     expanded[f"{skill}_{mod}"] = value
             continue
 
-        # Check if key is a skill shortcut (e.g., "MSK" → MSK_ct, MSK_mr, ...)
-        if key in SKILL_COLUMNS:
+        # Check if key is a skill shortcut (e.g., "MSK" or "msk")
+        canonical_skill = skill_columns_map.get(key_lower)
+        if canonical_skill:
             for mod in allowed_modalities:
-                expanded[f"{key}_{mod}"] = value
+                expanded[f"{canonical_skill}_{mod}"] = value
             continue
 
-        # Check if key is a modality shortcut (e.g., "ct" → Notfall_ct, MSK_ct, ...)
-        if key_lower in allowed_modalities:
+        # Check if key is a modality shortcut (e.g., "ct" or "CT")
+        canonical_mod = allowed_modalities_map.get(key_lower)
+        if canonical_mod:
             for skill in SKILL_COLUMNS:
-                expanded[f"{skill}_{key_lower}"] = value
+                expanded[f"{skill}_{canonical_mod}"] = value
             continue
 
         # Otherwise, it's a full skill_modality key - normalize it
@@ -1120,7 +1127,7 @@ def extract_modalities_from_skill_overrides(skill_overrides: dict) -> List[str]:
     Extract unique modalities from skill_overrides keys.
 
     Keys are in format "Skill_modality" (e.g., "MSK_ct", "Notfall_mr").
-    Returns list of unique modalities found.
+    Returns list of unique canonical modalities found.
     """
     modalities = set()
     for key in skill_overrides.keys():
@@ -1128,7 +1135,8 @@ def extract_modalities_from_skill_overrides(skill_overrides: dict) -> List[str]:
         if '_' in normalized:
             parts = normalized.split('_', 1)
             if len(parts) == 2:
-                mod = parts[1].lower()
+                # normalize_skill_mod_key returns canonical names
+                mod = parts[1]
                 if mod in allowed_modalities:
                     modalities.add(mod)
     return list(modalities)

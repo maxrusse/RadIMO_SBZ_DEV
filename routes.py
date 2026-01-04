@@ -25,6 +25,7 @@ from config import (
     MODALITY_SETTINGS,
     SKILL_SETTINGS,
     allowed_modalities,
+    allowed_modalities_map,
     SKILL_COLUMNS,
     SKILL_TEMPLATES,
     modality_labels,
@@ -801,16 +802,17 @@ def prep_next_day():
                 # Skill shortcut (e.g., "MSK" or "msk") means all modalities
                 derived_modalities.update(allowed_modalities)
                 continue
-            if key.lower() in allowed_modalities:
-                # Modality shortcut (e.g., "ct")
-                derived_modalities.add(key.lower())
+            # Check if key is a modality shortcut (case-insensitive)
+            canonical_mod = allowed_modalities_map.get(key.lower())
+            if canonical_mod:
+                derived_modalities.add(canonical_mod)
                 continue
             # Full key like "MSK_ct"
             if '_' in key:
                 parts = key.split('_', 1)
                 if len(parts) == 2:
-                    mod = parts[1].lower()
-                    if mod in allowed_modalities:
+                    mod = allowed_modalities_map.get(parts[1].lower())
+                    if mod:
                         derived_modalities.add(mod)
 
         modalities_list = list(derived_modalities)
