@@ -17,7 +17,7 @@ from config import (
     coerce_float
 )
 from lib.utils import (
-    get_local_berlin_now,
+    get_local_now,
     compute_shift_window,
     is_now_in_shift,
     skill_value_to_numeric,
@@ -252,7 +252,7 @@ def _should_balance_via_fallback(filtered_df: pd.DataFrame, column: str, modalit
     if not skill_counts:
         return False
 
-    current_dt = get_local_berlin_now()
+    current_dt = get_local_now()
     hours_map = calculate_work_hours_now(current_dt, modality)
 
     worker_ratios = []

@@ -88,10 +88,6 @@ def get_local_now() -> datetime:
     naive_now = aware_now.replace(tzinfo=None)
     return naive_now
 
-# Alias for backward compatibility
-def get_local_berlin_now() -> datetime:
-    """Deprecated: Use get_local_now() instead."""
-    return get_local_now()
 
 def parse_time_range(time_range: str) -> Tuple[time, time]:
     """
@@ -159,7 +155,7 @@ def get_next_workday(from_date: Optional[datetime] = None) -> datetime:
     - Skips weekends
     """
     if from_date is None:
-        from_date = get_local_berlin_now()
+        from_date = get_local_now()
 
     # If datetime, convert to date
     if hasattr(from_date, 'date'):

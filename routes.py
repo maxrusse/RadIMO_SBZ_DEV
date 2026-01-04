@@ -36,7 +36,7 @@ from config import (
 )
 from lib import usage_logger
 from lib.utils import (
-    get_local_berlin_now,
+    get_local_now,
     get_next_workday,
     parse_time_range,
     TIME_FORMAT,
@@ -512,7 +512,7 @@ def preload_from_master():
                             staged_modality_data[modality]['working_hours_df'] = df
                             staged_modality_data[modality]['info_texts'] = []
                             staged_modality_data[modality]['total_work_hours'] = _calculate_total_work_hours(df)
-                            staged_modality_data[modality]['last_modified'] = get_local_berlin_now()
+                            staged_modality_data[modality]['last_modified'] = get_local_now()
 
                             backup_dataframe(modality, use_staged=True)
                             selection_logger.info(f"Staged data updated for {modality} from scheduled file after preload")
@@ -586,7 +586,7 @@ def upload_file():
 
 def run_operational_checks(context: str = 'unknown', force: bool = False) -> dict:
     results = []
-    now = get_local_berlin_now().isoformat()
+    now = get_local_now().isoformat()
 
     # Check if APP_CONFIG is available and populated
     if APP_CONFIG:
@@ -674,7 +674,7 @@ def load_today_from_master():
         return jsonify({"error": "Keine Master-CSV vorhanden. Bitte zuerst CSV hochladen."}), 400
 
     try:
-        target_date = get_local_berlin_now()
+        target_date = get_local_now()
 
         # Debug: Check CSV content before parsing
         try:
@@ -1033,7 +1033,7 @@ def add_staged_gap():
 
 def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
     try:
-        now = get_local_berlin_now()
+        now = get_local_now()
         selection_logger.info(
             "Assignment request: modality=%s, role=%s, strict=%s, time=%s",
             modality,

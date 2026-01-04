@@ -30,7 +30,7 @@ from config import (
 )
 from lib.utils import (
     TIME_FORMAT,
-    get_local_berlin_now,
+    get_local_now,
     parse_time_range,
     compute_shift_window,
     calculate_shift_duration_hours,
@@ -396,7 +396,7 @@ def backup_dataframe(modality: str, use_staged: bool = False):
             selection_logger.info(f"{mode_label.capitalize()} backup updated for modality {modality} at {backup_file}")
 
             if use_staged:
-                d['last_modified'] = get_local_berlin_now()
+                d['last_modified'] = get_local_now()
                 d['last_prepped_at'] = d['last_modified'].strftime('%d.%m.%Y %H:%M')
         except Exception as e:
             mode_label = "staged" if use_staged else "live"
@@ -895,7 +895,7 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
 
 
 def check_and_perform_daily_reset():
-    now = get_local_berlin_now()
+    now = get_local_now()
     today = now.date()
     
     reset_time_str = APP_CONFIG.get('scheduler', {}).get('daily_reset_time', '07:30')
