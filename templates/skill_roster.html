@@ -1,12 +1,8 @@
-<!DOCTYPE html>
-<html lang="de">
+{% extends 'base.html' %}
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RadIMO Cortex | Skill Matrix</title>
-  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
-  <style>
+{% block title %}RadIMO Cortex | Skill Matrix{% endblock %}
+
+{% block styles %}
     :root {
       --app-header-bg: #004892;
       --app-header-text: #fff;
@@ -39,8 +35,6 @@
       max-width: 1800px;
       margin: 0 auto;
     }
-
-    {% include 'partials/header_styles.html' %}
 
     .toolbar {
       background: #fff;
@@ -261,10 +255,9 @@
         max-height: 200px;
       }
     }
-  </style>
-</head>
+{% endblock %}
 
-<body>
+{% block content %}
   {% set header_title = 'RadIMO Cortex | Skill Matrix' %}
   {% set header_subtitle = 'Worker skill × modality configuration' %}
   {% set header_mode = 'global' %}
@@ -595,6 +588,4 @@
       setTimeout(() => { el.className = 'status-message'; }, 4000);
     }
   </script>
-</body>
-
-</html>
+{% endblock %}

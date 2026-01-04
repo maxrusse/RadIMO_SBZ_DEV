@@ -1,12 +1,8 @@
-<!DOCTYPE html>
-<html lang="de">
+{% extends 'base.html' %}
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RadIMO Cortex | Change Today / Prep Tomorrow</title>
-  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
-  <style>
+{% block title %}RadIMO Cortex | Change Today / Prep Tomorrow{% endblock %}
+
+{% block styles %}
     :root {
       --app-header-bg: #004892;
       --app-header-text: #fff;
@@ -39,8 +35,6 @@
       max-width: 1800px;
       margin: 0 auto;
     }
-
-    {% include 'partials/header_styles.html' %}
 
     .card {
       background: white;
@@ -1042,10 +1036,9 @@
       color: #666;
       font-size: 0.9rem;
     }
-  </style>
-</head>
+{% endblock %}
 
-<body>
+{% block content %}
   {% set header_title = 'RadIMO Cortex | Change Today / Prep Tomorrow' %}
   {% set header_subtitle = "Manage current schedule or prepare tomorrow's schedule" %}
   {% set header_mode = 'global' %}
@@ -1294,6 +1287,4 @@
 
   <script src="{{ url_for('static', filename='js/timeline.js') }}"></script>
   <script src="{{ url_for('static', filename='js/prep_next_day.js') }}"></script>
-</body>
-
-</html>
+{% endblock %}

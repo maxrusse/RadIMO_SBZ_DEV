@@ -1,12 +1,8 @@
-<!DOCTYPE html>
-<html lang="de">
+{% extends 'base.html' %}
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RadIMO Cortex | Admin</title>
-  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
-  <style>
+{% block title %}RadIMO Cortex | Admin{% endblock %}
+
+{% block styles %}
     :root {
       --app-header-bg: #004892;
       --app-header-text: #fff;
@@ -39,8 +35,6 @@
       max-width: 1800px;
       margin: 0 auto;
     }
-
-    {% include 'partials/header_styles.html' %}
 
     .card {
       background: white;
@@ -260,10 +254,9 @@
     .skill-column {
       text-align: center;
     }
-  </style>
-</head>
+{% endblock %}
 
-<body>
+{% block content %}
   {% set header_title = 'RadIMO Cortex | Admin' %}
   {% set header_subtitle = 'CSV Management & System' %}
   {% set header_mode = 'global' %}
@@ -515,6 +508,4 @@
       btn.textContent = 'Preload Tomorrow';
     }
   </script>
-</body>
-
-</html>
+{% endblock %}

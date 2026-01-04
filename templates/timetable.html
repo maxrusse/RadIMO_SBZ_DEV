@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html lang="de">
+{% extends 'base.html' %}
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RadIMO Cortex | Timetable</title>
-  <style>
+{% block title %}RadIMO Cortex | Timetable{% endblock %}
+
+{% block styles %}
     :root {
       --disabled-color: #888;
       --primary-color: #004892;
@@ -41,8 +38,6 @@
     body[data-modality] {
       background: var(--modality-bg, var(--body-bg));
     }
-
-    {% include 'partials/header_styles.html' %}
 
     /* Filter bars */
     .skill-filter-bar {
@@ -283,11 +278,12 @@
       font-size: 1.1rem;
     }
 
-  </style>
-</head>
+{% endblock %}
 
-<body data-modality="{{ modality }}">
-  {% set header_title = 'RadIMO Cortex' %}
+{% block body_attrs %} data-modality="{{ modality }}"{% endblock %}
+
+{% block content %}
+  {% set header_title = 'RadIMO Cortex | Timetable' %}
   {% set header_subtitle = 'Intelligent Radiology Orchestration' %}
   {% set header_mode = 'global' %}
   {% set header_links = [
@@ -362,6 +358,4 @@
       data: {{ debug_data|safe }}
     });
   </script>
-</body>
-
-</html>
+{% endblock %}
