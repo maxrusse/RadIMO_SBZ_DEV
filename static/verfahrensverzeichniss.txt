@@ -85,8 +85,13 @@ Empfänger:
 5. Sicherheitsmaßnahmen und Zugriff
 ------------------------------------------------------------
 Technisch:
-  - Admin-Zugang passwortgeschützt (über config.yaml).
+  - Zwei-Stufen-Zugriffskontrolle:
+    1. Basis-Zugang (access_password) für öffentliche Ansichten.
+    2. Admin-Zugang (admin_password) für Bearbeitungsfunktionen.
+  - Einheitliche Login-Oberfläche (login.html) mit kontextabhängiger 
+    Darstellung je nach Zugangsstufe.
   - Session-Management mit kryptografischem Key.
+  - Permanente Sessions für Basis-Zugang (365 Tage Cookie-Lebenszeit).
   - Zugriff nur über LAN/VPN möglich (kein öffentliches Routing).
   - Umfangreiches Logging (Audit-Trail) aller Zuweisungs-Aktionen.
   - Thread-sichere Datenhaltung im RAM mit persistenter Sicherung.
@@ -173,7 +178,7 @@ Kontakt für Datenschutzanfragen:
   Dr. M. Russe / Systemverantwortlicher.
 
 ============================================================
-Stand: 2025-12-21
+Stand: 2026-01-04
 Version: V20
 Nächste Überprüfung: 2026-06-01
 ============================================================

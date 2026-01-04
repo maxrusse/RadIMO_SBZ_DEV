@@ -338,7 +338,7 @@ def login():
             return redirect(url_for('routes.upload_file', modality=modality))
         else:
             error = "Falsches Passwort"
-    return render_template("login.html", error=error, modality=modality)
+    return render_template("login.html", error=error, modality=modality, login_type='admin')
 
 @routes.route('/logout')
 def logout():
@@ -373,7 +373,7 @@ def access_login():
         else:
             error = "Falsches Passwort"
 
-    return render_template("access_login.html", error=error, modality=modality)
+    return render_template("login.html", error=error, modality=modality, login_type='access')
 
 
 @routes.route('/access-logout')
