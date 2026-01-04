@@ -110,7 +110,8 @@ def calculate_work_hours_now(current_dt: datetime, modality: str) -> dict:
     df_copy = d['working_hours_df'].copy()
 
     if 'counts_for_hours' in df_copy.columns:
-        df_copy = df_copy[df_copy['counts_for_hours'].fillna(False).astype(bool)].copy()
+        # Default to True (count for hours) if value is missing
+        df_copy = df_copy[df_copy['counts_for_hours'].fillna(True).astype(bool)].copy()
 
     if df_copy.empty:
         return {}
@@ -240,48 +241,6 @@ def _apply_minimum_balancer(filtered_df: pd.DataFrame, column: str, modality: st
     if prioritized.empty:
         return filtered_df
     return prioritized
-
-def _should_balance_via_fallback(filtered_df: pd.DataFrame, column: str, modality: str) -> bool:
-    if not isinstance(column, str):
-        return False
-    if filtered_df.empty or not BALANCER_SETTINGS.get('enabled', True):
-        return False
-    if not BALANCER_SETTINGS.get('allow_fallback_on_imbalance', True):
-        return False
-
-    threshold_pct = float(BALANCER_SETTINGS.get('imbalance_threshold_pct', 0))
-    if threshold_pct <= 0:
-        return False
-
-    skill_counts = modality_data[modality]['skill_counts'].get(column, {})
-    if not skill_counts:
-        return False
-
-    current_dt = get_local_now()
-    hours_map = calculate_work_hours_now(current_dt, modality)
-
-    worker_ratios = []
-    for worker in filtered_df['PPL'].unique():
-        canonical_id = get_canonical_worker_id(worker)
-        weighted_assignments = get_global_weighted_count(canonical_id)
-        hours_worked = hours_map.get(canonical_id, 0)
-
-        if hours_worked <= 0:
-            continue
-
-        ratio = weighted_assignments / hours_worked
-        worker_ratios.append(ratio)
-
-    if len(worker_ratios) < 2:
-        return False
-
-    max_ratio = max(worker_ratios)
-    min_ratio = min(worker_ratios)
-    if max_ratio == 0:
-        return False
-
-    imbalance = (max_ratio - min_ratio) / max_ratio
-    return imbalance >= (threshold_pct / 100.0)
 
 def _get_worker_exclusion_based(
     current_dt: datetime,

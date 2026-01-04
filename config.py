@@ -60,6 +60,24 @@ def _load_raw_config() -> Dict[str, Any]:
         selection_logger.warning("Failed to load config.yaml: %s", exc)
         return {}
 
+def _validate_name(name: str, name_type: str) -> None:
+    """Warn if a modality or skill name contains problematic characters.
+
+    Underscores and spaces in names would break the skill_modality key format
+    (e.g., 'MSK_ct') which uses '_' as the separator.
+    """
+    if '_' in name:
+        selection_logger.warning(
+            "%s name '%s' contains underscore - this will break skill_modality key parsing. "
+            "Please rename to remove underscores.", name_type, name
+        )
+    if ' ' in name:
+        selection_logger.warning(
+            "%s name '%s' contains space - this may cause inconsistencies. "
+            "Consider removing spaces.", name_type, name
+        )
+
+
 def _build_app_config() -> Dict[str, Any]:
     raw_config = _load_raw_config()
     config: Dict[str, Any] = {
@@ -75,6 +93,7 @@ def _build_app_config() -> Dict[str, Any]:
     user_modalities = raw_config.get('modalities') or {}
     if isinstance(user_modalities, dict):
         for key, mod_data in user_modalities.items():
+            _validate_name(key, "Modality")
             if isinstance(mod_data, dict):
                 merged_modalities[key] = dict(mod_data)
 
@@ -93,6 +112,7 @@ def _build_app_config() -> Dict[str, Any]:
     user_skills = raw_config.get('skills') or {}
     if isinstance(user_skills, dict):
         for key, skill_data in user_skills.items():
+            _validate_name(key, "Skill")
             if isinstance(skill_data, dict):
                 merged_skills[key] = dict(skill_data)
 
@@ -207,8 +227,16 @@ skill_modality_overrides = APP_CONFIG.get('skill_modality_overrides', {})
 # Build skill metadata
 SKILL_COLUMNS, SKILL_SLUG_MAP, SKILL_TEMPLATES, skill_weights = _build_skill_metadata(SKILL_SETTINGS)
 
-# Build dynamic role map from config (slug -> canonical name)
+# Build case-insensitive lookup maps for skills
+# - ROLE_MAP: slug.lower() -> canonical name (for URL/API role lookups)
+# - skill_columns_map: name.lower() -> canonical name (for case-insensitive name lookups)
 ROLE_MAP = {slug.lower(): name for name, slug in SKILL_SLUG_MAP.items()}
+skill_columns_map = {s.lower(): s for s in SKILL_COLUMNS}
+
+def _resolve_skill(key_lower: str) -> Optional[str]:
+    """Resolve a lowercase skill key to its canonical name via slug or direct match."""
+    return ROLE_MAP.get(key_lower) or skill_columns_map.get(key_lower)
+
 
 def _normalize_exclude_skills(raw_exclude_skills: Dict[str, List[str]]) -> Dict[str, List[str]]:
     """
@@ -229,64 +257,38 @@ def _normalize_exclude_skills(raw_exclude_skills: Dict[str, List[str]]) -> Dict[
             continue
 
         key_lower = key.lower().strip()
-
-        # Determine if key is skill, modality, or combo
-        is_skill_only = key_lower in ROLE_MAP or any(s.lower() == key_lower for s in SKILL_COLUMNS)
-        is_modality_only = key_lower in allowed_modalities_map
-        is_combo = '_' in key_lower
-
-        # Normalize the key to canonical skill name(s)
         canonical_keys = []
 
-        if is_combo:
+        if '_' in key_lower:
             # Handle skill_mod or mod_skill combo
             parts = key_lower.split('_')
             if len(parts) == 2:
-                # Try skill_mod first
-                skill_candidate = ROLE_MAP.get(parts[0])
-                modality_candidate = allowed_modalities_map.get(parts[1])
+                # Try skill_mod first, then mod_skill
+                skill = _resolve_skill(parts[0])
+                mod = allowed_modalities_map.get(parts[1])
+                if not (skill and mod):
+                    skill = _resolve_skill(parts[1])
+                    mod = allowed_modalities_map.get(parts[0])
+                if skill and mod:
+                    canonical_keys.append(f"{skill}_{mod}")
 
-                if skill_candidate and modality_candidate:
-                    # Valid skill_mod combo
-                    canonical_keys.append(f"{skill_candidate}_{modality_candidate}")
-                else:
-                    # Try mod_skill
-                    skill_candidate = ROLE_MAP.get(parts[1])
-                    modality_candidate = allowed_modalities_map.get(parts[0])
-                    if skill_candidate and modality_candidate:
-                        canonical_keys.append(f"{skill_candidate}_{modality_candidate}")
+        elif _resolve_skill(key_lower):
+            # Skill only - expand to all modalities
+            canonical_skill = _resolve_skill(key_lower)
+            canonical_keys = [f"{canonical_skill}_{mod}" for mod in allowed_modalities]
 
-        elif is_skill_only:
-            # Expand to all modalities for this skill
-            canonical_skill = ROLE_MAP.get(key_lower)
-            if canonical_skill:
-                for mod in allowed_modalities:
-                    canonical_keys.append(f"{canonical_skill}_{mod}")
+        elif key_lower in allowed_modalities_map:
+            # Modality only - expand to all skills
+            canonical_mod = allowed_modalities_map[key_lower]
+            canonical_keys = [f"{skill}_{canonical_mod}" for skill in SKILL_COLUMNS]
 
-        elif is_modality_only:
-            # Expand to all skills for this modality
-            canonical_modality = allowed_modalities_map.get(key_lower)
-            if canonical_modality:
-                for skill in SKILL_COLUMNS:
-                    canonical_keys.append(f"{skill}_{canonical_modality}")
-
-        # Normalize the exclude list
+        # Normalize the exclude list using the same resolution
         normalized_excludes = []
         for exclude_item in exclude_list:
-            if not isinstance(exclude_item, str):
-                continue
-
-            exclude_lower = exclude_item.lower().strip()
-
-            # Check if it's a skill name (canonical)
-            if exclude_lower in ROLE_MAP:
-                normalized_excludes.append(ROLE_MAP[exclude_lower])
-            elif any(s.lower() == exclude_lower for s in SKILL_COLUMNS):
-                # Find canonical name
-                for s in SKILL_COLUMNS:
-                    if s.lower() == exclude_lower:
-                        normalized_excludes.append(s)
-                        break
+            if isinstance(exclude_item, str):
+                canonical = _resolve_skill(exclude_item.lower().strip())
+                if canonical:
+                    normalized_excludes.append(canonical)
 
         # Add to result
         for canonical_key in canonical_keys:
@@ -330,9 +332,5 @@ def normalize_modality(modality_value: Optional[str]) -> str:
 def normalize_skill(skill_name: Optional[str]) -> str:
     if not skill_name:
         return SKILL_COLUMNS[0] if SKILL_COLUMNS else ''
-    skill_lower = skill_name.lower().strip()
-    for s in SKILL_COLUMNS:
-        if s.lower() == skill_lower:
-            return s
-    return skill_name.strip()
+    return skill_columns_map.get(skill_name.lower().strip(), skill_name.strip())
 
