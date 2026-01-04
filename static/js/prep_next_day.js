@@ -791,6 +791,7 @@ async function loadTabData(tab) {
     }
 
     renderTable(tab);
+    renderTimeline(tab);  // Update timeline chart
   } catch (error) {
     console.error(`Load error for ${tab}:`, error);
     showMessage('error', `Error loading ${tab} data: ${error.message}`);
@@ -2953,6 +2954,112 @@ function showMessage(type, message) {
   container.innerHTML = '';
   container.appendChild(div);
   setTimeout(() => { container.innerHTML = ''; }, 5000);
+}
+
+// =============================================
+// TIMELINE CHART INTEGRATION
+// =============================================
+
+// Build skill color map from SKILL_SETTINGS
+function buildSkillColorMap() {
+  const colorMap = {};
+  SKILLS.forEach(skill => {
+    const settings = SKILL_SETTINGS[skill] || {};
+    colorMap[skill.toLowerCase()] = settings.button_color || '#6c757d';
+  });
+  return colorMap;
+}
+
+// Build skill slug map (skill name -> lowercase slug)
+function buildSkillSlugMap() {
+  const slugMap = {};
+  SKILLS.forEach(skill => {
+    slugMap[skill] = skill.toLowerCase();
+  });
+  return slugMap;
+}
+
+// Convert entriesData format to timeline chart format
+function convertToTimelineData(tab) {
+  const groups = entriesData[tab] || [];
+  const timelineEntries = [];
+
+  groups.forEach(group => {
+    const worker = group.worker;
+    const shifts = group.shiftsArray || [];
+
+    shifts.forEach(shift => {
+      // For each modality in the shift, create an entry
+      Object.entries(shift.modalities || {}).forEach(([modKey, modData]) => {
+        // Only include if row_index >= 0 (actually assigned)
+        if (modData.row_index === undefined || modData.row_index < 0) return;
+
+        const entry = {
+          PPL: worker,
+          worker: worker,
+          start_time: shift.start_time,
+          end_time: shift.end_time,
+          TIME: `${shift.start_time}-${shift.end_time}`,
+          _modality: modKey,
+          modality: modKey,
+          gaps: shift.gaps || []
+        };
+
+        // Add skill values
+        SKILLS.forEach(skill => {
+          const val = modData.skills?.[skill];
+          entry[skill] = val !== undefined ? val : 0;
+        });
+
+        timelineEntries.push(entry);
+      });
+    });
+  });
+
+  return timelineEntries;
+}
+
+// Render timeline chart for a tab
+function renderTimeline(tab) {
+  const gridEl = document.getElementById(`timeline-grid-${tab}`);
+  const headerEl = document.getElementById(`time-header-${tab}`);
+  const legendEl = document.getElementById(`timeline-legend-${tab}`);
+
+  if (!gridEl || typeof TimelineChart === 'undefined') {
+    return;
+  }
+
+  // Convert data to timeline format
+  const timelineData = convertToTimelineData(tab);
+
+  // Build color and slug maps
+  const skillColorMap = buildSkillColorMap();
+  const skillSlugMap = buildSkillSlugMap();
+
+  // Render timeline using shared module
+  TimelineChart.render({
+    gridEl: gridEl,
+    headerEl: headerEl,
+    data: timelineData,
+    skillColumns: SKILLS,
+    skillSlugMap: skillSlugMap,
+    skillColorMap: skillColorMap,
+    mergeModalities: true,  // Merge entries across modalities
+    showCurrentTime: tab === 'today',  // Only show current time for today
+    timeLineId: `current-time-line-${tab}`
+  });
+
+  // Build legend
+  if (legendEl) {
+    legendEl.innerHTML = SKILLS.map(skill => {
+      const settings = SKILL_SETTINGS[skill] || {};
+      const color = settings.button_color || '#6c757d';
+      return `<div class="legend-item">
+        <div class="legend-box" style="background: ${color};"></div>
+        <span>${escapeHtml(skill)}</span>
+      </div>`;
+    }).join('');
+  }
 }
 
 // Initialize edit mode UI and load current tab (lazy loading)

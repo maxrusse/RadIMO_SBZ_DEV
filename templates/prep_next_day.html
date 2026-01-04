@@ -886,6 +886,182 @@
     .action-cell .btn {
       margin: 0.1rem;
     }
+
+    /* Timeline Chart Styles */
+    :root {
+      --timeline-start: 6;
+      --timeline-end: 20;
+      --timeline-hours: 14;
+      --worker-col-width: 140px;
+    }
+
+    .timeline-card {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      padding: 1rem;
+      margin-top: 1rem;
+    }
+
+    .timeline-card h3 {
+      margin: 0 0 0.75rem 0;
+      font-size: 1rem;
+      color: #004892;
+    }
+
+    .timeline-wrapper {
+      overflow-x: auto;
+      overflow-y: visible;
+    }
+
+    .timeline-grid {
+      display: grid;
+      grid-template-columns: var(--worker-col-width) 1fr;
+      min-width: 700px;
+      position: relative;
+    }
+
+    .time-header {
+      grid-column: 2;
+      display: flex;
+      border-bottom: 2px solid #ddd;
+      background: #f8f9fa;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .time-header-label {
+      grid-column: 1;
+      background: #f8f9fa;
+      border-bottom: 2px solid #ddd;
+      padding: 0.5rem;
+      font-weight: 600;
+      font-size: 0.8rem;
+      position: sticky;
+      top: 0;
+      left: 0;
+      z-index: 11;
+    }
+
+    .time-slot {
+      flex: 1;
+      text-align: center;
+      padding: 0.4rem 0;
+      font-size: 0.7rem;
+      color: #666;
+      border-left: 1px solid #eee;
+    }
+
+    .time-slot:first-child {
+      border-left: none;
+    }
+
+    .worker-row {
+      display: contents;
+    }
+
+    .worker-name-cell {
+      padding: 0.35rem 0.5rem;
+      font-size: 0.78rem;
+      font-weight: 500;
+      background: #fff;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      align-items: center;
+      position: sticky;
+      left: 0;
+      z-index: 5;
+      min-height: 32px;
+    }
+
+    .worker-timeline {
+      position: relative;
+      height: 32px;
+      background: linear-gradient(90deg,
+          transparent calc(100% / 14 * 0), #f0f0f0 calc(100% / 14 * 0), #f0f0f0 calc(100% / 14 * 0 + 1px),
+          transparent calc(100% / 14 * 1), #f0f0f0 calc(100% / 14 * 1), #f0f0f0 calc(100% / 14 * 1 + 1px),
+          transparent calc(100% / 14 * 2), #f0f0f0 calc(100% / 14 * 2), #f0f0f0 calc(100% / 14 * 2 + 1px),
+          transparent calc(100% / 14 * 3), #f0f0f0 calc(100% / 14 * 3), #f0f0f0 calc(100% / 14 * 3 + 1px),
+          transparent calc(100% / 14 * 4), #f0f0f0 calc(100% / 14 * 4), #f0f0f0 calc(100% / 14 * 4 + 1px),
+          transparent calc(100% / 14 * 5), #f0f0f0 calc(100% / 14 * 5), #f0f0f0 calc(100% / 14 * 5 + 1px),
+          transparent calc(100% / 14 * 6), #f0f0f0 calc(100% / 14 * 6), #f0f0f0 calc(100% / 14 * 6 + 1px),
+          transparent calc(100% / 14 * 7), #f0f0f0 calc(100% / 14 * 7), #f0f0f0 calc(100% / 14 * 7 + 1px),
+          transparent calc(100% / 14 * 8), #f0f0f0 calc(100% / 14 * 8), #f0f0f0 calc(100% / 14 * 8 + 1px),
+          transparent calc(100% / 14 * 9), #f0f0f0 calc(100% / 14 * 9), #f0f0f0 calc(100% / 14 * 9 + 1px),
+          transparent calc(100% / 14 * 10), #f0f0f0 calc(100% / 14 * 10), #f0f0f0 calc(100% / 14 * 10 + 1px),
+          transparent calc(100% / 14 * 11), #f0f0f0 calc(100% / 14 * 11), #f0f0f0 calc(100% / 14 * 11 + 1px),
+          transparent calc(100% / 14 * 12), #f0f0f0 calc(100% / 14 * 12), #f0f0f0 calc(100% / 14 * 12 + 1px),
+          transparent calc(100% / 14 * 13), #f0f0f0 calc(100% / 14 * 13), #f0f0f0 calc(100% / 14 * 13 + 1px),
+          transparent 100%);
+      border-bottom: 1px solid #eee;
+    }
+
+    .shift-bar {
+      position: absolute;
+      top: 3px;
+      height: 26px;
+      border-radius: 4px;
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      cursor: default;
+      overflow: hidden;
+      transition: opacity 0.15s;
+    }
+
+    .shift-bar:hover {
+      z-index: 2;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .current-time-line {
+      position: absolute;
+      top: 28px;
+      bottom: 0;
+      width: 2px;
+      background: #dc3545;
+      z-index: 8;
+      pointer-events: none;
+    }
+
+    .current-time-line::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -4px;
+      width: 10px;
+      height: 10px;
+      background: #dc3545;
+      border-radius: 50%;
+    }
+
+    .timeline-legend {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+      flex-wrap: wrap;
+      font-size: 0.75rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .legend-box {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+    }
+
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 2rem 1rem;
+      color: #666;
+      font-size: 0.9rem;
+    }
   </style>
 </head>
 
@@ -988,6 +1164,18 @@
       <div id="summary-today" class="summary-wrapper"></div>
       <p style="margin-top: 0.5rem; font-size: 0.75rem; color: #666;">★ = Worker has multiple entries (double shift)</p>
     </div>
+
+    <!-- Timeline Chart for Today -->
+    <div class="timeline-card">
+      <h3>Timeline View</h3>
+      <div class="timeline-wrapper">
+        <div id="timeline-grid-today" class="timeline-grid">
+          <div class="time-header-label">Worker</div>
+          <div class="time-header" id="time-header-today"></div>
+        </div>
+      </div>
+      <div class="timeline-legend" id="timeline-legend-today"></div>
+    </div>
   </div>
 
   <!-- TOMORROW TAB -->
@@ -1068,6 +1256,18 @@
       <div id="summary-tomorrow" class="summary-wrapper"></div>
       <p style="margin-top: 0.5rem; font-size: 0.75rem; color: #666;">★ = Worker has multiple entries (double shift)</p>
     </div>
+
+    <!-- Timeline Chart for Tomorrow -->
+    <div class="timeline-card">
+      <h3>Timeline View</h3>
+      <div class="timeline-wrapper">
+        <div id="timeline-grid-tomorrow" class="timeline-grid">
+          <div class="time-header-label">Worker</div>
+          <div class="time-header" id="time-header-tomorrow"></div>
+        </div>
+      </div>
+      <div class="timeline-legend" id="timeline-legend-tomorrow"></div>
+    </div>
   </div>
 
   <!-- Edit Modal -->
@@ -1114,6 +1314,7 @@
     }
   </script>
 
+  <script src="{{ url_for('static', filename='js/timeline.js') }}"></script>
   <script src="{{ url_for('static', filename='js/prep_next_day.js') }}"></script>
 </body>
 
