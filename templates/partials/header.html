@@ -1,0 +1,47 @@
+<header class="app-header">
+  <div class="app-header__main">
+    <div class="app-header__branding">
+      <h1 class="app-header__title">{{ header_title }}</h1>
+      {% if header_subtitle %}
+      <p class="app-header__subtitle">{{ header_subtitle }}</p>
+      {% endif %}
+    </div>
+    {% if header_links %}
+    <nav class="app-nav">
+      {% for link in header_links %}
+      <a href="{{ link.href }}"
+        class="nav-link{% if link.active %} nav-link--active{% endif %}{% if link.pill %} nav-link--pill{% endif %}{% if link.accent %} nav-link--accent{% endif %}">
+        {{ link.label }}
+      </a>
+      {% endfor %}
+    </nav>
+    {% endif %}
+  </div>
+  {% if header_mode == 'scoped' and (selector_links or view_toggle_items) %}
+  <div class="app-header__subheader">
+    {% if selector_links %}
+    <div class="header-selector">
+      {{ selector_links | safe }}
+    </div>
+    {% endif %}
+    {% if view_toggle_items %}
+    <div class="header-context">
+      {% if view_toggle_label %}
+      <span class="header-context__label">{{ view_toggle_label }}</span>
+      {% endif %}
+      <div class="header-context__links">
+        {% for item in view_toggle_items %}
+        <a href="{{ item.href }}" class="nav-link nav-link--pill{% if item.active %} nav-link--active{% endif %}">
+          {{ item.label }}
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% elif header_mode == 'global' %}
+  <div class="app-header__subheader app-header__subheader--global">
+    <span class="header-context header-context--global">Global view</span>
+  </div>
+  {% endif %}
+</header>

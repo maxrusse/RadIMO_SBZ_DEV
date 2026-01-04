@@ -25,43 +25,7 @@
       margin: 0 auto;
     }
 
-    /* Header & Selector */
-    .premium-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: var(--header-bg);
-      padding: 1rem 2rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      margin-bottom: 1rem;
-    }
-
-    .premium-header h1 {
-      font-size: 1.75rem;
-      margin: 0;
-    }
-
-    .modality-selector {
-      display: flex;
-      gap: 1rem;
-    }
-
-    .modality-selector a {
-      text-decoration: none;
-      font-weight: bold;
-      padding: 0.5rem 1rem;
-      border-radius: 20px;
-      background: var(--tab-bg);
-      color: var(--tab-color);
-      border: 2px solid #ddd;
-      /* Default border */
-      transition: border-width 0.2s;
-    }
-
-    .modality-selector a.active {
-      border-width: 4px;
-    }
+    {% include 'partials/header_styles.html' %}
 
     /* Card Container */
     .card {
@@ -131,21 +95,18 @@
 </head>
 
 <body data-modality="{{ modality }}">
-  <header class="premium-header">
-    <div>
-      <h1>RadIMO Cortex</h1>
-      <p style="margin: 0; opacity: 0.8; font-size: 0.9rem;">{% if login_type == 'admin' %}Admin Login{% else
-        %}Zugangskontrolle{% endif %}</p>
-    </div>
-    <div class="modality-selector">
-      {% for mod in modality_order %}
-      <a href="{% if login_type == 'admin' %}{{ url_for('routes.login', modality=mod) }}{% else %}{{ url_for('routes.access_login', modality=mod) }}{% endif %}"
-        data-modality="{{ mod }}" class="{% if modality == mod %}active{% endif %}">
-        {{ modality_labels[mod] }}
-      </a>
-      {% endfor %}
-    </div>
-  </header>
+  {% set header_title = 'RadIMO Cortex' %}
+  {% set header_subtitle = 'Admin Login' if login_type == 'admin' else 'Zugangskontrolle' %}
+  {% set header_mode = 'scoped' %}
+  {% set selector_links %}
+    {% for mod in modality_order %}
+    <a href="{% if login_type == 'admin' %}{{ url_for('routes.login', modality=mod) }}{% else %}{{ url_for('routes.access_login', modality=mod) }}{% endif %}"
+      data-modality="{{ mod }}" class="selector-link{% if modality == mod %} selector-link--active{% endif %}">
+      {{ modality_labels[mod] }}
+    </a>
+    {% endfor %}
+  {% endset %}
+  {% include 'partials/header.html' %}
 
   <div class="card login-container">
     <h2>{% if login_type == 'admin' %}Admin Login{% else %}Zugang{% endif %}</h2>
@@ -180,7 +141,7 @@
       }
 
       // Border colors for links
-      document.querySelectorAll('.modality-selector a').forEach(a => {
+      document.querySelectorAll('.header-selector .selector-link').forEach(a => {
         const mod = a.getAttribute('data-modality');
         if (modalities[mod]) {
           a.style.borderColor = modalities[mod].nav_color;

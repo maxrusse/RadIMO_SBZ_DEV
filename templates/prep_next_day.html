@@ -7,6 +7,25 @@
   <title>RadIMO Cortex | Change Today / Prep Tomorrow</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
   <style>
+    :root {
+      --app-header-bg: #004892;
+      --app-header-text: #fff;
+      --app-header-link-color: #fff;
+      --app-header-link-bg: rgba(255, 255, 255, 0.2);
+      --app-header-link-hover-bg: rgba(255, 255, 255, 0.3);
+      --app-header-link-active-bg: rgba(255, 255, 255, 0.4);
+      --app-header-link-active-color: #fff;
+      --app-subheader-bg: rgba(255, 255, 255, 0.2);
+      --app-subheader-text: #fff;
+      --header-context-color: #e6eef8;
+      --header-context-global-color: #fff;
+      --pill-bg: rgba(255, 255, 255, 0.2);
+      --pill-hover-bg: rgba(255, 255, 255, 0.3);
+      --pill-active-bg: rgba(255, 255, 255, 0.4);
+      --pill-color: #fff;
+      --pill-active-color: #fff;
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -21,46 +40,7 @@
       margin: 0 auto;
     }
 
-    .header {
-      background: #004892;
-      color: white;
-      padding: 1rem 2rem;
-      border-radius: 8px;
-      margin-bottom: 1rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 1rem;
-    }
-
-    .header h1 {
-      margin: 0;
-      font-size: 1.5rem;
-    }
-
-    .header-actions {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .header-actions a,
-    .header-actions button {
-      color: white;
-      text-decoration: none;
-      padding: 0.5rem 1rem;
-      background: rgba(255, 255, 255, 0.2);
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9rem;
-    }
-
-    .header-actions a:hover,
-    .header-actions button:hover {
-      background: rgba(255, 255, 255, 0.3);
-    }
+    {% include 'partials/header_styles.html' %}
 
     .card {
       background: white;
@@ -1066,19 +1046,17 @@
 </head>
 
 <body>
-  <div class="header">
-    <div>
-      <h1>RadIMO Cortex | Change Today / Prep Tomorrow</h1>
-      <p style="font-size: 0.85rem; opacity: 0.9;">Manage current schedule or prepare tomorrow's schedule</p>
-    </div>
-    <div class="header-actions">
-      <a href="{{ url_for('routes.index') }}">Dashboard</a>
-      <a href="{{ url_for('routes.timetable') }}">Timetable</a>
-      <a href="{{ url_for('routes.skill_roster_page') }}">Skill Matrix</a>
-      <a href="{{ url_for('routes.upload_file') }}">Upload</a>
-      <a href="{{ url_for('routes.logout') }}">Logout</a>
-    </div>
-  </div>
+  {% set header_title = 'RadIMO Cortex | Change Today / Prep Tomorrow' %}
+  {% set header_subtitle = "Manage current schedule or prepare tomorrow's schedule" %}
+  {% set header_mode = 'global' %}
+  {% set header_links = [
+    {'href': url_for('routes.index'), 'label': 'Dashboard', 'pill': True},
+    {'href': url_for('routes.timetable'), 'label': 'Timetable', 'pill': True},
+    {'href': url_for('routes.skill_roster_page'), 'label': 'Skill Matrix', 'pill': True},
+    {'href': url_for('routes.upload_file'), 'label': 'Upload', 'pill': True},
+    {'href': url_for('routes.logout'), 'label': 'Logout', 'pill': True}
+  ] %}
+  {% include 'partials/header.html' %}
 
   <div id="message-container"></div>
 
