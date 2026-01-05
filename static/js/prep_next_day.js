@@ -700,6 +700,22 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Update hours toggle label based on checkbox state
+function updateHoursToggleLabel(checkbox) {
+  const label = checkbox.nextElementSibling;
+  if (label && label.classList.contains('hours-toggle-label')) {
+    if (checkbox.checked) {
+      label.textContent = 'Counts';
+      label.classList.remove('no-count');
+      label.classList.add('counts');
+    } else {
+      label.textContent = 'No count';
+      label.classList.remove('counts');
+      label.classList.add('no-count');
+    }
+  }
+}
+
 // Tab switching with lazy loading
 async function switchTab(tab) {
   const previousTab = currentTab;
@@ -1715,9 +1731,9 @@ function renderEditModalContent() {
 
   <div style="min-width: 100px;">
     <label style="font-size: 0.75rem; color: #666; display: block;">Hrs Count</label>
-    <label style="display: flex; align-items: center; gap: 0.3rem; padding: 0.4rem; cursor: pointer;" title="If checked, hours from this entry count towards load balancing">
-      <input type="checkbox" id="edit-shift-${shiftIdx}-counts-hours" ${shift.counts_for_hours !== false ? 'checked' : ''}>
-      <span style="font-size: 0.8rem;">${shift.counts_for_hours !== false ? '✓ Yes' : '✗ No'}</span>
+    <label class="hours-toggle" title="Checked = hours count towards load balancing. Unchecked = hours do NOT count.">
+      <input type="checkbox" id="edit-shift-${shiftIdx}-counts-hours" ${shift.counts_for_hours !== false ? 'checked' : ''} onchange="updateHoursToggleLabel(this)">
+      <span class="hours-toggle-label ${shift.counts_for_hours !== false ? 'counts' : 'no-count'}">${shift.counts_for_hours !== false ? 'Counts' : 'No count'}</span>
     </label>
   </div>
 
@@ -1735,45 +1751,52 @@ function renderEditModalContent() {
   </div>
 </div>
 
-<div class="modality-grid">`;
+<table class="worker-skill-table">
+  <thead>
+    <tr>
+      <th class="modality-header">Modality</th>`;
 
-    // Store row indices and render skills per modality
+    // Skill column headers
+    SKILLS.forEach(skill => {
+      const skillSettings = SKILL_SETTINGS[skill] || {};
+      const btnColor = skillSettings.button_color || '#6c757d';
+      const textColor = skillSettings.text_color || '#fff';
+      html += `<th><span class="skill-header" style="background:${btnColor}; color:${textColor};">${escapeHtml(skill)}</span></th>`;
+    });
+
+    html += `</tr>
+  </thead>
+  <tbody>`;
+
+    // One row per modality
     MODALITIES.forEach(mod => {
       const modKey = mod.toLowerCase();
       const data = shift.modalities[modKey] || { skills: {}, row_index: -1, modifier: shift.modifier || 1.0 };
       const navColor = getModalityColor(modKey);
-      const bgColor = getModalityBgColor(modKey) + '30';
       const rowIndex = data.row_index !== undefined ? data.row_index : -1;
-      const isSelected = rowIndex >= 0;
 
-      html += `<div class="modality-card" style="border-color:${navColor}; background:${bgColor};">
-  <header>
-    <span style="color:${navColor}; font-weight: 600;">${mod.toUpperCase()}</span>
-    <button class="btn btn-small btn-secondary" type="button" onclick="applyWorkerSkillPresetForShiftModality(${groupIdx}, ${shiftIdx}, '${modKey}')">Roster - ${mod.toUpperCase()}</button>
-  </header>
-  <input type="hidden" id="edit-shift-${shiftIdx}-${modKey}-rowindex" value="${rowIndex}">
-  <div class="skills-grid">`;
+      html += `<tr>
+      <td class="modality-header" style="color:${navColor}; font-weight:600;">${mod.toUpperCase()}
+        <input type="hidden" id="edit-shift-${shiftIdx}-${modKey}-rowindex" value="${rowIndex}">
+      </td>`;
 
       SKILLS.forEach(skill => {
-        const skillSettings = SKILL_SETTINGS[skill] || {};
-        const btnColor = skillSettings.button_color || '#6c757d';
         const val = normalizeSkillValueJS(data.skills[skill] !== undefined ? data.skills[skill] : (isGapEntry ? -1 : 0));
-        html += `<div class="skill-pill">
-      <select id="edit-shift-${shiftIdx}-${modKey}-skill-${skill}">
-        <option value="-1" ${val === -1 ? 'selected' : ''}>-1</option>
-        <option value="0" ${val === 0 ? 'selected' : ''}>0</option>
-        <option value="1" ${val === 1 ? 'selected' : ''}>1</option>
-        <option value="w" ${isWeightedSkill(val) ? 'selected' : ''}>w</option>
-      </select>
-      <span style="font-size: 0.7rem; background: ${btnColor}; color: ${skillSettings.text_color || '#fff'}; padding: 0.1rem 0.3rem; border-radius: 3px;">${escapeHtml(skill)}</span>
-    </div>`;
+        html += `<td>
+        <select id="edit-shift-${shiftIdx}-${modKey}-skill-${skill}">
+          <option value="-1" ${val === -1 ? 'selected' : ''}>-1</option>
+          <option value="0" ${val === 0 ? 'selected' : ''}>0</option>
+          <option value="1" ${val === 1 ? 'selected' : ''}>1</option>
+          <option value="w" ${isWeightedSkill(val) ? 'selected' : ''}>w</option>
+        </select>
+      </td>`;
       });
 
-      html += `</div>
-</div>`;
+      html += `</tr>`;
     });
 
-    html += `</div>
+    html += `</tbody>
+</table>
   </div>`;
   });
 
@@ -1812,43 +1835,48 @@ function renderEditModalContent() {
 </div>
 <div style="min-width: 100px;">
   <label style="font-size: 0.75rem; color: #666; display: block;">Hrs Count</label>
-  <label style="display: flex; align-items: center; gap: 0.3rem; padding: 0.4rem; cursor: pointer;" title="If checked, hours count towards load balancing">
-    <input type="checkbox" id="modal-add-counts-hours" checked>
-    <span style="font-size: 0.8rem;">✓ Yes</span>
+  <label class="hours-toggle" title="Checked = hours count towards load balancing. Unchecked = hours do NOT count.">
+    <input type="checkbox" id="modal-add-counts-hours" checked onchange="updateHoursToggleLabel(this)">
+    <span class="hours-toggle-label counts">Counts</span>
   </label>
 </div>
   </div>
   <div style="margin-bottom:0.35rem; display:flex; justify-content: space-between; align-items:center;">
-<label style="font-size:0.8rem; font-weight:600;">Modalities & skills</label>
-<span style="font-size:0.75rem; color:#555;">Set skills per modality (all modalities active)</span>
+<label style="font-size:0.8rem; font-weight:600;">Skills per modality</label>
+<span style="font-size:0.75rem; color:#555;">All modalities shown - set skill values per row</span>
   </div>
-  <div class="modality-grid" id="modal-add-modality-grid">`;
+  <table class="worker-skill-table" id="modal-add-skill-table">
+    <thead>
+      <tr>
+        <th class="modality-header">Modality</th>`;
+  SKILLS.forEach(skill => {
+    const skillSettings = SKILL_SETTINGS[skill] || {};
+    const btnColor = skillSettings.button_color || '#6c757d';
+    const textColor = skillSettings.text_color || '#fff';
+    html += `<th><span class="skill-header" style="background:${btnColor}; color:${textColor};">${escapeHtml(skill)}</span></th>`;
+  });
+  html += `</tr>
+    </thead>
+    <tbody>`;
   MODALITIES.forEach(mod => {
     const modKey = mod.toLowerCase();
     const navColor = getModalityColor(modKey);
-    const bgColor = getModalityBgColor(modKey) + '30';
-    html += `<div class="modality-card" style="border-color:${navColor}; background:${bgColor};">
-<header>
-  <span style="color:${navColor}; font-weight: 600;">${mod.toUpperCase()}</span>
-</header>
-<div class="skills-grid">`;
+    html += `<tr>
+      <td class="modality-header" style="color:${navColor}; font-weight:600;">${mod.toUpperCase()}</td>`;
     SKILLS.forEach(skill => {
-      const skillSettings = SKILL_SETTINGS[skill] || {};
-      const btnColor = skillSettings.button_color || '#6c757d';
-      html += `<div class="skill-pill">
-    <select id="modal-add-${modKey}-skill-${skill}">
-      <option value="-1">-1</option>
-      <option value="0" selected>0</option>
-      <option value="1">1</option>
-      <option value="w">w</option>
-    </select>
-    <span style="font-size: 0.7rem; background: ${btnColor}; color: ${skillSettings.text_color || '#fff'}; padding: 0.1rem 0.3rem; border-radius: 3px;">${escapeHtml(skill)}</span>
-  </div>`;
+      html += `<td>
+        <select id="modal-add-${modKey}-skill-${skill}">
+          <option value="-1">-1</option>
+          <option value="0" selected>0</option>
+          <option value="1">1</option>
+          <option value="w">w</option>
+        </select>
+      </td>`;
     });
-    html += `</div>
-  </div>`;
+    html += `</tr>`;
   });
-  html += `</div>
+  html += `</tbody>
+  </table>
 </div>`;
 
   document.getElementById('modal-title').textContent = `Edit Worker - ${group.worker}`;
@@ -1894,7 +1922,7 @@ function onEditShiftTaskChange(shiftIdx, taskName) {
       });
     });
   } else {
-    // Regular shift selected - use day-specific times
+    // Regular shift selected - preload skills from task's skill_overrides (like CSV loading)
     const targetDay = getTargetWeekdayName(tab || currentTab);
     const times = getShiftTimes(taskConfig, targetDay);
     const startEl = document.getElementById(`edit-shift-${shiftIdx}-start`);
@@ -1905,34 +1933,47 @@ function onEditShiftTaskChange(shiftIdx, taskName) {
     const modifierEl = document.getElementById(`edit-shift-${shiftIdx}-modifier`);
     if (modifierEl && taskConfig.modifier) modifierEl.value = taskConfig.modifier.toString();
 
-    // Set skills from task config
-    const taskSkills = taskConfig.skill_overrides || {};
+    // Also update counts_for_hours based on task config
+    const countsEl = document.getElementById(`edit-shift-${shiftIdx}-counts-hours`);
+    if (countsEl) {
+      countsEl.checked = taskConfig.counts_for_hours !== false;
+      updateHoursToggleLabel(countsEl);
+    }
+
+    // Preload skills from task's skill_overrides (supports "Skill_modality" format like CSV loading)
+    const overrides = taskConfig.skill_overrides || {};
     MODALITIES.forEach(mod => {
       const modKey = mod.toLowerCase();
       SKILLS.forEach(skill => {
         const skillSelect = document.getElementById(`edit-shift-${shiftIdx}-${modKey}-skill-${skill}`);
         if (skillSelect) {
-          const val = taskSkills[skill] !== undefined ? taskSkills[skill] : 0;
+          // Check for skill_modality format (e.g., "Notfall_ct") first, then skill-only
+          const skillModKey = `${skill}_${modKey}`;
+          let val = 0;  // Default to passive
+          if (overrides[skillModKey] !== undefined) {
+            val = overrides[skillModKey];
+          } else if (overrides[skill] !== undefined) {
+            val = overrides[skill];
+          } else if (overrides['all'] !== undefined) {
+            val = overrides['all'];
+          }
           skillSelect.value = val.toString();
         }
       });
     });
 
-    // Apply worker roster exclusions (-1)
+    // Apply worker roster exclusions (-1) - roster -1 always wins
     const group = entriesData[tab]?.[groupIdx];
     if (group) {
       const preset = WORKER_SKILLS[group.worker];
       if (preset) {
+        const rosterSkills = preset.skills || preset;
         MODALITIES.forEach(mod => {
           const modKey = mod.toLowerCase();
-          const rosterSkills = preset[modKey] || preset.skills || preset;
           SKILLS.forEach(skill => {
-            const taskVal = taskSkills[skill];
-            if (taskVal === undefined || taskVal <= 0) {
-              const skillSelect = document.getElementById(`edit-shift-${shiftIdx}-${modKey}-skill-${skill}`);
-              if (skillSelect && rosterSkills && rosterSkills[skill] === -1) {
-                skillSelect.value = '-1';
-              }
+            const skillSelect = document.getElementById(`edit-shift-${shiftIdx}-${modKey}-skill-${skill}`);
+            if (skillSelect && rosterSkills && rosterSkills[skill] === -1) {
+              skillSelect.value = '-1';  // Roster -1 always wins
             }
           });
         });
@@ -2017,32 +2058,52 @@ function onModalTaskChange() {
   const modifier = option.dataset.modifier || '1.0';
   document.getElementById('modal-add-modifier').value = modifier;
 
-  const taskSkills = JSON.parse(option.dataset.skills || '{}');
+  // Update hours count checkbox based on task type
+  const countsEl = document.getElementById('modal-add-counts-hours');
+  if (countsEl) {
+    countsEl.checked = isGap ? false : (taskConfig?.counts_for_hours !== false);
+    updateHoursToggleLabel(countsEl);
+  }
 
-  // Apply skills to each modality grid
+  // Preload skills from task's skill_overrides (supports "Skill_modality" format like CSV loading)
+  const overrides = taskConfig?.skill_overrides || {};
+
   MODALITIES.forEach(mod => {
     const modKey = mod.toLowerCase();
     SKILLS.forEach(skill => {
       const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
       if (!el) return;
-      const defaultVal = isGap ? -1 : (taskSkills[skill] !== undefined ? taskSkills[skill] : 0);
-      el.value = defaultVal.toString();
+
+      if (isGap) {
+        el.value = '-1';  // All skills excluded for gaps
+      } else {
+        // Check for skill_modality format (e.g., "Notfall_ct") first, then skill-only
+        const skillModKey = `${skill}_${modKey}`;
+        let val = 0;  // Default to passive
+        if (overrides[skillModKey] !== undefined) {
+          val = overrides[skillModKey];
+        } else if (overrides[skill] !== undefined) {
+          val = overrides[skill];
+        } else if (overrides['all'] !== undefined) {
+          val = overrides['all'];
+        }
+        el.value = val.toString();
+      }
     });
   });
 
-  // Merge with worker roster skills (apply -1 exclusions)
+  // Apply worker roster exclusions (-1) - roster -1 always wins
   const group = entriesData[tab]?.[groupIdx];
   if (group) {
     const preset = WORKER_SKILLS[group.worker];
     if (preset) {
+      const rosterSkills = preset.skills || preset;
       MODALITIES.forEach(mod => {
         const modKey = mod.toLowerCase();
-        const modalitySkills = preset[modKey] || null;
-        const rosterSkills = modalitySkills || preset.skills || preset;
         SKILLS.forEach(skill => {
           const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
-          if (el && rosterSkills && rosterSkills[skill] === -1 && (taskSkills[skill] === undefined || taskSkills[skill] <= 0)) {
-            el.value = '-1';
+          if (el && rosterSkills && rosterSkills[skill] === -1) {
+            el.value = '-1';  // Roster -1 always wins
           }
         });
       });
@@ -2516,26 +2577,37 @@ function closeAddWorkerModal() {
 function addTaskToAddWorkerModal() {
   // Find default task to prefill (prefer shifts over gaps)
   const defaultTask = TASK_ROLES.find(t => t.type === 'shift') || TASK_ROLES[0] || {};
-  const defaultMod = (defaultTask.modalities && defaultTask.modalities[0]) || MODALITIES[0] || 'ct';
 
   // Get day-specific times from task config
   const targetDay = getTargetWeekdayName(addWorkerModalState.tab || currentTab);
   const times = getShiftTimes(defaultTask, targetDay);
 
-  // Default skills from task
-  const defaultSkills = {};
-  SKILLS.forEach(skill => {
-    defaultSkills[skill] = defaultTask.skill_overrides ? (defaultTask.skill_overrides[skill] || 0) : 0;
+  // Initialize skills per modality from task's skill_overrides
+  const skillsByModality = {};
+  MODALITIES.forEach(mod => {
+    const modKey = mod.toLowerCase();
+    skillsByModality[modKey] = {};
+    SKILLS.forEach(skill => {
+      // Check for skill_modality format (e.g., "Notfall_ct") first, then skill-only
+      const skillModKey = `${skill}_${modKey}`;
+      const overrides = defaultTask.skill_overrides || {};
+      if (overrides[skillModKey] !== undefined) {
+        skillsByModality[modKey][skill] = overrides[skillModKey];
+      } else if (overrides[skill] !== undefined) {
+        skillsByModality[modKey][skill] = overrides[skill];
+      } else {
+        skillsByModality[modKey][skill] = 0;  // Default to passive
+      }
+    });
   });
 
   addWorkerModalState.tasks.push({
     task: defaultTask.name || '',
-    modality: defaultMod,
     start_time: times.start,
     end_time: times.end,
     modifier: defaultTask.modifier || 1.0,
-    counts_for_hours: defaultTask.counts_for_hours !== false,  // Default true unless task says false
-    skills: defaultSkills
+    counts_for_hours: defaultTask.counts_for_hours !== false,
+    skillsByModality: skillsByModality
   });
 }
 
@@ -2552,12 +2624,13 @@ function updateAddWorkerTask(idx, field, value) {
   if (!addWorkerModalState.tasks[idx]) return;
   addWorkerModalState.tasks[idx][field] = value;
 
-  // If task changed, update modality, times, modifier, and skills
+  // If task changed, update times, modifier, and skills per modality (preload from config)
   if (field === 'task') {
     const taskConfig = TASK_ROLES.find(t => t.name === value);
     if (taskConfig) {
       const task = addWorkerModalState.tasks[idx];
       const isGap = taskConfig.type === 'gap';
+      const overrides = taskConfig.skill_overrides || {};
 
       // Update counts_for_hours from task config
       task.counts_for_hours = taskConfig.counts_for_hours !== false;
@@ -2572,7 +2645,6 @@ function updateAddWorkerTask(idx, field, value) {
         const targetDay = getTargetWeekdayName(addWorkerModalState.tab || currentTab);
         const dayTimes = times[targetDay] || times.default;
         if (dayTimes) {
-          // Handle both array format and string format
           const firstTime = Array.isArray(dayTimes) ? dayTimes[0] : dayTimes;
           if (firstTime) {
             const [startTime, endTime] = firstTime.split('-');
@@ -2584,39 +2656,48 @@ function updateAddWorkerTask(idx, field, value) {
           task.end_time = '13:00';
         }
 
-        // Set ALL skills to -1 for gaps
-        SKILLS.forEach(skill => {
-          task.skills[skill] = -1;
+        // Set ALL skills to -1 for gaps across all modalities
+        MODALITIES.forEach(mod => {
+          const modKey = mod.toLowerCase();
+          if (!task.skillsByModality[modKey]) task.skillsByModality[modKey] = {};
+          SKILLS.forEach(skill => {
+            task.skillsByModality[modKey][skill] = -1;
+          });
         });
       } else {
-        // Regular shift selected
-        const validModalities = (taskConfig.modalities || []).map(m => m.toLowerCase());
-        if (validModalities.length > 0 && !validModalities.includes(task.modality.toLowerCase())) {
-          task.modality = validModalities[0];
-        }
-
-        // Get day-specific times from task config
+        // Regular shift selected - preload skills from task's skill_overrides (like CSV loading)
         const targetDay = getTargetWeekdayName(addWorkerModalState.tab || currentTab);
         const times = getShiftTimes(taskConfig, targetDay);
         task.start_time = times.start;
         task.end_time = times.end;
         task.modifier = taskConfig.modifier || 1.0;
 
-        // Update skills from task config
-        SKILLS.forEach(skill => {
-          task.skills[skill] = taskConfig.skill_overrides ? (taskConfig.skill_overrides[skill] || 0) : 0;
+        // Apply skill_overrides per modality (supports "Skill_modality" format like CSV loading)
+        MODALITIES.forEach(mod => {
+          const modKey = mod.toLowerCase();
+          if (!task.skillsByModality[modKey]) task.skillsByModality[modKey] = {};
+          SKILLS.forEach(skill => {
+            // Check for skill_modality format (e.g., "Notfall_ct") first
+            const skillModKey = `${skill}_${modKey}`;
+            if (overrides[skillModKey] !== undefined) {
+              task.skillsByModality[modKey][skill] = overrides[skillModKey];
+            } else if (overrides[skill] !== undefined) {
+              // Skill-only override applies to all modalities
+              task.skillsByModality[modKey][skill] = overrides[skill];
+            } else if (overrides['all'] !== undefined) {
+              // "all" shortcut
+              task.skillsByModality[modKey][skill] = overrides['all'];
+            } else {
+              task.skillsByModality[modKey][skill] = 0;  // Default to passive
+            }
+          });
         });
 
-        // Apply worker roster exclusions (-1) if worker is selected
+        // Apply worker roster exclusions (-1) - roster -1 always wins
         const workerInput = document.getElementById('add-worker-name-input');
         const workerName = workerInput ? workerInput.value.trim() : '';
         if (workerName && WORKER_SKILLS[workerName]) {
-          const rosterSkills = WORKER_SKILLS[workerName].skills || WORKER_SKILLS[workerName];
-          SKILLS.forEach(skill => {
-            if (rosterSkills[skill] === -1 && (task.skills[skill] === 0 || task.skills[skill] === undefined)) {
-              task.skills[skill] = -1;
-            }
-          });
+          applyRosterToSkillsByModality(task.skillsByModality, workerName);
         }
       }
 
@@ -2625,10 +2706,28 @@ function updateAddWorkerTask(idx, field, value) {
   }
 }
 
-function updateAddWorkerSkill(idx, skill, value) {
+function updateAddWorkerSkill(idx, modality, skill, value) {
   if (!addWorkerModalState.tasks[idx]) return;
+  const task = addWorkerModalState.tasks[idx];
+  if (!task.skillsByModality[modality]) task.skillsByModality[modality] = {};
   const raw = (value || '').toString().trim();
-  addWorkerModalState.tasks[idx].skills[skill] = raw === 'w' ? 'w' : (parseInt(raw, 10) || 0);
+  task.skillsByModality[modality][skill] = raw === 'w' ? 'w' : (parseInt(raw, 10) || 0);
+}
+
+// Helper: apply roster exclusions to skillsByModality (roster -1 always wins)
+function applyRosterToSkillsByModality(skillsByModality, workerName) {
+  if (!workerName || !WORKER_SKILLS[workerName]) return;
+  const rosterSkills = WORKER_SKILLS[workerName].skills || WORKER_SKILLS[workerName];
+  MODALITIES.forEach(mod => {
+    const modKey = mod.toLowerCase();
+    if (!skillsByModality[modKey]) skillsByModality[modKey] = {};
+    SKILLS.forEach(skill => {
+      // Roster -1 always wins (cannot be overridden)
+      if (rosterSkills[skill] === -1) {
+        skillsByModality[modKey][skill] = -1;
+      }
+    });
+  });
 }
 
 function onAddWorkerNameChange() {
@@ -2636,14 +2735,11 @@ function onAddWorkerNameChange() {
   const workerName = workerInput ? workerInput.value.trim() : '';
 
   if (workerName && WORKER_SKILLS[workerName]) {
-    const rosterSkills = WORKER_SKILLS[workerName].skills || WORKER_SKILLS[workerName];
-    // Apply roster -1 values to any task with 0 value for that skill
+    // Apply roster -1 values to all modalities in all tasks
     addWorkerModalState.tasks.forEach(task => {
-      SKILLS.forEach(skill => {
-        if (rosterSkills[skill] === -1 && (task.skills[skill] === 0 || task.skills[skill] === undefined)) {
-          task.skills[skill] = -1;
-        }
-      });
+      if (task.skillsByModality) {
+        applyRosterToSkillsByModality(task.skillsByModality, workerName);
+      }
     });
     renderAddWorkerModalContent();
   }
@@ -2674,8 +2770,6 @@ function renderAddWorkerModalContent() {
 
   // Render each task
   addWorkerModalState.tasks.forEach((task, idx) => {
-    const taskConfig = TASK_ROLES.find(t => t.name === task.task) || {};
-    const availableModalities = taskConfig.modalities || MODALITIES;
     const borderColor = addWorkerModalState.tab === 'today' ? (UI_COLORS.today_tab || '#28a745') : (UI_COLORS.tomorrow_tab || '#ffc107');
 
     html += `<div style="margin-bottom: 1rem; padding: 0.75rem; border: 2px solid ${borderColor}; border-radius: 8px; background: #fafafa;">
@@ -2690,15 +2784,6 @@ function renderAddWorkerModalContent() {
           <select onchange="updateAddWorkerTask(${idx}, 'task', this.value)" style="width: 100%; padding: 0.4rem; font-size: 0.85rem;">
             ${renderTaskOptionsWithGroups(task.task, true)}
           </select>
-        </div>
-
-        <div style="min-width: 80px;">
-          <label style="font-size: 0.75rem; color: #666; display: block;">Modality</label>
-          <select onchange="updateAddWorkerTask(${idx}, 'modality', this.value)" style="width: 100%; padding: 0.4rem; font-size: 0.85rem;">`;
-    availableModalities.forEach(mod => {
-      html += `<option value="${mod}" ${task.modality === mod ? 'selected' : ''}>${mod.toUpperCase()}</option>`;
-    });
-    html += `</select>
         </div>
 
         <div style="min-width: 90px;">
@@ -2724,32 +2809,51 @@ function renderAddWorkerModalContent() {
 
         <div style="min-width: 100px;">
           <label style="font-size: 0.75rem; color: #666; display: block;">Hrs Count</label>
-          <label style="display: flex; align-items: center; gap: 0.3rem; padding: 0.4rem; cursor: pointer;" title="If checked, hours count towards load balancing">
-            <input type="checkbox" onchange="updateAddWorkerTask(${idx}, 'counts_for_hours', this.checked)" ${task.counts_for_hours !== false ? 'checked' : ''}>
-            <span style="font-size: 0.8rem;">${task.counts_for_hours !== false ? '✓ Yes' : '✗ No'}</span>
+          <label class="hours-toggle" title="Checked = hours count towards load balancing. Unchecked = hours do NOT count.">
+            <input type="checkbox" onchange="updateAddWorkerTask(${idx}, 'counts_for_hours', this.checked); updateHoursToggleLabel(this)" ${task.counts_for_hours !== false ? 'checked' : ''}>
+            <span class="hours-toggle-label ${task.counts_for_hours !== false ? 'counts' : 'no-count'}">${task.counts_for_hours !== false ? 'Counts' : 'No count'}</span>
           </label>
         </div>
       </div>
 
-      <div>
-        <label style="font-size: 0.75rem; color: #666; display: block; margin-bottom: 0.25rem;">Skills:</label>
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">`;
+      <div style="margin-bottom:0.35rem;">
+        <label style="font-size:0.8rem; font-weight:600;">Skills per modality</label>
+      </div>
+      <table class="worker-skill-table">
+        <thead>
+          <tr>
+            <th class="modality-header">Modality</th>`;
     SKILLS.forEach(skill => {
       const skillSettings = SKILL_SETTINGS[skill] || {};
       const btnColor = skillSettings.button_color || '#6c757d';
-      const skillVal = task.skills[skill] !== undefined ? task.skills[skill] : 0;
-      html += `<div style="display: flex; align-items: center; gap: 0.2rem;">
-          <select onchange="updateAddWorkerSkill(${idx}, '${skill}', this.value)" style="padding: 0.2rem; font-size: 0.75rem; width: 42px;">
+      const textColor = skillSettings.text_color || '#fff';
+      html += `<th><span class="skill-header" style="background:${btnColor}; color:${textColor};">${escapeHtml(skill)}</span></th>`;
+    });
+    html += `</tr>
+        </thead>
+        <tbody>`;
+    MODALITIES.forEach(mod => {
+      const modKey = mod.toLowerCase();
+      const navColor = getModalityColor(modKey);
+      const modSkills = task.skillsByModality[modKey] || {};
+      html += `<tr>
+        <td class="modality-header" style="color:${navColor}; font-weight:600;">${mod.toUpperCase()}</td>`;
+      SKILLS.forEach(skill => {
+        const skillVal = modSkills[skill] !== undefined ? modSkills[skill] : 0;
+        const isWeighted = skillVal === 'w' || skillVal === 'W';
+        html += `<td>
+          <select onchange="updateAddWorkerSkill(${idx}, '${modKey}', '${skill}', this.value)">
             <option value="-1" ${skillVal === -1 ? 'selected' : ''}>-1</option>
             <option value="0" ${skillVal === 0 ? 'selected' : ''}>0</option>
             <option value="1" ${skillVal === 1 ? 'selected' : ''}>1</option>
-            <option value="w" ${skillVal === 'w' ? 'selected' : ''}>w</option>
+            <option value="w" ${isWeighted ? 'selected' : ''}>w</option>
           </select>
-          <span style="font-size: 0.7rem; background: ${btnColor}; color: ${skillSettings.text_color || '#fff'}; padding: 0.1rem 0.3rem; border-radius: 3px;">${escapeHtml(skill)}</span>
-        </div>`;
+        </td>`;
+      });
+      html += `</tr>`;
     });
-    html += `</div>
-      </div>
+    html += `</tbody>
+      </table>
     </div>`;
   });
 
@@ -2791,94 +2895,111 @@ async function saveAddWorkerModal() {
     const addedShifts = [];
 
     // 1. Process Normal Tasks (Shifts/Roles) first
+    // For each task, iterate through all modalities in skillsByModality
     for (const task of normalTasks) {
-      const response = await fetch(workerEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          modality: task.modality,
-          worker_data: {
-            PPL: workerName,
-            start_time: task.start_time,
-            end_time: task.end_time,
-            Modifier: task.modifier,
-            counts_for_hours: task.counts_for_hours !== false,
-            tasks: task.task,
-            ...task.skills
-          }
-        })
-      });
+      const skillsByMod = task.skillsByModality || {};
 
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to add worker task');
-      }
+      // Add entry for each modality that has at least one skill != -1
+      for (const modKey of Object.keys(skillsByMod)) {
+        const modSkills = skillsByMod[modKey];
+        // Check if any skill is active (not all -1)
+        const hasActiveSkill = Object.values(modSkills).some(v => v !== -1);
+        if (!hasActiveSkill) continue;  // Skip modality if all skills are -1
 
-      // Capture new row info for gap checking
-      if (result.row_index !== undefined) {
-        addedShifts.push({
-          start: task.start_time,
-          end: task.end_time,
-          modality: task.modality,
-          row_index: result.row_index
+        const response = await fetch(workerEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modality: modKey,
+            worker_data: {
+              PPL: workerName,
+              start_time: task.start_time,
+              end_time: task.end_time,
+              Modifier: task.modifier,
+              counts_for_hours: task.counts_for_hours !== false,
+              tasks: task.task,
+              ...modSkills
+            }
+          })
         });
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to add worker task');
+        }
+
+        // Capture new row info for gap checking
+        if (result.row_index !== undefined) {
+          addedShifts.push({
+            start: task.start_time,
+            end: task.end_time,
+            modality: modKey,
+            row_index: result.row_index
+          });
+        }
       }
     }
 
     // 2. Process Gap Tasks (check for overlaps)
-    // Check overlaps against BOTH newly added shifts AND existing shifts (if worker has existing data)
+    // For gaps, we need to check against all modalities
     const groups = entriesData[tab] || [];
     const existingGroup = groups.find(g => g.worker === workerName);
 
     for (const gap of gapTasks) {
       const gapStart = gap.start_time;
       const gapEnd = gap.end_time;
-      let overlapFound = false;
+      const skillsByMod = gap.skillsByModality || {};
 
-      // A) Check against newly added shifts
-      for (const shift of addedShifts) {
-        if (shift.modality === gap.modality && !(gapEnd <= shift.start || gapStart >= shift.end)) {
-          overlapFound = true;
-          await callAddGap(gapEndpoint, shift.modality, shift.row_index, gap.task, gapStart, gapEnd);
+      // Process each modality in the gap
+      for (const modKey of Object.keys(skillsByMod)) {
+        let overlapFound = false;
+
+        // A) Check against newly added shifts for this modality
+        for (const shift of addedShifts) {
+          if (shift.modality === modKey && !(gapEnd <= shift.start || gapStart >= shift.end)) {
+            overlapFound = true;
+            await callAddGap(gapEndpoint, shift.modality, shift.row_index, gap.task, gapStart, gapEnd);
+          }
         }
-      }
 
-      // B) Check against existing shifts (from entriesData)
-      if (existingGroup && existingGroup.shiftsArray) {
-        for (const shift of existingGroup.shiftsArray) {
-          // Must check each modality in the existing shift
-          const modData = shift.modalities[gap.modality];
-          if (modData && modData.row_index !== undefined && modData.row_index >= 0) {
-            if (!(gapEnd <= shift.start_time || gapStart >= shift.end_time)) {
-              overlapFound = true;
-              await callAddGap(gapEndpoint, gap.modality, modData.row_index, gap.task, gapStart, gapEnd);
+        // B) Check against existing shifts (from entriesData)
+        if (existingGroup && existingGroup.shiftsArray) {
+          for (const shift of existingGroup.shiftsArray) {
+            const modData = shift.modalities[modKey];
+            if (modData && modData.row_index !== undefined && modData.row_index >= 0) {
+              if (!(gapEnd <= shift.start_time || gapStart >= shift.end_time)) {
+                overlapFound = true;
+                await callAddGap(gapEndpoint, modKey, modData.row_index, gap.task, gapStart, gapEnd);
+              }
             }
           }
         }
-      }
 
-      // C) If no overlap, add as standalone row
-      if (!overlapFound) {
-        const response = await fetch(workerEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            modality: gap.modality,
-            worker_data: {
-              PPL: workerName,
-              start_time: gapStart,
-              end_time: gapEnd,
-              Modifier: gap.modifier,
-              counts_for_hours: false, // Gaps usually don't count
-              tasks: gap.task,
-              ...gap.skills
-            }
-          })
-        });
+        // C) If no overlap and any skill is not -1, add as standalone row
+        const modSkills = skillsByMod[modKey];
+        const hasActiveSkill = Object.values(modSkills).some(v => v !== -1);
+        if (!overlapFound && hasActiveSkill) {
+          const response = await fetch(workerEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              modality: modKey,
+              worker_data: {
+                PPL: workerName,
+                start_time: gapStart,
+                end_time: gapEnd,
+                Modifier: gap.modifier,
+                counts_for_hours: false, // Gaps usually don't count
+                tasks: gap.task,
+                ...modSkills
+              }
+            })
+          });
 
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error || 'Failed to add gap task');
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || 'Failed to add gap task');
+          }
         }
       }
     }
