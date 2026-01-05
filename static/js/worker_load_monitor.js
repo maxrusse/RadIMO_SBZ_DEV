@@ -56,7 +56,7 @@ function getLoadColor(weight) {
     highThreshold = absConfig.high;
   }
 
-  if (weight <= 0) return { bg: '#e9ecef', text: '#666' };
+  if (weight <= 0) return { bg: '#e9ecef', text: 'text-muted' };
   if (weight < lowThreshold) return { bg: 'var(--load-green)', text: 'text-green' };
   if (weight < highThreshold) return { bg: 'var(--load-yellow)', text: 'text-yellow' };
   return { bg: 'var(--load-red)', text: 'text-red' };

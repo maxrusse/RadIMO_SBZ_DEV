@@ -1266,8 +1266,6 @@ def worker_load_monitor():
 @admin_required
 def get_worker_load_data():
     """API endpoint returning all worker load data for monitoring."""
-    from balancer import get_global_weighted_count, get_global_assignments
-
     # Collect all unique workers across all modalities
     all_workers = {}  # canonical_id -> {name, shift_info, modality_data}
 
