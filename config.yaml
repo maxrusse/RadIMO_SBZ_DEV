@@ -409,7 +409,7 @@ vendor_mappings:
     #     KopfHals_ct: 0
 
     # CT Private patients shift - specialized assignment
-    - match: "Cortex: CT Privatpatienten"
+    - match: "CT Privatpatienten"
       type: "shift"
       times:
         default: "07:00-15:00"
@@ -462,7 +462,7 @@ vendor_mappings:
     #     KopfHals_mr: 0
 
     # MR senior physician shift - full skill coverage
-    - match: "Cortex: MRT-OA"
+    - match: "MRT-OA"
       type: "shift"
       times:
         default: "07:00-15:00"
@@ -538,15 +538,15 @@ vendor_mappings:
     # Team members handle cases for their specialty across relevant modalities.
     # =========================================================================
 
-    - match: "MSK-Haut Assistent"
-      type: "shift"
-      times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
-      skill_overrides:
-        MSK-Haut_ct: 1
-        MSK-Haut_mr: 1
-        MSK-Haut_xray: 1
+    # - match: "MSK-Haut Assistent"
+    #   type: "shift"
+    #   times:
+    #     default: "07:00-15:00"
+    #     Freitag: "07:00-13:00"
+    #   skill_overrides:
+    #     MSK-Haut_ct: 1
+    #     MSK-Haut_mr: 1
+    #     MSK-Haut_xray: 1
 
     - match: "MSK-Haut Team"
       type: "shift"
@@ -558,24 +558,24 @@ vendor_mappings:
         MSK-Haut_mr: 1
         MSK-Haut_xray: 1
 
-    - match: "MSK-Haut Anfänger"
-      type: "shift"
-      times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
-      modifier: 0.5          # Beginner: counts double toward their load
-      skill_overrides:
-        MSK-Haut_ct: w       # Weighted: supervised
-        MSK-Haut_xray: w
+    # - match: "MSK-Haut Anfänger"
+    #   type: "shift"
+    #   times:
+    #     default: "07:00-15:00"
+    #     Freitag: "07:00-13:00"
+    #   modifier: 0.5          # Beginner: counts double toward their load
+    #   skill_overrides:
+    #     MSK-Haut_ct: w       # Weighted: supervised
+    #     MSK-Haut_xray: w
 
-    - match: "CT Anfänger"
-      type: "shift"
-      times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
-      modifier: 0.5          # Beginner: counts double toward their load
-      skill_overrides:
-        Notfall_ct: w        # Weighted: supervised, receives less work
+    # - match: "CT Anfänger"
+    #   type: "shift"
+    #   times:
+    #     default: "07:00-15:00"
+    #     Freitag: "07:00-13:00"
+    #   modifier: 0.5          # Beginner: counts double toward their load
+    #   skill_overrides:
+    #     Notfall_ct: w        # Weighted: supervised, receives less work
 
     - match: "CardThor Team"
       type: "shift"
@@ -638,15 +638,15 @@ vendor_mappings:
     # Shifts that don't count toward workload (administrative tasks)
     # =========================================================================
 
-    - match: "Cortex Aufklärung"
-      type: "shift"
-      times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
-      label: "Aufklärung"
-      counts_for_hours: false  # Administrative task - doesn't count for load
-      skill_overrides:
-        Notfall_ct: 0          # Minimal skill assignment for modality tracking
+    # - match: "Aufklärung Shift"
+    #   type: "shift"
+    #   times:
+    #     default: "07:00-15:00"
+    #     Freitag: "07:00-13:00"
+    #   label: "Aufklärung"
+    #   counts_for_hours: false  # Administrative task - doesn't count for load
+    #   skill_overrides:
+    #     Notfall_ct: 0          # Minimal skill assignment for modality tracking
 
     # =========================================================================
     # GAPS - Time exclusions (worker unavailable)
