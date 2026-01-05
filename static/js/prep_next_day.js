@@ -1963,16 +1963,17 @@ function onEditShiftTaskChange(shiftIdx, taskName) {
     });
 
     // Apply worker roster exclusions (-1) - roster -1 always wins
+    // Roster structure is modality-scoped: { modality: { skill: value } }
     const group = entriesData[tab]?.[groupIdx];
     if (group) {
-      const preset = WORKER_SKILLS[group.worker];
-      if (preset) {
-        const rosterSkills = preset.skills || preset;
+      const workerRoster = WORKER_SKILLS[group.worker];
+      if (workerRoster) {
         MODALITIES.forEach(mod => {
           const modKey = mod.toLowerCase();
+          const modalityRoster = workerRoster[modKey] || {};
           SKILLS.forEach(skill => {
             const skillSelect = document.getElementById(`edit-shift-${shiftIdx}-${modKey}-skill-${skill}`);
-            if (skillSelect && rosterSkills && rosterSkills[skill] === -1) {
+            if (skillSelect && modalityRoster[skill] === -1) {
               skillSelect.value = '-1';  // Roster -1 always wins
             }
           });
@@ -2093,16 +2094,17 @@ function onModalTaskChange() {
   });
 
   // Apply worker roster exclusions (-1) - roster -1 always wins
+  // Roster structure is modality-scoped: { modality: { skill: value } }
   const group = entriesData[tab]?.[groupIdx];
   if (group) {
-    const preset = WORKER_SKILLS[group.worker];
-    if (preset) {
-      const rosterSkills = preset.skills || preset;
+    const workerRoster = WORKER_SKILLS[group.worker];
+    if (workerRoster) {
       MODALITIES.forEach(mod => {
         const modKey = mod.toLowerCase();
+        const modalityRoster = workerRoster[modKey] || {};
         SKILLS.forEach(skill => {
           const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
-          if (el && rosterSkills && rosterSkills[skill] === -1) {
+          if (el && modalityRoster[skill] === -1) {
             el.value = '-1';  // Roster -1 always wins
           }
         });
@@ -2715,15 +2717,18 @@ function updateAddWorkerSkill(idx, modality, skill, value) {
 }
 
 // Helper: apply roster exclusions to skillsByModality (roster -1 always wins)
+// Roster structure is modality-scoped: { modality: { skill: value } }
 function applyRosterToSkillsByModality(skillsByModality, workerName) {
   if (!workerName || !WORKER_SKILLS[workerName]) return;
-  const rosterSkills = WORKER_SKILLS[workerName].skills || WORKER_SKILLS[workerName];
+  const workerRoster = WORKER_SKILLS[workerName];
   MODALITIES.forEach(mod => {
     const modKey = mod.toLowerCase();
     if (!skillsByModality[modKey]) skillsByModality[modKey] = {};
+    // Get roster skills for this specific modality
+    const modalityRoster = workerRoster[modKey] || {};
     SKILLS.forEach(skill => {
       // Roster -1 always wins (cannot be overridden)
-      if (rosterSkills[skill] === -1) {
+      if (modalityRoster[skill] === -1) {
         skillsByModality[modKey][skill] = -1;
       }
     });
