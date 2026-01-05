@@ -2333,15 +2333,6 @@ function applyTaskSkillPreset() {
   }
 }
 
-// DEPRECATED: This function is not used. Use applyWorkerSkillPresetForModality instead.
-// It was designed for an older single-row edit modal with IDs like edit-skill-{skill}.
-// Keeping for reference but should be removed in future cleanup.
-function applyWorkerSkillPreset(workerName) {
-  console.warn('applyWorkerSkillPreset is deprecated - use applyWorkerSkillPresetForModality');
-  // This function doesn't work with the current modality-scoped roster structure
-  return;
-}
-
 // Apply worker skill preset for a specific modality
 function applyWorkerSkillPresetForModality(workerName, modKey) {
   const workerRoster = WORKER_SKILLS[workerName];
