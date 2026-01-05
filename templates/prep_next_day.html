@@ -417,6 +417,93 @@
       width: 44px;
     }
 
+    /* Worker Skill Table (modal) - rows=modalities, cols=skills */
+    .worker-skill-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+      margin-top: 0.5rem;
+    }
+
+    .worker-skill-table th,
+    .worker-skill-table td {
+      padding: 0.25rem 0.3rem;
+      text-align: center;
+      border: 1px solid #dee2e6;
+    }
+
+    .worker-skill-table th {
+      background: #f8f9fa;
+      font-weight: 600;
+      font-size: 0.7rem;
+      white-space: nowrap;
+    }
+
+    .worker-skill-table th.modality-header {
+      text-align: left;
+      min-width: 50px;
+      font-weight: 600;
+    }
+
+    .worker-skill-table td select {
+      padding: 0.15rem;
+      font-size: 0.7rem;
+      width: 40px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .worker-skill-table td select:focus {
+      outline: 2px solid #007bff;
+      outline-offset: -1px;
+    }
+
+    .worker-skill-table tr:nth-child(even) {
+      background: #fafafa;
+    }
+
+    .worker-skill-table .skill-header {
+      padding: 0.2rem 0.25rem;
+      border-radius: 3px;
+      font-size: 0.65rem;
+    }
+
+    /* Hours count toggle - clearer styling */
+    .hours-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.3rem 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+
+    .hours-toggle:hover {
+      background: #f0f0f0;
+    }
+
+    .hours-toggle input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .hours-toggle-label {
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .hours-toggle-label.counts {
+      color: #28a745;
+    }
+
+    .hours-toggle-label.no-count {
+      color: #6c757d;
+    }
+
     /* Aggregated skill/modality cells */
     .agg-cell {
       text-align: center;
