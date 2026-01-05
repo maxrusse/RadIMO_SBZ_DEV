@@ -1239,3 +1239,117 @@ def get_usage_stats_file_info():
             'success': False,
             'error': str(e)
         }), 500
+
+
+# =============================================================================
+# WORKER LOAD MONITOR
+# =============================================================================
+
+@routes.route('/worker-load')
+@admin_required
+def worker_load_monitor():
+    """Worker load monitoring page with simple/advanced views."""
+    load_monitor_config = APP_CONFIG.get('worker_load_monitor', {})
+
+    return render_template(
+        'worker_load_monitor.html',
+        skills=SKILL_COLUMNS,
+        skill_settings=SKILL_SETTINGS,
+        modalities=list(MODALITY_SETTINGS.keys()),
+        modality_settings=MODALITY_SETTINGS,
+        load_monitor_config=load_monitor_config,
+        ui_colors=APP_CONFIG.get('ui_colors', {})
+    )
+
+
+@routes.route('/api/worker-load/data', methods=['GET'])
+@admin_required
+def get_worker_load_data():
+    """API endpoint returning all worker load data for monitoring."""
+    # Collect all unique workers across all modalities
+    all_workers = {}  # canonical_id -> {name, shift_info, modality_data}
+
+    for modality in allowed_modalities:
+        d = modality_data[modality]
+        df = d.get('working_hours_df')
+        if df is None or df.empty:
+            continue
+
+        for idx, row in df.iterrows():
+            worker_name = row['PPL']
+            canonical_id = get_canonical_worker_id(worker_name)
+
+            if canonical_id not in all_workers:
+                all_workers[canonical_id] = {
+                    'name': worker_name,
+                    'canonical_id': canonical_id,
+                    'modalities': {},
+                    'skills': {},
+                    'global_weight': 0.0,
+                    'global_assignments': {}
+                }
+
+            # Store modality-specific data
+            mod_data = {
+                'start_time': row['start_time'].strftime('%H:%M') if pd.notnull(row.get('start_time')) else '',
+                'end_time': row['end_time'].strftime('%H:%M') if pd.notnull(row.get('end_time')) else '',
+                'modifier': float(row.get('Modifier', 1.0)) if pd.notnull(row.get('Modifier')) else 1.0,
+                'skills': {},
+                'skill_counts': {},
+                'weighted_count': d['WeightedCounts'].get(worker_name, 0.0)
+            }
+
+            # Collect skill values and counts for this modality
+            for skill in SKILL_COLUMNS:
+                skill_val = row.get(skill, 0)
+                mod_data['skills'][skill] = normalize_skill_value(skill_val) if pd.notnull(skill_val) else 0
+                # Get skill count for this worker in this modality
+                mod_data['skill_counts'][skill] = d['skill_counts'].get(skill, {}).get(worker_name, 0)
+
+            all_workers[canonical_id]['modalities'][modality] = mod_data
+
+    # Add global weighted counts and assignments
+    for canonical_id, worker_data in all_workers.items():
+        worker_data['global_weight'] = get_global_weighted_count(canonical_id)
+        worker_data['global_assignments'] = get_global_assignments(canonical_id)
+
+        # Aggregate per-skill totals across modalities
+        for skill in SKILL_COLUMNS:
+            total_count = 0
+            for mod_key, mod_data in worker_data['modalities'].items():
+                total_count += mod_data['skill_counts'].get(skill, 0)
+            worker_data['skills'][skill] = total_count
+
+    # Calculate per-modality weight totals
+    modality_weights = {}
+    for modality in allowed_modalities:
+        modality_weights[modality] = {}
+        for canonical_id, worker_data in all_workers.items():
+            if modality in worker_data['modalities']:
+                modality_weights[modality][canonical_id] = worker_data['modalities'][modality]['weighted_count']
+
+    # Calculate per-skill weight totals (using global weighted assignment data)
+    skill_weights = {skill: {} for skill in SKILL_COLUMNS}
+    for mod in allowed_modalities:
+        d = modality_data[mod]
+        for skill in SKILL_COLUMNS:
+            skill_counts = d['skill_counts'].get(skill, {})
+            for worker_name, count in skill_counts.items():
+                canonical_id = get_canonical_worker_id(worker_name)
+                if canonical_id not in skill_weights[skill]:
+                    skill_weights[skill][canonical_id] = 0
+                skill_weights[skill][canonical_id] += count
+
+    # Get max weight for relative color coding
+    max_weight = max((w['global_weight'] for w in all_workers.values()), default=0.0)
+
+    return jsonify({
+        'success': True,
+        'workers': list(all_workers.values()),
+        'modality_weights': modality_weights,
+        'skill_weights': skill_weights,
+        'max_weight': max_weight,
+        'skills': SKILL_COLUMNS,
+        'modalities': allowed_modalities,
+        'config': APP_CONFIG.get('worker_load_monitor', {})
+    })
