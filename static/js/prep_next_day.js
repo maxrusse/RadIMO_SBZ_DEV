@@ -913,8 +913,9 @@ function buildEntriesByWorker(data, tab = 'today') {
         [startTime, endTime] = isGapRow ? ['12:00', '13:00'] : ['07:00', '15:00'];
       }
 
+      // Roster structure is modality-scoped: { modality: { skill: value } }
       const rosterPreset = (WORKER_SKILLS[workerName] || {});
-      const rosterSkills = rosterPreset[mod] || rosterPreset.default || {};
+      const rosterSkills = rosterPreset[mod] || {};
 
       // Get counts_for_hours from API response, or derive from task config
       let countsForHours = row.counts_for_hours;
@@ -1010,7 +1011,8 @@ function buildEntriesByWorker(data, tab = 'today') {
         if (!shift.modalities[modKey]) {
           const skills = {};
           // Default placeholders to -1 so new modality rows are opt-in
-          const rosterDefaults = preset[modKey] || preset.default || {};
+          // Roster structure is modality-scoped: { modality: { skill: value } }
+          const rosterDefaults = preset[modKey] || {};
           SKILLS.forEach(skill => {
             const fallback = rosterDefaults[skill];
             skills[skill] = fallback !== undefined ? fallback : -1;
@@ -2126,16 +2128,17 @@ function initializeModalAddForm() {
     onModalTaskChange();
   } else {
     // No task selected: still populate with roster defaults if present
+    // Roster structure is modality-scoped: { modality: { skill: value } }
     const { tab, groupIdx } = currentEditEntry || {};
     const group = entriesData[tab]?.[groupIdx];
-    const preset = group ? WORKER_SKILLS[group.worker] : null;
+    const workerRoster = group ? WORKER_SKILLS[group.worker] : null;
     MODALITIES.forEach(mod => {
       const modKey = mod.toLowerCase();
-      const skills = preset ? (preset[modKey] || preset.skills || preset) : {};
+      const modalitySkills = workerRoster ? (workerRoster[modKey] || {}) : {};
       SKILLS.forEach(skill => {
         const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
         if (el) {
-          const val = skills[skill] !== undefined ? skills[skill] : 0;
+          const val = modalitySkills[skill] !== undefined ? modalitySkills[skill] : 0;
           el.value = val.toString();
         }
       });
@@ -2330,44 +2333,31 @@ function applyTaskSkillPreset() {
   }
 }
 
+// DEPRECATED: This function is not used. Use applyWorkerSkillPresetForModality instead.
+// It was designed for an older single-row edit modal with IDs like edit-skill-{skill}.
+// Keeping for reference but should be removed in future cleanup.
 function applyWorkerSkillPreset(workerName) {
-  const preset = WORKER_SKILLS[workerName];
-  if (!preset) {
-    showMessage('error', `No skill preset found for ${workerName}`);
-    return;
-  }
-
-  const skills = preset.skills || preset;
-
-  const sanitized = {};
-  SKILLS.forEach(skill => {
-    if (skills && skills[skill] !== undefined) {
-      // Limit roster presets to 0/-1; positive values are reserved for manual/CSV edits
-      const val = skills[skill];
-      sanitized[skill] = val > 0 ? 0 : val;
-    }
-  });
-
-  applySkillValues(sanitized);
+  console.warn('applyWorkerSkillPreset is deprecated - use applyWorkerSkillPresetForModality');
+  // This function doesn't work with the current modality-scoped roster structure
+  return;
 }
 
 // Apply worker skill preset for a specific modality
 function applyWorkerSkillPresetForModality(workerName, modKey) {
-  const preset = WORKER_SKILLS[workerName];
-  if (!preset) {
+  const workerRoster = WORKER_SKILLS[workerName];
+  if (!workerRoster) {
     showMessage('error', `No skill preset found for ${workerName}`);
     return;
   }
 
-  // Check for modality-specific override first, then default
-  const modalitySkills = preset[modKey] ? preset[modKey] : null;
-  const skills = modalitySkills || preset.skills || preset;
+  // Roster structure is modality-scoped: { modality: { skill: value } }
+  const modalitySkills = workerRoster[modKey] || {};
 
   SKILLS.forEach(skill => {
     const el = document.getElementById(`edit-${modKey}-skill-${skill}`);
-    if (el && skills && skills[skill] !== undefined) {
+    if (el && modalitySkills[skill] !== undefined) {
       // Limit roster presets to 0/-1; positive values are reserved for manual/CSV edits
-      const val = skills[skill];
+      const val = modalitySkills[skill];
       el.value = (val > 0 ? 0 : val).toString();
     }
   });
@@ -2378,21 +2368,20 @@ function applyWorkerSkillPresetForShiftModality(groupIdx, shiftIdx, modKey) {
   const { tab } = currentEditEntry || {};
   const group = entriesData[tab]?.[groupIdx];
   const workerName = group?.worker;
-  const preset = workerName ? WORKER_SKILLS[workerName] : null;
-  if (!preset) {
+  const workerRoster = workerName ? WORKER_SKILLS[workerName] : null;
+  if (!workerRoster) {
     showMessage('error', `No skill preset found for ${workerName || 'worker'}`);
     return;
   }
 
-  // Check for modality-specific override first, then default
-  const modalitySkills = preset[modKey] ? preset[modKey] : null;
-  const skills = modalitySkills || preset.skills || preset;
+  // Roster structure is modality-scoped: { modality: { skill: value } }
+  const modalitySkills = workerRoster[modKey] || {};
 
   SKILLS.forEach(skill => {
     const el = document.getElementById(`edit-shift-${shiftIdx}-${modKey}-skill-${skill}`);
-    if (el && skills && skills[skill] !== undefined) {
+    if (el && modalitySkills[skill] !== undefined) {
       // Limit roster presets to 0/-1; positive values are reserved for manual/CSV edits
-      const val = skills[skill];
+      const val = modalitySkills[skill];
       el.value = (val > 0 ? 0 : val).toString();
     }
   });
@@ -2408,7 +2397,7 @@ function applyPresetToShift(shiftIdx, taskName) {
     return;
   }
 
-  const taskSkills = task.skill_overrides || {};
+  const overrides = task.skill_overrides || {};
   const { tab, groupIdx } = currentEditEntry || {};
   const group = entriesData[tab]?.[groupIdx];
   if (!group) return;
@@ -2417,11 +2406,22 @@ function applyPresetToShift(shiftIdx, taskName) {
   if (!shift) return;
 
   // Apply skills to all modalities in this shift
+  // Config uses skill×modality format: { "Notfall_ct": 1, "Privat_mr": 0 }
+  // Also supports shortcuts: { "all": -1 }, { "MSK-Haut": 1 }
   Object.keys(shift.modalities).forEach(modKey => {
     SKILLS.forEach(skill => {
       const el = document.getElementById(`edit-shift-${shiftIdx}-${modKey}-skill-${skill}`);
       if (el) {
-        const val = taskSkills[skill] !== undefined ? taskSkills[skill] : 0;
+        // Check skill×modality format first, then skill shortcut, then "all" shortcut
+        const skillModKey = `${skill}_${modKey}`;
+        let val = 0;  // Default to passive
+        if (overrides[skillModKey] !== undefined) {
+          val = overrides[skillModKey];
+        } else if (overrides[skill] !== undefined) {
+          val = overrides[skill];  // Skill shortcut applies to all modalities
+        } else if (overrides['all'] !== undefined) {
+          val = overrides['all'];
+        }
         el.value = val.toString();
       }
     });
@@ -2451,8 +2451,8 @@ function applyWorkerRosterToShift(shiftIdx) {
   const group = entriesData[tab]?.[groupIdx];
   if (!group) return;
 
-  const preset = WORKER_SKILLS[group.worker];
-  if (!preset) {
+  const workerRoster = WORKER_SKILLS[group.worker];
+  if (!workerRoster) {
     showMessage('error', `No skill preset found for ${group.worker}`);
     return;
   }
@@ -2461,16 +2461,15 @@ function applyWorkerRosterToShift(shiftIdx) {
   if (!shift) return;
 
   // Apply skills to all modalities in this shift
+  // Roster structure is modality-scoped: { modality: { skill: value } }
   Object.keys(shift.modalities).forEach(modKey => {
-    // Check for modality-specific override first, then default
-    const modalitySkills = preset[modKey] || null;
-    const skills = modalitySkills || preset.skills || preset;
+    const modalitySkills = workerRoster[modKey] || {};
 
     SKILLS.forEach(skill => {
       const el = document.getElementById(`edit-shift-${shiftIdx}-${modKey}-skill-${skill}`);
-      if (el && skills && skills[skill] !== undefined) {
+      if (el && modalitySkills[skill] !== undefined) {
         // Limit roster presets to 0/-1; positive values are reserved for manual/CSV edits
-        const val = skills[skill];
+        const val = modalitySkills[skill];
         el.value = (val > 0 ? 0 : val).toString();
       }
     });
