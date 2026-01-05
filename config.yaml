@@ -225,6 +225,24 @@ ui_colors:
   info: '#17a2b8'             # Info messages
 
 # =============================================================================
+# WORKER LOAD MONITOR
+# =============================================================================
+# Configuration for the worker load monitoring page
+# Color thresholds determine how worker loads are color-coded
+# =============================================================================
+
+worker_load_monitor:
+  color_thresholds:
+    mode: "absolute"          # "absolute" or "relative" - can toggle in UI
+    absolute:
+      low: 3.0                # Green below this weight
+      high: 7.0               # Red above this weight (yellow in between)
+    relative:
+      low_pct: 33             # Green below 33% of max worker load
+      high_pct: 66            # Red above 66% of max worker load
+  default_view: "simple"      # "simple" or "advanced"
+
+# =============================================================================
 # SCHEDULER
 # =============================================================================
 # Background job timings for automated tasks

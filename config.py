@@ -167,6 +167,30 @@ def _build_app_config() -> Dict[str, Any]:
         raw_config.get('skill_roster_auto_import', True)
     )
 
+    # Worker load monitor settings
+    default_load_monitor = {
+        'color_thresholds': {
+            'mode': 'absolute',
+            'absolute': {'low': 3.0, 'high': 7.0},
+            'relative': {'low_pct': 33, 'high_pct': 66}
+        },
+        'default_view': 'simple'
+    }
+    user_load_monitor = raw_config.get('worker_load_monitor', {})
+    if isinstance(user_load_monitor, dict):
+        # Merge with defaults
+        load_monitor_config = default_load_monitor.copy()
+        if 'color_thresholds' in user_load_monitor:
+            load_monitor_config['color_thresholds'] = {
+                **default_load_monitor['color_thresholds'],
+                **user_load_monitor['color_thresholds']
+            }
+        if 'default_view' in user_load_monitor:
+            load_monitor_config['default_view'] = user_load_monitor['default_view']
+    else:
+        load_monitor_config = default_load_monitor
+    config['worker_load_monitor'] = load_monitor_config
+
     return config
 
 def _build_skill_metadata(skills_config: Dict[str, Dict[str, Any]]) -> Tuple[List[str], Dict[str, str], List[Dict[str, Any]], Dict[str, float]]:
