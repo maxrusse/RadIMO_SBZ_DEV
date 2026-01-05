@@ -718,7 +718,7 @@ def load_today_from_master():
                         matched_activities.append(activity)
                         break
 
-            app.logger.info(f"No staff entries found for {target_date.strftime('%d.%m.%Y')} - this is expected for some shifts")
+            selection_logger.info(f"No staff entries found for {target_date.strftime('%d.%m.%Y')} - this is expected for some shifts")
 
             return jsonify({
                 "success": True,
