@@ -708,6 +708,7 @@ def load_today_from_master():
         )
 
         if not modality_dfs:
+            # No staff entries found - this is OK, not all shifts have staff (balancer handles this)
             mapping_rules = APP_CONFIG.get('medweb_mapping', {}).get('rules', [])
             rule_matches = [r.get('match', '') for r in mapping_rules[:10]]
             matched_activities = []
@@ -717,16 +718,22 @@ def load_today_from_master():
                         matched_activities.append(activity)
                         break
 
+            app.logger.info(f"No staff entries found for {target_date.strftime('%d.%m.%Y')} - this is expected for some shifts")
+
             return jsonify({
-                "error": f"Keine Cortex-Daten für {target_date.strftime('%d.%m.%Y')} gefunden",
-                "debug": {
+                "success": True,
+                "message": f"Keine Mitarbeiter für {target_date.strftime('%d.%m.%Y')} gefunden - Schichten können leer sein",
+                "modalities_loaded": [],
+                "total_workers": 0,
+                "workers_added_to_roster": 0,
+                "info": {
                     "target_date": target_date.strftime('%d.%m.%Y'),
                     "dates_in_csv": available_dates[:10],
                     "activities_in_csv": available_activities[:10],
                     "mapping_rules": rule_matches,
                     "matched_activities": matched_activities[:10],
                 }
-            }), 400
+            })
 
         with lock:
             global_worker_data['weighted_counts'] = {}
