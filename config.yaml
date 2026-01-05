@@ -403,7 +403,6 @@ vendor_mappings:
         Freitag: "07:00-13:00"
       skill_overrides:
         Notfall_mammo: 1
-        Privat_mammo: 1
         Gyn_mammo: 0
 
     - match: "Mammo OA"
@@ -413,7 +412,6 @@ vendor_mappings:
         Freitag: "07:00-13:00"
       skill_overrides:
         Notfall_mammo: 1
-        Privat_mammo: 1
         Gyn_mammo: 1
 
     # ===========================================
