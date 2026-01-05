@@ -1745,11 +1745,15 @@ def preload_next_workday(csv_path: str, config: dict) -> dict:
         )
 
         if not modality_dfs:
+            # No staff entries found - this is OK, not all shifts have staff (balancer handles this)
             date_str = next_day.strftime('%Y-%m-%d')
+            selection_logger.info(f"No staff entries found for {date_str} - this is expected for some shifts")
             return {
-                'success': False,
+                'success': True,
                 'target_date': date_str,
-                'message': f'Keine Cortex-Daten für {date_str} gefunden'
+                'message': f'Keine Mitarbeiter für {date_str} gefunden - Schichten können leer sein',
+                'modalities_loaded': [],
+                'total_workers': 0
             }
 
         saved_modalities = []
