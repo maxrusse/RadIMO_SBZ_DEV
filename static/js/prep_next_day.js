@@ -319,6 +319,12 @@ function filterBySkill(tab, skill) {
     hideZero
   };
   renderTable(tab);
+
+  // Also filter the timeline (like on timetable page)
+  const gridEl = document.getElementById(`timeline-grid-${tab}`);
+  if (gridEl && typeof TimelineChart !== 'undefined') {
+    TimelineChart.filterBySkill(gridEl, skill || 'all');
+  }
 }
 
 function applyEditModeUI(tab) {
