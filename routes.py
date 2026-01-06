@@ -624,8 +624,9 @@ def run_operational_checks(context: str = 'unknown', force: bool = False) -> dic
         elif not os.access(upload_folder, os.W_OK):
             results.append({'name': 'Upload Folder', 'status': 'ERROR', 'detail': f'Upload folder "{upload_folder}" is not writable'})
         else:
-            file_count = len([f for f in os.listdir(upload_folder) if f.endswith('.xlsx')])
-            results.append({'name': 'Upload Folder', 'status': 'OK', 'detail': f'Upload folder "{upload_folder}" is writable ({file_count} Excel files found)'})
+            has_master_csv = os.path.exists(os.path.join(upload_folder, 'master_medweb.csv'))
+            csv_status = "Master CSV present" if has_master_csv else "No Master CSV"
+            results.append({'name': 'Upload Folder', 'status': 'OK', 'detail': f'Upload folder "{upload_folder}" is writable ({csv_status})'})
     except Exception as e:
         results.append({'name': 'Upload Folder', 'status': 'ERROR', 'detail': f'Failed to check upload folder: {str(e)}'})
 
@@ -655,7 +656,7 @@ def run_operational_checks(context: str = 'unknown', force: bool = False) -> dic
                 total_workers += len(d['working_hours_df']['PPL'].unique())
 
         if total_workers == 0:
-            results.append({'name': 'Worker Data', 'status': 'WARNING', 'detail': 'No worker data loaded - upload an Excel file to get started'})
+            results.append({'name': 'Worker Data', 'status': 'WARNING', 'detail': 'No worker data loaded - upload Master CSV and use Load Today'})
         else:
             results.append({'name': 'Worker Data', 'status': 'OK', 'detail': f'{total_workers} workers loaded across all modalities'})
     except Exception as e:
@@ -755,7 +756,6 @@ def load_today_from_master():
                         d['skill_counts'][skill][worker] = 0
 
                 d['info_texts'] = []
-                d['last_uploaded_filename'] = f"master_{target_date.strftime('%Y%m%d')}.csv"
 
             save_state()
 
