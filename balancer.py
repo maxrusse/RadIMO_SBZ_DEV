@@ -131,6 +131,10 @@ def calculate_work_hours_now(current_dt: datetime, modality: str) -> dict:
     df_copy['work_hours_now'] = df_copy.apply(_calc, axis=1)
 
     hours_by_canonical = {}
+    all_workers = df_copy['PPL'].dropna().unique().tolist()
+    for worker in all_workers:
+        canonical_id = get_canonical_worker_id(worker)
+        hours_by_canonical[canonical_id] = 0.0
     hours_by_worker = df_copy.groupby('PPL')['work_hours_now'].sum().to_dict()
 
     for worker, hours in hours_by_worker.items():
