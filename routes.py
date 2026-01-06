@@ -702,41 +702,43 @@ def load_today_from_master():
         except Exception as e:
             return jsonify({"error": f"CSV-Lesefehler: {str(e)}"}), 400
 
-        modality_dfs = build_working_hours_from_medweb(
-            MASTER_CSV_PATH,
-            target_date,
-            APP_CONFIG
-        )
-
-        if not modality_dfs:
-            # No staff entries found - this is OK, not all shifts have staff (balancer handles this)
-            mapping_rules = APP_CONFIG.get('medweb_mapping', {}).get('rules', [])
-            rule_matches = [r.get('match', '') for r in mapping_rules[:10]]
-            matched_activities = []
-            for activity in available_activities:
-                for rule in mapping_rules:
-                    if rule.get('match', '').lower() in str(activity).lower():
-                        matched_activities.append(activity)
-                        break
-
-            selection_logger.info(f"No staff entries found for {target_date.strftime('%d.%m.%Y')} - this is expected for some shifts")
-
-            return jsonify({
-                "success": True,
-                "message": f"Keine Mitarbeiter für {target_date.strftime('%d.%m.%Y')} gefunden - Schichten können leer sein",
-                "modalities_loaded": [],
-                "total_workers": 0,
-                "workers_added_to_roster": 0,
-                "info": {
-                    "target_date": target_date.strftime('%d.%m.%Y'),
-                    "dates_in_csv": available_dates[:10],
-                    "activities_in_csv": available_activities[:10],
-                    "mapping_rules": rule_matches,
-                    "matched_activities": matched_activities[:10],
-                }
-            })
-
+        # Acquire lock BEFORE parsing CSV to prevent race conditions
+        # when multiple requests overlap - data parsing must be atomic
         with lock:
+            modality_dfs = build_working_hours_from_medweb(
+                MASTER_CSV_PATH,
+                target_date,
+                APP_CONFIG
+            )
+
+            if not modality_dfs:
+                # No staff entries found - this is OK, not all shifts have staff (balancer handles this)
+                mapping_rules = APP_CONFIG.get('medweb_mapping', {}).get('rules', [])
+                rule_matches = [r.get('match', '') for r in mapping_rules[:10]]
+                matched_activities = []
+                for activity in available_activities:
+                    for rule in mapping_rules:
+                        if rule.get('match', '').lower() in str(activity).lower():
+                            matched_activities.append(activity)
+                            break
+
+                selection_logger.info(f"No staff entries found for {target_date.strftime('%d.%m.%Y')} - this is expected for some shifts")
+
+                return jsonify({
+                    "success": True,
+                    "message": f"Keine Mitarbeiter für {target_date.strftime('%d.%m.%Y')} gefunden - Schichten können leer sein",
+                    "modalities_loaded": [],
+                    "total_workers": 0,
+                    "workers_added_to_roster": 0,
+                    "info": {
+                        "target_date": target_date.strftime('%d.%m.%Y'),
+                        "dates_in_csv": available_dates[:10],
+                        "activities_in_csv": available_activities[:10],
+                        "mapping_rules": rule_matches,
+                        "matched_activities": matched_activities[:10],
+                    }
+                })
+
             global_worker_data['weighted_counts'] = {}
 
             for modality, df in modality_dfs.items():
@@ -859,20 +861,24 @@ def prep_next_day():
 def get_prep_data():
     result = {}
 
-    for modality in allowed_modalities:
-        if staged_modality_data[modality]['working_hours_df'] is None:
-            if not load_staged_dataframe(modality):
-                if modality_data[modality]['working_hours_df'] is not None:
-                    staged_modality_data[modality]['working_hours_df'] = modality_data[modality]['working_hours_df'].copy()
-                    staged_modality_data[modality]['info_texts'] = modality_data[modality]['info_texts'].copy()
-                    backup_dataframe(modality, use_staged=True)
+    # Acquire lock to prevent race conditions when reading/writing staged data
+    with lock:
+        for modality in allowed_modalities:
+            if staged_modality_data[modality]['working_hours_df'] is None:
+                if not load_staged_dataframe(modality):
+                    if modality_data[modality]['working_hours_df'] is not None:
+                        staged_modality_data[modality]['working_hours_df'] = modality_data[modality]['working_hours_df'].copy()
+                        staged_modality_data[modality]['info_texts'] = modality_data[modality]['info_texts'].copy()
+                        backup_dataframe(modality, use_staged=True)
 
-        df = staged_modality_data[modality].get('working_hours_df')
-        result[modality] = _df_to_api_response(df)
+            df = staged_modality_data[modality].get('working_hours_df')
+            result[modality] = _df_to_api_response(df)
+
+        last_prepped_at = staged_modality_data[allowed_modalities[0]].get('last_prepped_at')
 
     return jsonify({
         'modalities': result,
-        'last_prepped_at': staged_modality_data[allowed_modalities[0]].get('last_prepped_at')
+        'last_prepped_at': last_prepped_at
     })
 
 @routes.route('/api/prep-next-day/update-row', methods=['POST'])
@@ -1050,6 +1056,10 @@ def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
             now.strftime('%H:%M:%S'),
         )
 
+        # Store response data to return after releasing lock
+        response_data = None
+        state_modified = False
+
         with lock:
             result = get_next_available_worker(
                 now,
@@ -1091,6 +1101,7 @@ def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
                 # Check if this is a weighted ('w') assignment - only 'w' uses modifier
                 is_weighted = candidate.get('__is_weighted', False)
                 canonical_id = update_global_assignment(person, actual_skill, actual_modality, is_weighted)
+                state_modified = True
 
                 # Record skill-modality usage for analytics
                 usage_logger.record_skill_modality_usage(actual_skill, actual_modality)
@@ -1098,16 +1109,22 @@ def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
                 # Check if it's time for scheduled export (7:30 AM)
                 usage_logger.check_and_export_at_scheduled_time()
 
-                return jsonify({
+                response_data = {
                     "selected_person": person,
                     "canonical_id": canonical_id,
                     "source_modality": actual_modality,
                     "skill_used": actual_skill,
                     "is_weighted": is_weighted
-                })
+                }
             else:
                 selection_logger.warning("No available worker found")
                 return jsonify({"error": "No available worker found"}), 404
+
+        # Persist state OUTSIDE the lock to prevent blocking I/O
+        if state_modified:
+            save_state()
+
+        return jsonify(response_data)
 
     except Exception as e:
         selection_logger.error(f"Error selecting worker: {str(e)}", exc_info=True)

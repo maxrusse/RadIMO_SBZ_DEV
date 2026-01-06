@@ -301,13 +301,19 @@ def save_state():
         selection_logger.error(f"Failed to save state: {str(e)}", exc_info=True)
 
 def load_state():
-    if not os.path.exists(STATE_FILE_PATH):
-        selection_logger.info("No saved state found, starting fresh")
-        return
-
+    # Use try/except instead of os.path.exists to prevent TOCTOU race condition
+    # (file could be deleted between check and open)
     try:
         with open(STATE_FILE_PATH, 'r') as f:
             state = json.load(f)
+    except FileNotFoundError:
+        selection_logger.info("No saved state found, starting fresh")
+        return
+    except json.JSONDecodeError as e:
+        selection_logger.error(f"Failed to parse state file: {e}")
+        return
+
+    try:
 
         if 'global_worker_data' in state:
             gwd = state['global_worker_data']
@@ -405,23 +411,24 @@ def backup_dataframe(modality: str, use_staged: bool = False):
 
 
 def load_staged_dataframe(modality: str) -> bool:
+    """
+    Load staged or scheduled dataframe for a modality.
+
+    Uses try/except instead of os.path.exists to prevent TOCTOU race conditions
+    (file could be deleted between check and open).
+    """
     d = staged_modality_data[modality]
     staged_file = d['staged_file_path']
     scheduled_file = modality_data[modality]['scheduled_file_path']
 
-    file_to_load = None
-    if os.path.exists(staged_file):
-        file_to_load = staged_file
-    elif os.path.exists(scheduled_file):
-        selection_logger.info(f"No staged file for {modality}, falling back to scheduled file: {scheduled_file}")
-        file_to_load = scheduled_file
-    else:
-        selection_logger.info(f"No staged or scheduled file found for {modality}")
-        return False
+    # Helper function to load Excel file and process it
+    def _load_excel(file_path: str) -> bool:
+        try:
+            with pd.ExcelFile(file_path, engine='openpyxl') as xls:
+                if 'Tabelle1' not in xls.sheet_names:
+                    selection_logger.warning(f"File {file_path} missing 'Tabelle1' sheet")
+                    return False
 
-    try:
-        with pd.ExcelFile(file_to_load, engine='openpyxl') as xls:
-            if 'Tabelle1' in xls.sheet_names:
                 df = pd.read_excel(xls, sheet_name='Tabelle1')
 
                 if 'TIME' in df.columns:
@@ -444,14 +451,33 @@ def load_staged_dataframe(modality: str) -> bool:
                     if 'Info' in df_info.columns:
                         d['info_texts'] = df_info['Info'].tolist()
 
-                d['last_modified'] = datetime.fromtimestamp(os.path.getmtime(file_to_load))
-                selection_logger.info(f"Loaded staged data for {modality} from {file_to_load}")
-                return True
-    except Exception as e:
-        selection_logger.error(f"Error loading staged data for {modality}: {e}")
-        return False
+                try:
+                    d['last_modified'] = datetime.fromtimestamp(os.path.getmtime(file_path))
+                except OSError:
+                    d['last_modified'] = get_local_now()
 
-    return False
+                selection_logger.info(f"Loaded staged data for {modality} from {file_path}")
+                return True
+        except FileNotFoundError:
+            # File doesn't exist - caller should try fallback
+            raise
+        except Exception as e:
+            selection_logger.error(f"Error loading staged data for {modality} from {file_path}: {e}")
+            return False
+
+    # Try staged file first, fall back to scheduled file
+    try:
+        return _load_excel(staged_file)
+    except FileNotFoundError:
+        pass
+
+    # Staged file not found, try scheduled file
+    try:
+        selection_logger.info(f"No staged file for {modality}, falling back to scheduled file: {scheduled_file}")
+        return _load_excel(scheduled_file)
+    except FileNotFoundError:
+        selection_logger.info(f"No staged or scheduled file found for {modality}")
+        return False
 
 # -----------------------------------------------------------
 # Data Loading & Initialization
@@ -539,17 +565,29 @@ def initialize_data(file_path: str, modality: str):
             raise ValueError(error_message)
 
 def quarantine_excel(file_path: str, reason: str) -> Optional[str]:
-    if not file_path or not os.path.exists(file_path):
+    """
+    Move a defective Excel file to quarantine directory.
+
+    Uses try/except instead of os.path.exists to prevent TOCTOU race condition
+    (file could be deleted between check and move).
+    """
+    if not file_path:
         return None
+
     invalid_dir = Path(UPLOAD_FOLDER) / 'invalid'
     invalid_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     original = Path(file_path)
     target = invalid_dir / f"{original.stem}_{timestamp}{original.suffix or '.xlsx'}"
+
     try:
         shutil.move(str(original), str(target))
         selection_logger.warning("Defekte Excel '%s' nach '%s' verschoben (%s)", file_path, target, reason)
         return str(target)
+    except FileNotFoundError:
+        # File was already deleted - not an error, just log and return
+        selection_logger.debug("Excel '%s' existiert nicht mehr (bereits gelöscht)", file_path)
+        return None
     except OSError as exc:
         selection_logger.warning("Excel '%s' konnte nicht verschoben werden (%s): %s", file_path, reason, exc)
         return None
@@ -901,9 +939,20 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
 
 
 def check_and_perform_daily_reset():
+    """
+    Perform a single global daily reset at the configured reset time.
+
+    Uses atomic check-and-set with locking to prevent race conditions when
+    multiple threads/requests trigger this simultaneously at 07:30.
+
+    This is ONE global reset (not per-modality) that:
+    1. Resets global weighted counts
+    2. Resets all modality counters
+    3. Loads scheduled files for all modalities
+    """
     now = get_local_now()
     today = now.date()
-    
+
     reset_time_str = APP_CONFIG.get('scheduler', {}).get('daily_reset_time', '07:30')
     try:
         reset_hour, reset_min = map(int, reset_time_str.split(':'))
@@ -911,54 +960,70 @@ def check_and_perform_daily_reset():
     except Exception:
         reset_time = time(7, 30)
 
-    if global_worker_data['last_reset_date'] != today and now.time() >= reset_time:
-        should_reset_global = any(
-            os.path.exists(modality_data[mod]['scheduled_file_path']) 
-            for mod in allowed_modalities
-        )
-        if should_reset_global:
-            global_worker_data['last_reset_date'] = today
-            # Reset global weighted counts on daily reset
-            global_worker_data['weighted_counts'] = {}
-            save_state()
-            selection_logger.info("Performed global reset based on modality scheduled uploads.")
-        
-    for mod, d in modality_data.items():
-        if d['last_reset_date'] == today:
-            continue
-        if now.time() >= time(7, 30):
-            if os.path.exists(d['scheduled_file_path']):
-                d['draw_counts'] = {}
-                d['skill_counts'] = {skill: {} for skill in SKILL_COLUMNS}
-                d['WeightedCounts'] = {}
+    # Quick check without lock to avoid unnecessary locking on most requests
+    if global_worker_data['last_reset_date'] == today:
+        return
+    if now.time() < reset_time:
+        return
 
-                context = f"daily reset {mod.upper()}"
-                success = attempt_initialize_data(
-                    d['scheduled_file_path'],
-                    mod,
-                    remove_on_failure=True,
-                    context=context,
-                )
-                if success:
-                    backup_dir = os.path.join(UPLOAD_FOLDER, "backups")
-                    os.makedirs(backup_dir, exist_ok=True)
-                    backup_file = os.path.join(backup_dir, os.path.basename(d['scheduled_file_path']))
-                    try:
-                        shutil.move(d['scheduled_file_path'], backup_file)
-                    except OSError as exc:
-                        selection_logger.warning("Scheduled Datei %s konnte nicht verschoben werden: %s", d['scheduled_file_path'], exc)
-                    else:
-                        selection_logger.info("Scheduled daily file loaded and moved to backup for modality %s.", mod)
-                    backup_dataframe(mod)
-                    selection_logger.info("Live-backup updated for modality %s after daily reset.", mod)
-                else:
-                    selection_logger.warning("Scheduled file for %s war defekt und wurde entfernt.", mod)
+    # Atomic check-and-set with lock to prevent multiple threads from resetting
+    with lock:
+        # Double-check after acquiring lock (another thread may have just reset)
+        if global_worker_data['last_reset_date'] == today:
+            return
 
-            else:
-                selection_logger.info(f"No scheduled file found for modality {mod}. Keeping old data.")
+        selection_logger.info("Starting global daily reset for all modalities")
+
+        # Mark reset date FIRST (atomic check-and-set pattern)
+        # This prevents other threads from entering even if we fail midway
+        global_worker_data['last_reset_date'] = today
+
+        # Reset global weighted counts
+        global_worker_data['weighted_counts'] = {}
+
+        # Process all modalities in a single global reset
+        modalities_reset = []
+        for mod, d in modality_data.items():
+            # Reset per-modality tracking
             d['last_reset_date'] = today
             global_worker_data['assignments_per_mod'][mod] = {}
-            save_state()
+            d['draw_counts'] = {}
+            d['skill_counts'] = {skill: {} for skill in SKILL_COLUMNS}
+            d['WeightedCounts'] = {}
+
+            # Try to load scheduled file for this modality
+            scheduled_path = d['scheduled_file_path']
+            try:
+                if os.path.exists(scheduled_path):
+                    context = f"daily reset {mod.upper()}"
+                    success = attempt_initialize_data(
+                        scheduled_path,
+                        mod,
+                        remove_on_failure=True,
+                        context=context,
+                    )
+                    if success:
+                        backup_dir = os.path.join(UPLOAD_FOLDER, "backups")
+                        os.makedirs(backup_dir, exist_ok=True)
+                        backup_file = os.path.join(backup_dir, os.path.basename(scheduled_path))
+                        try:
+                            shutil.move(scheduled_path, backup_file)
+                            selection_logger.info("Scheduled daily file loaded and moved to backup for modality %s.", mod)
+                        except OSError as exc:
+                            selection_logger.warning("Scheduled Datei %s konnte nicht verschoben werden: %s", scheduled_path, exc)
+                        backup_dataframe(mod)
+                        modalities_reset.append(mod)
+                    else:
+                        selection_logger.warning("Scheduled file for %s war defekt und wurde entfernt.", mod)
+                else:
+                    selection_logger.debug(f"No scheduled file found for modality {mod}. Keeping old data.")
+            except Exception as e:
+                selection_logger.error(f"Error during daily reset for {mod}: {e}")
+
+        selection_logger.info(f"Global daily reset completed. Modalities with new data: {modalities_reset or 'none'}")
+
+    # Save state OUTSIDE the lock to prevent blocking I/O
+    save_state()
 
 # -----------------------------------------------------------
 # Complex CSV Loading Logic (from medweb)
