@@ -755,7 +755,6 @@ def load_today_from_master():
                         d['skill_counts'][skill][worker] = 0
 
                 d['info_texts'] = []
-                d['last_uploaded_filename'] = f"master_{target_date.strftime('%Y%m%d')}.csv"
 
             save_state()
 

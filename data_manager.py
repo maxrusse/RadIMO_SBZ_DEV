@@ -68,8 +68,6 @@ for mod in allowed_modalities:
         'draw_counts': {},
         'skill_counts': {skill: {} for skill in SKILL_COLUMNS},
         'WeightedCounts': {},
-        'last_uploaded_filename': f"Cortex_{mod.upper()}.xlsx",
-        'default_file_path': os.path.join(UPLOAD_FOLDER, f"Cortex_{mod.upper()}.xlsx"),
         'scheduled_file_path': os.path.join(UPLOAD_FOLDER, f"Cortex_{mod.upper()}_scheduled.xlsx"),
         'last_reset_date': None
     }
@@ -82,7 +80,6 @@ for mod in allowed_modalities:
         'info_texts': [],
         'total_work_hours': {},
         'worker_modifiers': {},
-        'last_uploaded_filename': f"Cortex_{mod.upper()}_staged.xlsx",
         'staged_file_path': os.path.join(UPLOAD_FOLDER, "backups", f"Cortex_{mod.upper()}_staged.xlsx"),
         'last_modified': None,
         'last_prepped_at': None,
@@ -293,8 +290,7 @@ def save_state():
                 'draw_counts': d['draw_counts'],
                 'skill_counts': d['skill_counts'],
                 'WeightedCounts': d['WeightedCounts'],
-                'last_reset_date': d['last_reset_date'].isoformat() if d['last_reset_date'] else None,
-                'last_uploaded_filename': d['last_uploaded_filename']
+                'last_reset_date': d['last_reset_date'].isoformat() if d['last_reset_date'] else None
             }
 
         with open(STATE_FILE_PATH, 'w') as f:
@@ -330,7 +326,6 @@ def load_state():
                     modality_data[mod]['draw_counts'] = mod_state.get('draw_counts', {})
                     modality_data[mod]['skill_counts'] = mod_state.get('skill_counts', {skill: {} for skill in SKILL_COLUMNS})
                     modality_data[mod]['WeightedCounts'] = mod_state.get('WeightedCounts', {})
-                    modality_data[mod]['last_uploaded_filename'] = mod_state.get('last_uploaded_filename', f"Cortex_{mod.upper()}.xlsx")
 
                     last_reset_str = mod_state.get('last_reset_date')
                     if last_reset_str:

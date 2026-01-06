@@ -66,28 +66,15 @@ def startup_initialization():
 
     # Initialize Modalities
     for mod in allowed_modalities:
-        d = modality_data[mod]
-        # Priority 1: Live Backup
-        # Priority 2: Default file
-        # Priority 3: Start empty
-        
         backup_dir = os.path.join(app.config['UPLOAD_FOLDER'], "backups")
         live_backup = os.path.join(backup_dir, f"Cortex_{mod.upper()}_live.xlsx")
-        
-        loaded = False
-        
+
         if os.path.exists(live_backup):
             selection_logger.info(f"Attempting to load LIVE backup for {mod}: {live_backup}")
             if attempt_initialize_data(live_backup, mod, context='startup backup'):
-                loaded = True
-        
-        if not loaded and os.path.exists(d['default_file_path']):
-            selection_logger.info(f"Attempting to load DEFAULT file for {mod}: {d['default_file_path']}")
-            if attempt_initialize_data(d['default_file_path'], mod, context='startup default'):
-                loaded = True
-                
-        if not loaded:
-            selection_logger.warning(f"Starting {mod} with EMPTY data (no valid backup or default file).")
+                continue
+
+        selection_logger.warning(f"Starting {mod} with EMPTY data (no valid backup).")
 
 
 # -----------------------------------------------------------
