@@ -67,6 +67,10 @@ def update_global_assignment(person: str, role: str, modality: str, is_weighted:
     """
     Record a worker assignment and update global weighted counts.
 
+    IMPORTANT: This function modifies global state and must be called while holding
+    the global lock. The caller is responsible for calling save_state() after
+    releasing the lock to persist changes (prevents blocking I/O under lock).
+
     Args:
         person: Worker name (PPL field)
         role: Skill/role assigned (e.g., 'Notfall', 'MSK')
@@ -98,8 +102,8 @@ def update_global_assignment(person: str, role: str, modality: str, is_weighted:
     assignments[role] += 1
     assignments['total'] += 1
 
-    # Persist state after every assignment to prevent data loss on restart
-    save_state()
+    # NOTE: save_state() is NOT called here to avoid blocking I/O under lock.
+    # The caller must call save_state() after releasing the lock.
 
     return canonical_id
 
