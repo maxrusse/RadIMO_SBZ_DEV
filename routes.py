@@ -748,6 +748,10 @@ def load_today_from_master():
                 global_worker_data['assignments_per_mod'][modality] = {}
                 d['working_hours_df'] = df
 
+                if df is None or df.empty:
+                    d['info_texts'] = []
+                    continue
+
                 for worker in df['PPL'].unique():
                     d['draw_counts'][worker] = 0
                     d['WeightedCounts'][worker] = 0.0

@@ -624,6 +624,68 @@ def _get_schedule_data_dict(modality: str, use_staged: bool) -> dict:
         return staged_modality_data[modality]
     return modality_data[modality]
 
+def _get_active_worker_names(df: Optional[pd.DataFrame]) -> set:
+    if df is None or df.empty or 'PPL' not in df.columns:
+        return set()
+    return {str(name).strip() for name in df['PPL'].dropna()}
+
+def reconcile_live_worker_tracking(modality: Optional[str] = None) -> None:
+    """
+    Reconcile live worker tracking data after edits/deletions.
+
+    Ensures draw_counts, skill_counts, weighted counts, and global assignment tracking
+    only include workers currently present in the live schedules.
+    """
+    active_workers_by_mod = {}
+    active_canon_by_mod = {}
+    all_active_canon = set()
+
+    for mod in allowed_modalities:
+        df = modality_data[mod].get('working_hours_df')
+        active_workers = _get_active_worker_names(df)
+        active_workers_by_mod[mod] = active_workers
+        active_canon = {get_canonical_worker_id(name) for name in active_workers}
+        active_canon_by_mod[mod] = active_canon
+        all_active_canon.update(active_canon)
+
+    modalities_to_reconcile = [modality] if modality else allowed_modalities
+
+    for mod in modalities_to_reconcile:
+        d = modality_data[mod]
+        active_workers = active_workers_by_mod.get(mod, set())
+        df = d.get('working_hours_df')
+
+        d['draw_counts'] = {name: d['draw_counts'].get(name, 0) for name in active_workers}
+        d['WeightedCounts'] = {name: d['WeightedCounts'].get(name, 0.0) for name in active_workers}
+
+        new_skill_counts = {}
+        for skill in SKILL_COLUMNS:
+            counts = d['skill_counts'].get(skill, {})
+            new_skill_counts[skill] = {name: counts.get(name, 0) for name in active_workers}
+        d['skill_counts'] = new_skill_counts
+        if df is None or df.empty:
+            d['worker_modifiers'] = {}
+            d['total_work_hours'] = {}
+        else:
+            d['worker_modifiers'] = df.groupby('PPL')['Modifier'].first().to_dict()
+            d['total_work_hours'] = _calculate_total_work_hours(df)
+
+        current_assignments = global_worker_data['assignments_per_mod'].get(mod, {})
+        active_canon = active_canon_by_mod.get(mod, set())
+        cleaned_assignments = {}
+        for canonical_id in active_canon:
+            if canonical_id in current_assignments:
+                cleaned_assignments[canonical_id] = current_assignments[canonical_id]
+            else:
+                cleaned_assignments[canonical_id] = {skill: 0 for skill in SKILL_COLUMNS}
+                cleaned_assignments[canonical_id]['total'] = 0
+        global_worker_data['assignments_per_mod'][mod] = cleaned_assignments
+
+    global_worker_data['weighted_counts'] = {
+        canonical_id: global_worker_data['weighted_counts'].get(canonical_id, 0.0)
+        for canonical_id in all_active_canon
+    }
+
 def _update_schedule_row(modality: str, row_index: int, updates: dict, use_staged: bool) -> tuple:
     data_dict = _get_schedule_data_dict(modality, use_staged)
     df = data_dict['working_hours_df']
@@ -632,6 +694,8 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
         return False, 'Invalid row index'
 
     try:
+        if 'PPL' in updates:
+            return False, 'Worker renames are only allowed in the skill roster'
         for col, value in updates.items():
             if col in ['start_time', 'end_time']:
                 df.at[row_index, col] = datetime.strptime(value, TIME_FORMAT).time()
@@ -639,8 +703,6 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
                 df.at[row_index, col] = normalize_skill_value(value)
             elif col == 'Modifier':
                 df.at[row_index, col] = float(value)
-            elif col == 'PPL':
-                df.at[row_index, col] = value
             elif col == 'tasks':
                 if isinstance(value, list):
                     df.at[row_index, 'tasks'] = ', '.join(value)
@@ -783,7 +845,10 @@ def _delete_worker_from_schedule(modality: str, row_index: int, use_staged: bool
             selection_logger.info(f"Deleted linked gap rows for ID {gap_id}")
         else:
             data_dict['working_hours_df'] = df.drop(index=row_index_int).reset_index(drop=True)
-            
+
+        if not use_staged:
+            reconcile_live_worker_tracking(modality)
+
         backup_dataframe(modality, use_staged=use_staged)
         return True, worker_name, None
 
@@ -1826,12 +1891,17 @@ def preload_next_workday(csv_path: str, config: dict) -> dict:
 
         saved_modalities = []
         total_workers = 0
+        date_str = next_day.strftime('%Y-%m-%d')
 
         for modality, df in modality_dfs.items():
             d = modality_data[modality]
             target_path = d['scheduled_file_path']
 
             try:
+                if df is None or df.empty:
+                    selection_logger.info(f"No rows to preload for {modality} on {date_str}")
+                    continue
+
                 export_df = df.copy()
                 export_df['TIME'] = export_df['start_time'].apply(lambda x: x.strftime(TIME_FORMAT)) + '-' + \
                                     export_df['end_time'].apply(lambda x: x.strftime(TIME_FORMAT))
@@ -1853,7 +1923,6 @@ def preload_next_workday(csv_path: str, config: dict) -> dict:
                 'message': 'Fehler beim Speichern der Preload-Dateien'
             }
 
-        date_str = next_day.strftime('%Y-%m-%d')
         return {
             'success': True,
             'target_date': date_str,
@@ -1869,4 +1938,3 @@ def preload_next_workday(csv_path: str, config: dict) -> dict:
             'target_date': get_next_workday().strftime('%Y-%m-%d'),
             'message': f'Fehler beim Preload: {str(e)}'
         }
-
