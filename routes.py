@@ -41,8 +41,7 @@ from lib.utils import (
     get_next_workday,
     parse_time_range,
     TIME_FORMAT,
-    normalize_skill_value,
-    skill_value_to_numeric,
+    skill_value_to_display,
     calculate_shift_duration_hours
 )
 from data_manager import (
@@ -99,8 +98,8 @@ def _df_to_api_response(df: pd.DataFrame) -> list:
             worker_data['gaps'] = row.get('gaps', None)
 
         for skill in SKILL_COLUMNS:
-            value = row.get(skill, 0)
-            worker_data[skill] = normalize_skill_value(value) if pd.notnull(value) else 0
+            value = row.get(skill, None)
+            worker_data[skill] = skill_value_to_display(value)
 
         tasks_val = row.get('tasks', '')
         if isinstance(tasks_val, list):
@@ -1318,8 +1317,8 @@ def get_worker_load_data():
 
             # Collect skill values and counts for this modality
             for skill in SKILL_COLUMNS:
-                skill_val = row.get(skill, 0)
-                mod_data['skills'][skill] = normalize_skill_value(skill_val) if pd.notnull(skill_val) else 0
+                skill_val = row.get(skill, None)
+                mod_data['skills'][skill] = skill_value_to_display(skill_val)
                 # Get skill count for this worker in this modality
                 mod_data['skill_counts'][skill] = d['skill_counts'].get(skill, {}).get(worker_name, 0)
 

@@ -313,8 +313,9 @@ The system prioritizes specialists while using pooled workers (skill=0) as backu
 
 4. **Specialist-first selection with imbalance overflow:**
    - Calculate workload ratio for each worker (weighted_count / hours_worked)
+   - If hours_worked is 0, ratios are treated as 0 when weighted_count is 0, or very high when weighted_count exists
    - Compare min_specialist_ratio vs min_generalist_ratio
-   - If imbalance ≥ threshold%: overflow to generalist with lowest ratio
+   - If imbalance ≥ threshold% (normalized against the higher pool average): overflow to generalist with lowest ratio
    - Otherwise: assign to specialist with lowest ratio
 
 5. **Fallback without exclusions:**
