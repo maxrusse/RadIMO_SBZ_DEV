@@ -153,33 +153,46 @@ def validate_excel_structure(df: pd.DataFrame, required_columns: List[str], skil
 # Normalization Helpers
 # -----------------------------------------------------------
 WEIGHTED_SKILL_MARKER = 'w'
+SKILL_VALUE_EXCLUDED = '-1'
+SKILL_VALUE_PASSIVE = '0'
+SKILL_VALUE_ACTIVE = '1'
 
-def normalize_skill_value(value: Any) -> Any:
+
+def normalize_skill_value(value: Any) -> str:
     """Normalize skill values. Accepts: -1, 0, 1, 'w'."""
     if value is None:
-        return 0
+        return SKILL_VALUE_PASSIVE
 
     if isinstance(value, str):
         cleaned = value.strip()
         if cleaned.lower() == WEIGHTED_SKILL_MARKER:
             return WEIGHTED_SKILL_MARKER
         if cleaned == '':
-            return 0
+            return SKILL_VALUE_PASSIVE
         try:
             parsed = int(float(cleaned))
         except ValueError:
-            return 0
+            return SKILL_VALUE_PASSIVE
     else:
         try:
             parsed = int(value)
         except (TypeError, ValueError):
-            return 0
+            return SKILL_VALUE_PASSIVE
 
-    return parsed
+    if parsed <= -1:
+        return SKILL_VALUE_EXCLUDED
+    if parsed == 0:
+        return SKILL_VALUE_PASSIVE
+    return SKILL_VALUE_ACTIVE
+
+
+def skill_value_to_display(value: Any) -> str:
+    """Convert skill values into API-safe display values."""
+    return normalize_skill_value(value)
 
 def skill_value_to_numeric(value: Any) -> int:
     """Convert skill values to numeric form for comparisons (``'w'`` -> 1)."""
-    if value == WEIGHTED_SKILL_MARKER:
+    if isinstance(value, str) and value.strip().lower() == WEIGHTED_SKILL_MARKER:
         return 1
     try:
         return int(float(value))
@@ -188,4 +201,4 @@ def skill_value_to_numeric(value: Any) -> int:
 
 def is_weighted_skill(value: Any) -> bool:
     """Check whether a skill value represents a weighted/assisted assignment."""
-    return value == WEIGHTED_SKILL_MARKER
+    return isinstance(value, str) and value.strip().lower() == WEIGHTED_SKILL_MARKER

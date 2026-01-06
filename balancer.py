@@ -330,11 +330,11 @@ def _get_worker_exclusion_based(
 
         def weighted_ratio(person):
             canonical_id = get_canonical_worker_id(person)
-            h = hours_map.get(canonical_id, 0)
-            w = get_global_weighted_count(canonical_id)
-            # Use floor of 0.5 hours to prevent division by very small values
-            # and to handle workers with zero hours consistently
-            return w / max(h, 0.5)
+            hours_worked = hours_map.get(canonical_id, 0.0)
+            weighted_count = get_global_weighted_count(canonical_id)
+            if hours_worked <= 0:
+                return 0.0 if weighted_count <= 0 else float('inf')
+            return weighted_count / hours_worked
 
         # Split into specialists (skill=1 or 'w') and generalists (skill=0)
         # 'w' workers use their personal modifier, skill=1 workers do not
@@ -353,49 +353,64 @@ def _get_worker_exclusion_based(
 
             specialist_workers = specialists_to_check['PPL'].unique()
             specialist_ratios = {p: weighted_ratio(p) for p in specialist_workers}
-
-            # Check if should overflow to generalists based on imbalance
-            overflow_triggered = False
-            if not generalists_df.empty and imbalance_threshold_pct > 0:
-                # Calculate min ratios for both pools
-                min_specialist_ratio = min(specialist_ratios.values())
-
-                generalist_workers = generalists_df['PPL'].unique()
-                generalist_ratios = {p: weighted_ratio(p) for p in generalist_workers}
-                min_generalist_ratio = min(generalist_ratios.values())
-
-                # Check if specialists are imbalanced compared to generalists
-                if min_generalist_ratio < min_specialist_ratio and min_specialist_ratio > 0:
-                    imbalance_pct = ((min_specialist_ratio - min_generalist_ratio) / min_specialist_ratio) * 100
-                    if imbalance_pct >= imbalance_threshold_pct:
-                        overflow_triggered = True
-                        selection_logger.info(
-                            "Specialist overflow triggered: specialist_min=%.4f, generalist_min=%.4f, imbalance=%.1f%% >= %d%%",
-                            min_specialist_ratio,
-                            min_generalist_ratio,
-                            imbalance_pct,
-                            imbalance_threshold_pct,
-                        )
-
-            # If overflow not triggered, use specialist with lowest ratio
-            if not overflow_triggered:
-                best_specialist = min(specialist_workers, key=lambda p: specialist_ratios[p])
-                candidate = specialists_to_check[specialists_to_check['PPL'] == best_specialist].iloc[0].copy()
-                candidate['__modality_source'] = modality
-                candidate['__selection_ratio'] = specialist_ratios[best_specialist]
-                # Track if this is a weighted ('w') assignment - affects modifier usage
-                candidate['__is_weighted'] = is_weighted_skill(candidate.get(primary_skill))
-
-                selection_logger.info(
-                    "Selected specialist: person=%s, skill=%s=%s, weighted=%s, ratio=%.4f",
-                    candidate.get('PPL', 'unknown'),
+            if not specialist_ratios:
+                selection_logger.warning(
+                    "No specialist ratios computed for skill %s in modality %s",
                     primary_skill,
-                    candidate.get(primary_skill, '?'),
-                    candidate['__is_weighted'],
-                    specialist_ratios[best_specialist],
+                    modality,
                 )
+            else:
+                # Check if should overflow to generalists based on imbalance
+                overflow_triggered = False
+                if not generalists_df.empty and imbalance_threshold_pct > 0:
+                    # Calculate min ratios for both pools
+                    min_specialist_ratio = min(specialist_ratios.values())
 
-                return candidate, primary_skill, modality
+                    generalist_workers = generalists_df['PPL'].unique()
+                    generalist_ratios = {p: weighted_ratio(p) for p in generalist_workers}
+                    if generalist_ratios:
+                        min_generalist_ratio = min(generalist_ratios.values())
+                    else:
+                        min_generalist_ratio = None
+
+                    # Check if specialists are imbalanced compared to generalists
+                    if min_generalist_ratio is not None and min_generalist_ratio < min_specialist_ratio:
+                        specialist_avg = sum(specialist_ratios.values()) / len(specialist_ratios)
+                        generalist_avg = sum(generalist_ratios.values()) / len(generalist_ratios)
+                        imbalance_baseline = max(specialist_avg, generalist_avg)
+                        if imbalance_baseline <= 0:
+                            imbalance_pct = 0.0
+                        else:
+                            imbalance_pct = ((min_specialist_ratio - min_generalist_ratio) / imbalance_baseline) * 100
+                        if imbalance_pct >= imbalance_threshold_pct:
+                            overflow_triggered = True
+                            selection_logger.info(
+                                "Specialist overflow triggered: specialist_min=%.4f, generalist_min=%.4f, imbalance=%.1f%% >= %d%%",
+                                min_specialist_ratio,
+                                min_generalist_ratio,
+                                imbalance_pct,
+                                imbalance_threshold_pct,
+                            )
+
+                # If overflow not triggered, use specialist with lowest ratio
+                if not overflow_triggered:
+                    best_specialist = min(specialist_workers, key=lambda p: specialist_ratios[p])
+                    candidate = specialists_to_check[specialists_to_check['PPL'] == best_specialist].iloc[0].copy()
+                    candidate['__modality_source'] = modality
+                    candidate['__selection_ratio'] = specialist_ratios[best_specialist]
+                    # Track if this is a weighted ('w') assignment - affects modifier usage
+                    candidate['__is_weighted'] = is_weighted_skill(candidate.get(primary_skill))
+
+                    selection_logger.info(
+                        "Selected specialist: person=%s, skill=%s=%s, weighted=%s, ratio=%.4f",
+                        candidate.get('PPL', 'unknown'),
+                        primary_skill,
+                        candidate.get(primary_skill, '?'),
+                        candidate['__is_weighted'],
+                        specialist_ratios[best_specialist],
+                    )
+
+                    return candidate, primary_skill, modality
 
         # Use generalists if: (1) no specialists, OR (2) overflow triggered
         if not generalists_df.empty:
@@ -404,6 +419,13 @@ def _get_worker_exclusion_based(
 
             generalist_workers = generalists_to_check['PPL'].unique()
             generalist_ratios = {p: weighted_ratio(p) for p in generalist_workers}
+            if not generalist_ratios:
+                selection_logger.warning(
+                    "No generalist ratios computed for skill %s in modality %s",
+                    primary_skill,
+                    modality,
+                )
+                return None
 
             best_generalist = min(generalist_workers, key=lambda p: generalist_ratios[p])
             candidate = generalists_to_check[generalists_to_check['PPL'] == best_generalist].iloc[0].copy()
