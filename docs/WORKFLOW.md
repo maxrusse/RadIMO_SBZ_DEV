@@ -1,6 +1,5 @@
 - Single **Master CSV** upload populates current and future workday schedules.
 - Configurable mapping rules attach modality, shift, and skill overrides to activity descriptions.
-- Overnight shift handling (e.g., 22:00–06:00) is automated at the parsing stage.
 - **GAP Handling**: meetings and boards trigger split shifts, ensuring coverage accounts for unavailability.
 - **Skill Management**: workers pull global skill levels from the Skill Matrix (saves directly).
 - **Daily Prep**: admins use the "Prep Tomorrow" mode to adjust the next day's rotation before it goes live at the **configured reset time** (default 07:30 CET).
@@ -12,7 +11,7 @@
 1) **Source**: medweb exports a monthly CSV with worker activities.
 2) **Ingestion**: the CSV is uploaded once as the master copy; it powers both manual processing and the daily preload.
 3) **Parsing**: mapping rules attach modality and shift names; shift times are derived from the config with Friday-specific exceptions when defined.
-4) **Normalization**: shift windows are normalized into start/end datetimes, rolling end times into the next day when needed, so overnight coverage is retained. Durations always reflect the full window.
+4) **Normalization**: shift windows are normalized into start/end datetimes. Durations are calculated for same-day shifts only (end time must be after start time).
 5) **Exclusions**: scheduled boards or meetings split shifts into available segments without losing total coverage accounting.
 6) **Rosters**: worker skills are loaded from flat Skill×Modality combinations in the roster; CSV rule skill_overrides can selectively override specific combinations.
 7) **Preparation**: optional edits for the next workday occur on `/prep-next-day`, keeping current-day assignments untouched.
@@ -58,7 +57,7 @@ Admins can adjust "Today" (Live) or plan "Tomorrow" (Staged).
 ## ⚙️ Configuration Notes
 
 - **Mapping Rules**: First match wins. Order from specific to general.
-- **Overnight Shifts**: Supported (e.g., `22:00-06:00`); end time is rolled forward by 24h internally.
+- **Same-Day Shifts**: All shifts must have end time after start time on the same day.
 - **Skill Roster**: Saves directly to `worker_skill_roster.json`; priority over mapping defaults.
 
 ---
