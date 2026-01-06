@@ -61,25 +61,10 @@ def parse_time_range(time_range: str) -> Tuple[time, time]:
 def compute_shift_window(
     start_time: time, end_time: time, reference_dt: datetime
 ) -> Tuple[datetime, datetime]:
-    """Return normalized start/end datetimes for a shift (handles overnight)."""
-    start_minutes = start_time.hour * 60 + start_time.minute
-    end_minutes = end_time.hour * 60 + end_time.minute
-    ref_minutes = reference_dt.hour * 60 + reference_dt.minute
-
-    overnight = end_minutes <= start_minutes
-    if overnight:
-        end_minutes += 24 * 60
-        # If we're in the early-morning portion, the shift actually started yesterday.
-        reference_date = (
-            reference_dt.date() - timedelta(days=1)
-            if ref_minutes < (end_minutes - 24 * 60)
-            else reference_dt.date()
-        )
-    else:
-        reference_date = reference_dt.date()
-
+    """Return start/end datetimes for a shift on the same day as reference_dt."""
+    reference_date = reference_dt.date()
     start_dt = datetime.combine(reference_date, start_time)
-    end_dt = start_dt + timedelta(minutes=end_minutes - start_minutes)
+    end_dt = datetime.combine(reference_date, end_time)
     return start_dt, end_dt
 
 def is_now_in_shift(start_time: time, end_time: time, current_dt: datetime) -> bool:
@@ -88,11 +73,12 @@ def is_now_in_shift(start_time: time, end_time: time, current_dt: datetime) -> b
     return start_dt <= current_dt <= end_dt
 
 def calculate_shift_duration_hours(start_time: time, end_time: time) -> float:
-    """Calculate shift duration in hours, supporting overnight shifts."""
+    """Calculate shift duration in hours (same-day shifts only, end must be after start)."""
     start_minutes = start_time.hour * 60 + start_time.minute
     end_minutes = end_time.hour * 60 + end_time.minute
+    # Same-day only: if end <= start, treat as invalid (0 hours)
     if end_minutes <= start_minutes:
-        end_minutes += 24 * 60
+        return 0.0
     return (end_minutes - start_minutes) / 60.0
 
 def get_weekday_name_german(target_date: date) -> str:

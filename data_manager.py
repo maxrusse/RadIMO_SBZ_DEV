@@ -621,16 +621,18 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
         if use_staged and 'is_manual' in df.columns:
             df.at[row_index, 'is_manual'] = True
 
-        # Recalculate shift_duration if times changed
+        # Recalculate shift_duration if times changed (same-day only)
         if 'start_time' in updates or 'end_time' in updates:
             start = df.at[row_index, 'start_time']
             end = df.at[row_index, 'end_time']
             if pd.notnull(start) and pd.notnull(end):
                 start_dt = datetime.combine(datetime.today(), start)
                 end_dt = datetime.combine(datetime.today(), end)
-                if end_dt < start_dt:
-                    end_dt += timedelta(days=1)
-                df.at[row_index, 'shift_duration'] = (end_dt - start_dt).seconds / 3600
+                # Same-day only: duration is 0 if end <= start
+                if end_dt > start_dt:
+                    df.at[row_index, 'shift_duration'] = (end_dt - start_dt).seconds / 3600
+                else:
+                    df.at[row_index, 'shift_duration'] = 0.0
 
                 if 'TIME' in df.columns:
                     df.at[row_index, 'TIME'] = f"{start.strftime(TIME_FORMAT)}-{end.strftime(TIME_FORMAT)}"
@@ -683,9 +685,11 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
 
         start_dt = datetime.combine(datetime.today(), new_row['start_time'])
         end_dt = datetime.combine(datetime.today(), new_row['end_time'])
-        if end_dt < start_dt:
-            end_dt += timedelta(days=1)
-        new_row['shift_duration'] = (end_dt - start_dt).seconds / 3600
+        # Same-day only: duration is 0 if end <= start
+        if end_dt > start_dt:
+            new_row['shift_duration'] = (end_dt - start_dt).seconds / 3600
+        else:
+            new_row['shift_duration'] = 0.0
 
         new_row['counts_for_hours'] = worker_data.get('counts_for_hours', True)
 
@@ -1198,6 +1202,7 @@ def build_ppl_from_row(row: pd.Series, cols: Optional[dict] = None) -> str:
     return f"{name} ({code})"
 
 def apply_exclusions_to_shifts(work_shifts: List[dict], exclusions: List[dict], target_date: date) -> List[dict]:
+    """Apply exclusions (gaps) to shifts. Same-day operations only."""
     if not exclusions:
         return work_shifts
 
@@ -1209,8 +1214,9 @@ def apply_exclusions_to_shifts(work_shifts: List[dict], exclusions: List[dict], 
 
         shift_start_dt = datetime.combine(target_date, shift_start)
         shift_end_dt = datetime.combine(target_date, shift_end)
-        if shift_end_dt < shift_start_dt:
-            shift_end_dt += timedelta(days=1)
+        # Same-day only: skip invalid shifts where end <= start
+        if shift_end_dt <= shift_start_dt:
+            continue
 
         overlapping_exclusions = []
         for excl in exclusions:
@@ -1219,8 +1225,9 @@ def apply_exclusions_to_shifts(work_shifts: List[dict], exclusions: List[dict], 
 
             excl_start_dt = datetime.combine(target_date, excl_start)
             excl_end_dt = datetime.combine(target_date, excl_end)
-            if excl_end_dt < excl_start_dt:
-                excl_end_dt += timedelta(days=1)
+            # Same-day only: skip invalid exclusions where end <= start
+            if excl_end_dt <= excl_start_dt:
+                continue
 
             if excl_start_dt < shift_end_dt and excl_end_dt > shift_start_dt:
                 overlapping_exclusions.append((excl_start_dt, excl_end_dt))
@@ -1266,7 +1273,7 @@ def apply_exclusions_to_shifts(work_shifts: List[dict], exclusions: List[dict], 
 
 def resolve_overlapping_shifts(shifts: List[dict], target_date: date) -> List[dict]:
     """
-    Resolve overlapping shifts for the same worker.
+    Resolve overlapping shifts for the same worker. Same-day operations only.
 
     When two shifts overlap, the later shift wins:
     - Prior shift's end time is cropped to the beginning of the later shift
@@ -1311,8 +1318,9 @@ def resolve_overlapping_shifts(shifts: List[dict], target_date: date) -> List[di
 
             current_start_dt = datetime.combine(target_date, current_start)
             current_end_dt = datetime.combine(target_date, current_end)
-            if current_end_dt < current_start_dt:
-                current_end_dt += timedelta(days=1)
+            # Same-day only: skip invalid shifts where end <= start
+            if current_end_dt <= current_start_dt:
+                continue
 
             # Check all later shifts to see if they overlap
             for j in range(i + 1, len(sorted_shifts)):
@@ -1320,8 +1328,6 @@ def resolve_overlapping_shifts(shifts: List[dict], target_date: date) -> List[di
                 later_start = later_shift['start_time']
 
                 later_start_dt = datetime.combine(target_date, later_start)
-                if later_start_dt < current_start_dt:
-                    later_start_dt += timedelta(days=1)
 
                 # If later shift starts before current ends, crop current end
                 if later_start_dt < current_end_dt:
@@ -1578,8 +1584,9 @@ def build_working_hours_from_medweb(
             for start_time, end_time in time_ranges:
                 start_dt = datetime.combine(target_date_obj, start_time)
                 end_dt = datetime.combine(target_date_obj, end_time)
-                if end_dt < start_dt:
-                    end_dt += timedelta(days=1)
+                # Same-day only: skip invalid shifts where end <= start
+                if end_dt <= start_dt:
+                    continue
                 duration_hours = (end_dt - start_dt).total_seconds() / 3600
 
                 rule_modifier = rule.get('modifier', 1.0)
@@ -1615,8 +1622,9 @@ def build_working_hours_from_medweb(
 
             start_dt = datetime.combine(target_date_obj, gap_start)
             end_dt = datetime.combine(target_date_obj, gap_end)
-            if end_dt < start_dt:
-                end_dt += timedelta(days=1)
+            # Same-day only: skip invalid gaps where end <= start
+            if end_dt <= start_dt:
+                continue
             duration_hours = (end_dt - start_dt).total_seconds() / 3600
 
             # Create an entry in all modalities (or just first one) with all skills = -1

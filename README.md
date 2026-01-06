@@ -20,7 +20,6 @@ RadIMO Cortex orchestrates workload distribution for radiology teams across mult
 - Admin system: Skill Matrix (direct save), Schedule Edit (Today + Prep Tomorrow)
 - Worker skill roster admin portal with simplified JSON management
 - GAP handling (split shifts) for meetings and boards
-- Overnight shift handling across midnight boundaries
 - Smart skill filtering on Schedule Edit and Timetable views
 
 ---

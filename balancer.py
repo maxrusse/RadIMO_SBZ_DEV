@@ -136,7 +136,7 @@ def calculate_work_hours_now(current_dt: datetime, modality: str) -> dict:
     return hours_by_canonical
 
 def _filter_active_rows(df: Optional[pd.DataFrame], current_dt: datetime) -> Optional[pd.DataFrame]:
-    """Return only rows active at ``current_dt`` (supports overnight shifts).
+    """Return only rows active at ``current_dt`` (same-day shifts only).
 
     Note: Skill values are NOT converted to numeric here to preserve 'w' marker.
     Use skill_value_to_numeric() for comparisons, is_weighted_skill() to check for 'w'.
