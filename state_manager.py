@@ -190,24 +190,9 @@ class StateManager:
         """Access worker skill JSON roster."""
         return self._worker_skill_json_roster
 
-    def get_canonical_worker_id(self, worker_name: str) -> str:
-        """Map worker name variations to a single canonical identifier."""
-        worker_name = '' if worker_name is None else str(worker_name)
-        worker_key = worker_name.strip()
-
-        if worker_key in self._global_worker_data['worker_ids']:
-            return self._global_worker_data['worker_ids'][worker_key]
-
-        canonical_id = worker_key
-        abk_match = worker_key.split('(')
-        if len(abk_match) > 1 and ')' in abk_match[1]:
-            abbreviation = abk_match[1].split(')')[0].strip()
-            if abbreviation:
-                canonical_id = abbreviation
-
-        canonical_id = canonical_id or worker_key
-        self._global_worker_data['worker_ids'][worker_key] = canonical_id
-        return canonical_id
+    # NOTE: get_canonical_worker_id is intentionally NOT implemented here.
+    # Use data_manager.worker_management.get_canonical_worker_id() instead
+    # to maintain a single source of truth.
 
     def get_global_weighted_count(self, canonical_id: str) -> float:
         """Get single global weighted count for a worker."""

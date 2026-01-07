@@ -337,17 +337,41 @@ def extract_modalities_from_skill_overrides(skill_overrides: dict) -> List[str]:
     """
     Extract unique modalities from skill_overrides keys.
 
-    Keys are in format "Skill_modality" (e.g., "MSK_ct", "Notfall_mr").
+    Handles all key formats:
+    - "all" → all modalities
+    - Skill shortcut (e.g., "MSK") → all modalities
+    - Modality shortcut (e.g., "ct") → just that modality
+    - Full key (e.g., "MSK_ct") → extract modality from key
+
     Returns list of unique canonical modalities found.
     """
     modalities = set()
+
     for key in skill_overrides.keys():
+        key_lower = key.lower()
+
+        # "all" shortcut → all modalities
+        if key_lower == 'all':
+            return list(allowed_modalities)
+
+        # Skill-only shortcut (e.g., "MSK") → all modalities
+        if skill_columns_map.get(key_lower):
+            modalities.update(allowed_modalities)
+            continue
+
+        # Modality-only shortcut (e.g., "ct") → just that modality
+        canonical_mod = allowed_modalities_map.get(key_lower)
+        if canonical_mod:
+            modalities.add(canonical_mod)
+            continue
+
+        # Full "skill_modality" key → extract modality
         normalized = normalize_skill_mod_key(key)
         if '_' in normalized:
             parts = normalized.split('_', 1)
             if len(parts) == 2:
-                # normalize_skill_mod_key returns canonical names
                 mod = parts[1]
                 if mod in allowed_modalities:
                     modalities.add(mod)
+
     return list(modalities)
