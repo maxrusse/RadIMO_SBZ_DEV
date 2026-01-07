@@ -3054,15 +3054,7 @@ async function callAddGap(endpoint, modality, rowIndex, type, start, end) {
 
 /**
  * Add a break (gap) starting NOW for a worker.
- * - Uses current time as gap start
- * - Duration and gap type from config (QUICK_BREAK)
- * - If shift exists at this time: splits the shift (add-gap API)
- * - If no shift exists: creates new all -1 gap entry (add-worker API)
- * - Shows confirmation popup if not in edit mode
- *
- * @param {string} tab - 'today' or 'tomorrow'
- * @param {number} gIdx - Group index in entriesData
- * @param {number} shiftIdx - Shift index within the group (optional, used for context)
+ * Simply creates a gap entry with all skills = -1, like manually adding a gap.
  */
 async function onQuickGap30(tab, gIdx, shiftIdx) {
   const group = entriesData[tab][gIdx];
@@ -3071,135 +3063,68 @@ async function onQuickGap30(tab, gIdx, shiftIdx) {
     return;
   }
 
-  // Get current time (rounded to nearest 5 minutes for cleaner gaps)
+  // Get current time (rounded to nearest 5 minutes)
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const roundedMinutes = Math.round(currentMinutes / 5) * 5;
   const gapStart = formatMinutesToTime(roundedMinutes);
   const gapEnd = addMinutes(gapStart, QUICK_BREAK.duration_minutes);
   const gapType = QUICK_BREAK.gap_type || 'Break';
-  const breakMode = QUICK_BREAK.mode || 'split_shift';
-
-  // Find if there's a shift covering this time
-  const shifts = group.shiftsArray || [];
-  const overlappingShift = shifts.find(s => {
-    const shiftStart = s.start_time || '00:00';
-    const shiftEnd = s.end_time || '23:59';
-    // Check if gap overlaps with shift
-    return gapStart < shiftEnd && gapEnd > shiftStart;
-  });
 
   // If not in edit mode, show confirmation popup
-  const isEditMode = editMode[tab];
-  if (!isEditMode) {
-    let message = `Add ${QUICK_BREAK.duration_minutes}-min ${gapType.toLowerCase()} for ${group.worker}?\n\n`;
-    message += `Break time: ${gapStart} - ${gapEnd}\n`;
-    if (overlappingShift) {
-      message += `Shift: ${overlappingShift.start_time} - ${overlappingShift.end_time}\n`;
-      message += `Mode: ${breakMode === 'full_exclusion' ? 'Full exclusion (all -1)' : 'Split shift'}\n`;
-    } else {
-      message += `No shift at this time - will create new gap entry (all -1)\n`;
-    }
-    const confirmed = confirm(message);
+  if (!editMode[tab]) {
+    const confirmed = confirm(
+      `Add ${QUICK_BREAK.duration_minutes}-min break for ${group.worker}?\n\n` +
+      `Time: ${gapStart} - ${gapEnd}`
+    );
     if (!confirmed) return;
   }
 
   try {
-    if (overlappingShift && breakMode === 'split_shift') {
-      // Mode: split_shift - Use add-gap API to split the existing shift
-      const modKeysWithData = MODALITIES.map(m => m.toLowerCase()).filter(modKey => {
-        const modData = overlappingShift.modalities[modKey];
-        return modData && modData.row_index !== undefined && modData.row_index >= 0;
-      });
+    const addEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
 
-      if (modKeysWithData.length === 0) {
-        showMessage('error', 'No assigned modalities found for this shift');
-        return;
-      }
+    // Build skills object with all -1
+    const skills = {};
+    SKILLS.forEach(skill => { skills[skill] = -1; });
 
-      const gapEndpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
+    const response = await fetch(addEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        modality: MODALITIES[0].toLowerCase(),
+        ppl_name: group.worker,
+        start_time: gapStart,
+        end_time: gapEnd,
+        modifier: 1.0,
+        counts_for_hours: false,
+        tasks: gapType,
+        ...skills
+      })
+    });
 
-      for (const modKey of modKeysWithData) {
-        const modData = overlappingShift.modalities[modKey];
-        await callAddGap(gapEndpoint, modKey, modData.row_index, gapType, gapStart, gapEnd);
-      }
-
-      showMessage('success', `Added ${gapType.toLowerCase()} (${gapStart}-${gapEnd}) for ${group.worker}`);
-    } else {
-      // Mode: full_exclusion OR no shift exists - Create new gap entry with all -1
-      await createGapEntry(tab, group.worker, gapStart, gapEnd, gapType);
-      showMessage('success', `Created ${gapType.toLowerCase()} entry (${gapStart}-${gapEnd}) for ${group.worker}`);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || 'Failed to create gap');
     }
 
+    showMessage('success', `Added break (${gapStart}-${gapEnd}) for ${group.worker}`);
     await loadData();
   } catch (error) {
     showMessage('error', error.message || 'Failed to add break');
   }
 }
 
-/**
- * Create a new gap entry (all skills = -1) for a worker.
- * Uses the add-worker API to create entries in each modality.
- */
-async function createGapEntry(tab, workerName, gapStart, gapEnd, gapType) {
-  const addEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
-
-  // Build skills object with all -1
-  const skills = {};
-  SKILLS.forEach(skill => {
-    skills[skill] = -1;
-  });
-
-  // Add to first modality (gaps typically only need one entry)
-  const modality = MODALITIES[0].toLowerCase();
-
-  const response = await fetch(addEndpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      modality: modality,
-      ppl_name: workerName,
-      start_time: gapStart,
-      end_time: gapEnd,
-      modifier: 1.0,
-      counts_for_hours: false,
-      tasks: gapType,
-      ...skills
-    })
-  });
-
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.error || 'Failed to create gap entry');
-  }
-}
-
-/**
- * Format total minutes to HH:MM string
- */
+/** Format total minutes to HH:MM string */
 function formatMinutesToTime(totalMinutes) {
   const hours = Math.floor(totalMinutes / 60) % 24;
   const mins = totalMinutes % 60;
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 }
 
-/**
- * Add minutes to a time string (HH:MM format)
- */
+/** Add minutes to a time string (HH:MM format) */
 function addMinutes(timeStr, minutes) {
   const [hours, mins] = timeStr.split(':').map(Number);
-  const totalMins = hours * 60 + mins + minutes;
-  return formatMinutesToTime(totalMins);
-}
-
-/**
- * Subtract minutes from a time string (HH:MM format)
- */
-function subtractMinutes(timeStr, minutes) {
-  const [hours, mins] = timeStr.split(':').map(Number);
-  let totalMins = hours * 60 + mins - minutes;
-  if (totalMins < 0) totalMins = 0;
-  return formatMinutesToTime(totalMins);
+  return formatMinutesToTime(hours * 60 + mins + minutes);
 }
 
 // =============================================

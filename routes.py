@@ -857,8 +857,7 @@ def prep_next_day():
     quick_break_config = APP_CONFIG.get('balancer', {}).get('quick_break', {})
     quick_break = {
         'duration_minutes': quick_break_config.get('duration_minutes', 30),
-        'gap_type': quick_break_config.get('gap_type', 'Break'),
-        'mode': quick_break_config.get('mode', 'split_shift')
+        'gap_type': quick_break_config.get('gap_type', 'Break')
     }
 
     return render_template(

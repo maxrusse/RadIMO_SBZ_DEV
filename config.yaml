@@ -273,14 +273,10 @@ balancer:
     gap_default: false    # type: "gap" entries don't count towards hours (default)
 
   # Quick break button settings (☕ button in prep page)
-  # Adds a 30-min gap at current time for breaks during shifts
+  # Creates a gap entry (all skills = -1) at current time
   quick_break:
     duration_minutes: 30          # Duration of the break in minutes
     gap_type: "Break"             # Gap type label used for the break
-    # Mode: "split_shift" or "full_exclusion"
-    # - split_shift: Only marks gap within shift time (overflow continues outside)
-    # - full_exclusion: Creates full -1 entry for break duration (no work at all)
-    mode: "split_shift"
 
   # Exclusion-based routing configuration
   # Define which workers to EXCLUDE when requesting each skill
