@@ -493,29 +493,31 @@ def preload_from_master():
 
             if os.path.exists(scheduled_path):
                 try:
-                    with pd.ExcelFile(scheduled_path, engine='openpyxl') as xls:
-                        if 'Tabelle1' in xls.sheet_names:
-                            df = pd.read_excel(xls, sheet_name='Tabelle1')
+                    with open(scheduled_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
 
-                            if 'TIME' in df.columns:
-                                time_data = df['TIME'].apply(parse_time_range)
-                                df['start_time'] = time_data.apply(lambda x: x[0])
-                                df['end_time'] = time_data.apply(lambda x: x[1])
-                                df['shift_duration'] = df.apply(
-                                    lambda row: calculate_shift_duration_hours(row['start_time'], row['end_time']),
-                                    axis=1
-                                )
+                    if 'working_hours' in data:
+                        df = pd.DataFrame(data['working_hours'])
 
-                            if 'counts_for_hours' not in df.columns:
-                                df['counts_for_hours'] = True
+                        if 'TIME' in df.columns:
+                            time_data = df['TIME'].apply(parse_time_range)
+                            df['start_time'] = time_data.apply(lambda x: x[0])
+                            df['end_time'] = time_data.apply(lambda x: x[1])
+                            df['shift_duration'] = df.apply(
+                                lambda row: calculate_shift_duration_hours(row['start_time'], row['end_time']),
+                                axis=1
+                            )
 
-                            staged_modality_data[modality]['working_hours_df'] = df
-                            staged_modality_data[modality]['info_texts'] = []
-                            staged_modality_data[modality]['total_work_hours'] = _calculate_total_work_hours(df)
-                            staged_modality_data[modality]['last_modified'] = get_local_now()
+                        if 'counts_for_hours' not in df.columns:
+                            df['counts_for_hours'] = True
 
-                            backup_dataframe(modality, use_staged=True)
-                            selection_logger.info(f"Staged data updated for {modality} from scheduled file after preload")
+                        staged_modality_data[modality]['working_hours_df'] = df
+                        staged_modality_data[modality]['info_texts'] = data.get('info_texts', [])
+                        staged_modality_data[modality]['total_work_hours'] = _calculate_total_work_hours(df)
+                        staged_modality_data[modality]['last_modified'] = get_local_now()
+
+                        backup_dataframe(modality, use_staged=True)
+                        selection_logger.info(f"Staged data updated for {modality} from scheduled file after preload")
 
                 except Exception as e:
                     selection_logger.error(f"Error loading staged data for {modality} after preload: {e}")
