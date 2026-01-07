@@ -3054,7 +3054,8 @@ async function callAddGap(endpoint, modality, rowIndex, type, start, end) {
 
 /**
  * Add a break (gap) starting NOW for a worker.
- * Simply creates a gap entry with all skills = -1, like manually adding a gap.
+ * Uses add-gap API to split existing shifts at the break time.
+ * Falls back to standalone gap entry if no shift exists at that time.
  */
 async function onQuickGap30(tab, gIdx, shiftIdx) {
   const group = entriesData[tab][gIdx];
@@ -3071,43 +3072,73 @@ async function onQuickGap30(tab, gIdx, shiftIdx) {
   const gapEnd = addMinutes(gapStart, QUICK_BREAK.duration_minutes);
   const gapType = QUICK_BREAK.gap_type || 'Break';
 
+  // Find shifts that overlap with the gap time
+  const shifts = group.shiftsArray || [];
+  const overlappingShifts = shifts.filter(s => {
+    const shiftStart = s.start_time || '00:00';
+    const shiftEnd = s.end_time || '23:59';
+    return gapStart < shiftEnd && gapEnd > shiftStart;
+  });
+
   // If not in edit mode, show confirmation popup
   if (!editMode[tab]) {
-    const confirmed = confirm(
-      `Add ${QUICK_BREAK.duration_minutes}-min break for ${group.worker}?\n\n` +
-      `Time: ${gapStart} - ${gapEnd}`
-    );
-    if (!confirmed) return;
+    let msg = `Add ${QUICK_BREAK.duration_minutes}-min break for ${group.worker}?\n\nTime: ${gapStart} - ${gapEnd}`;
+    if (overlappingShifts.length > 0) {
+      msg += `\n\nWill split shift(s) at break time.`;
+    } else {
+      msg += `\n\nNo shift at this time - will create gap entry.`;
+    }
+    if (!confirm(msg)) return;
   }
 
   try {
-    const addEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
+    if (overlappingShifts.length > 0) {
+      // Use add-gap API to split existing shifts
+      const gapEndpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
 
-    // Build skills object with all -1
-    const skills = {};
-    SKILLS.forEach(skill => { skills[skill] = -1; });
+      for (const shift of overlappingShifts) {
+        // Get all modalities with valid row_index for this shift
+        const modKeys = MODALITIES.map(m => m.toLowerCase()).filter(modKey => {
+          const modData = shift.modalities[modKey];
+          return modData && modData.row_index !== undefined && modData.row_index >= 0;
+        });
 
-    const response = await fetch(addEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        modality: MODALITIES[0].toLowerCase(),
-        ppl_name: group.worker,
-        start_time: gapStart,
-        end_time: gapEnd,
-        modifier: 1.0,
-        counts_for_hours: false,
-        tasks: gapType,
-        ...skills
-      })
-    });
+        for (const modKey of modKeys) {
+          const modData = shift.modalities[modKey];
+          await callAddGap(gapEndpoint, modKey, modData.row_index, gapType, gapStart, gapEnd);
+        }
+      }
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error || 'Failed to create gap');
+      showMessage('success', `Added break (${gapStart}-${gapEnd}) for ${group.worker} - shift split`);
+    } else {
+      // No overlapping shift - create standalone gap entry
+      const addEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
+      const skills = {};
+      SKILLS.forEach(skill => { skills[skill] = -1; });
+
+      const response = await fetch(addEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          modality: MODALITIES[0].toLowerCase(),
+          ppl_name: group.worker,
+          start_time: gapStart,
+          end_time: gapEnd,
+          modifier: 1.0,
+          counts_for_hours: false,
+          tasks: gapType,
+          ...skills
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to create gap');
+      }
+
+      showMessage('success', `Added break (${gapStart}-${gapEnd}) for ${group.worker}`);
     }
 
-    showMessage('success', `Added break (${gapStart}-${gapEnd}) for ${group.worker}`);
     await loadData();
   } catch (error) {
     showMessage('error', error.message || 'Failed to add break');
