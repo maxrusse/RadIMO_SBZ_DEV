@@ -630,6 +630,7 @@ vendor_mappings:
       skill_overrides:
         Gyn_ct: 1
         Gyn_mr: 1
+        Gyn_mammo: 1         # Mammography for Gyn cases
 
     - match: "Päd Team"
       type: "shift"
@@ -647,6 +648,84 @@ vendor_mappings:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
+        KopfHals_ct: 1
+        KopfHals_mr: 1
+
+    # =========================================================================
+    # NOTFALL TEAM - Emergency coverage across modalities
+    # =========================================================================
+    - match: "Notfall Team"
+      type: "shift"
+      times:
+        default: "07:00-15:00"
+        Freitag: "07:00-13:00"
+      skill_overrides:
+        Notfall_ct: 1
+        Notfall_mr: 1
+        Notfall_xray: 1
+
+    # =========================================================================
+    # PRIVAT SHIFTS - Separate Gyn from general private patients
+    # =========================================================================
+    # Privat Allgemein: All private patients EXCEPT Gyn (ct, mr, xray)
+    - match: "Privat Allgemein"
+      type: "shift"
+      times:
+        default: "07:00-15:00"
+        Freitag: "07:00-13:00"
+      skill_overrides:
+        Privat_ct: 1
+        Privat_mr: 1
+        Privat_xray: 1
+
+    # Privat Gyn: Private Gyn patients only (ct, mr, mammo)
+    - match: "Privat Gyn"
+      type: "shift"
+      times:
+        default: "13:00-17:00"
+        Freitag: "13:00-15:00"
+      skill_overrides:
+        Gyn_ct: 1
+        Gyn_mr: 1
+        Gyn_mammo: 1
+        Privat_ct: 0        # Fallback for general private if needed
+        Privat_mr: 0
+
+    # =========================================================================
+    # FACHARZT FOKUS - Senior physician covering all subspecialties
+    # =========================================================================
+    # Facharzt can handle all skills EXCEPT Gyn and Notfall (focused work)
+    # Multimodality coverage across CT, MR, and xray where applicable
+    - match: "Facharzt Fokus"
+      type: "shift"
+      times:
+        default: "07:00-15:00"
+        Freitag: "07:00-13:00"
+      skill_overrides:
+        # Explicitly exclude Gyn and Notfall
+        Gyn_ct: -1
+        Gyn_mr: -1
+        Gyn_mammo: -1
+        Notfall_ct: -1
+        Notfall_mr: -1
+        Notfall_xray: -1
+        Notfall_mammo: -1
+        # All other skills active across modalities
+        Privat_ct: 1
+        Privat_mr: 1
+        Privat_xray: 1
+        Päd_ct: 1
+        Päd_mr: 1
+        Päd_xray: 1
+        MSK-Haut_ct: 1
+        MSK-Haut_mr: 1
+        MSK-Haut_xray: 1
+        Abdomen_ct: 1
+        Abdomen_mr: 1
+        CardThor_ct: 1
+        CardThor_mr: 1
+        Uro_ct: 1
+        Uro_mr: 1
         KopfHals_ct: 1
         KopfHals_mr: 1
 
