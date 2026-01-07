@@ -1361,6 +1361,8 @@ function renderTable(tab) {
         if (shift.gap_id) {
           workerHtml = `<span class="gap-linked-icon" title="Linked Split-Shift (ID: ${shift.gap_id})">🔗</span>` + workerHtml;
         }
+        // Add quick break button at worker level
+        workerHtml += `<button type="button" class="btn-quick-gap" onclick="onQuickGap30('${tab}', ${gIdx}, 0)" title="Add ${QUICK_BREAK.duration_minutes}-min break NOW">☕</button>`;
         tr.innerHTML += `<td rowspan="${totalRows}" style="vertical-align: middle;">${workerHtml}</td>`;
       }
 
@@ -1387,10 +1389,6 @@ function renderTable(tab) {
           const gapStart = firstSeg.start || shift.start_time || '12:00';
           const gapEnd = lastSeg.end || shift.end_time || '13:00';
           shiftEditor += `<div class="gap-indicator" style="margin-top:0.1rem;">⏸ ${escapeHtml(gapStart)}-${escapeHtml(gapEnd)}</div>`;
-        }
-        // Add quick 30-min gap button in edit mode too (only for non-gap rows)
-        if (!isGapRow) {
-          shiftEditor += `<button type="button" class="btn-quick-gap" onclick="onQuickGap30('${tab}', ${gIdx}, ${shiftIdx})" title="Add break NOW (${QUICK_BREAK.duration_minutes} min)">☕</button>`;
         }
         tr.innerHTML += `<td class="grid-cell shift-col">${shiftEditor}</td>`;
       } else {
@@ -1423,10 +1421,6 @@ function renderTable(tab) {
         }
 
         timelineHtml += '</div>';
-        // Add quick 30-min gap button (only for non-gap rows with valid shifts)
-        if (!isGapRow) {
-          timelineHtml += `<button type="button" class="btn-quick-gap" onclick="onQuickGap30('${tab}', ${gIdx}, ${shiftIdx})" title="Add break NOW (${QUICK_BREAK.duration_minutes} min)">☕</button>`;
-        }
         tr.innerHTML += `<td class="grid-cell shift-col">${timelineHtml}</td>`;
       }
 
