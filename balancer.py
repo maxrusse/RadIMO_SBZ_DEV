@@ -362,14 +362,6 @@ def _get_worker_exclusion_based(
         if skill_filtered.empty:
             return None
 
-        # Apply shift start/end buffers (per-worker per-shift)
-        if shift_start_buffer > 0:
-            skill_filtered = _filter_near_shift_start(skill_filtered, current_dt, shift_start_buffer)
-        if shift_end_buffer > 0:
-            skill_filtered = _filter_near_shift_end(skill_filtered, current_dt, shift_end_buffer)
-        if skill_filtered.empty:
-            return None
-
         # Apply exclusion rules if requested
         filtered_workers = skill_filtered
         if apply_exclusions:
@@ -401,6 +393,14 @@ def _get_worker_exclusion_based(
         generalists_df = filtered_workers[
             filtered_workers[primary_skill].apply(lambda v: skill_value_to_numeric(v) == 0)
         ]
+
+        # Apply shift start/end buffers ONLY to generalists (overflow pool)
+        # Specialists (1, w) handle their own work even at shift boundaries
+        if not generalists_df.empty:
+            if shift_start_buffer > 0:
+                generalists_df = _filter_near_shift_start(generalists_df, current_dt, shift_start_buffer)
+            if shift_end_buffer > 0:
+                generalists_df = _filter_near_shift_end(generalists_df, current_dt, shift_end_buffer)
 
         # Strategy: Try specialists first, overflow to generalists if needed
         if not specialists_df.empty:
