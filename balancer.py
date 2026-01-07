@@ -250,14 +250,19 @@ def _get_effective_assignment_load(
     modality: str,
     skill_counts: Optional[dict] = None,
 ) -> float:
-    if skill_counts is None:
-        skill_counts = modality_data[modality]['skill_counts'].get(column, {})
+    """
+    Get effective assignment load for minimum balancer.
 
-    local_count = skill_counts.get(worker, 0)
+    Uses weighted counts consistently to avoid comparing different units.
+    Returns max of modality-specific weighted count and global weighted count.
+    """
     canonical_id = get_canonical_worker_id(worker)
-    global_weighted_total = get_global_weighted_count(canonical_id)
 
-    return max(float(local_count), float(global_weighted_total))
+    # Use weighted counts consistently (both are in weighted units)
+    modality_weighted = get_modality_weighted_count(canonical_id, modality)
+    global_weighted = get_global_weighted_count(canonical_id)
+
+    return max(modality_weighted, global_weighted)
 
 def _apply_minimum_balancer(filtered_df: pd.DataFrame, column: str, modality: str) -> pd.DataFrame:
     if filtered_df.empty or not BALANCER_SETTINGS.get('enabled', True):

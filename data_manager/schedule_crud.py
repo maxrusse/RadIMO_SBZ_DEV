@@ -8,6 +8,7 @@ This module handles:
 - Overlapping shift resolution
 """
 import json
+import uuid
 from datetime import datetime, time, date, timedelta
 from typing import Optional, Dict, List, Tuple
 
@@ -22,6 +23,7 @@ from lib.utils import (
     TIME_FORMAT,
     normalize_skill_value,
     calculate_shift_duration_hours,
+    get_next_workday,
 )
 from state_manager import StateManager
 from data_manager.file_ops import _calculate_total_work_hours
@@ -147,7 +149,7 @@ def resolve_overlapping_shifts(shifts: List[dict], target_date: date) -> List[di
     return result_shifts
 
 
-def resolve_overlapping_shifts_df(df: pd.DataFrame) -> pd.DataFrame:
+def resolve_overlapping_shifts_df(df: pd.DataFrame, target_date: Optional[date] = None) -> pd.DataFrame:
     """
     Resolve overlapping shifts in a DataFrame.
 
@@ -157,6 +159,7 @@ def resolve_overlapping_shifts_df(df: pd.DataFrame) -> pd.DataFrame:
 
     Args:
         df: DataFrame with 'PPL', 'start_time', 'end_time' columns
+        target_date: Date for datetime calculations (defaults to today)
 
     Returns:
         DataFrame with resolved shifts (no overlaps)
@@ -167,8 +170,8 @@ def resolve_overlapping_shifts_df(df: pd.DataFrame) -> pd.DataFrame:
     if 'PPL' not in df.columns or 'start_time' not in df.columns or 'end_time' not in df.columns:
         return df
 
-    # Use today as base date for datetime calculations
-    base_date = datetime.today().date()
+    # Use provided date or default to today
+    base_date = target_date if target_date is not None else datetime.today().date()
 
     # Convert to list of dicts for processing
     shifts = df.to_dict('records')
@@ -302,7 +305,9 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
             worker_name = df.at[row_index, 'PPL']
             worker_shifts = df[df['PPL'] == worker_name]
             if len(worker_shifts) > 1:
-                resolved_df = resolve_overlapping_shifts_df(df)
+                # Use next workday for staged data, today for live
+                target_date = get_next_workday().date() if use_staged else datetime.today().date()
+                resolved_df = resolve_overlapping_shifts_df(df, target_date)
                 if len(resolved_df) != len(df):
                     selection_logger.info(
                         f"Resolved overlapping shifts for {worker_name} after edit: "
@@ -374,7 +379,9 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
         df = data_dict['working_hours_df']
         worker_shifts = df[df['PPL'] == ppl_name]
         if len(worker_shifts) > 1:
-            resolved_df = resolve_overlapping_shifts_df(df)
+            # Use next workday for staged data, today for live
+            target_date = get_next_workday().date() if use_staged else datetime.today().date()
+            resolved_df = resolve_overlapping_shifts_df(df, target_date)
             if len(resolved_df) != len(df):
                 selection_logger.info(
                     f"Resolved overlapping shifts for {ppl_name} after add: "
@@ -556,8 +563,8 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
 
         else:
             # Case 4: Gap in middle - SPLIT into two rows
-            # Use microseconds for uniqueness to prevent ID collisions
-            new_gap_id = f"gap_{worker_name}_{datetime.now().strftime('%H%M%S%f')}"
+            # Use UUID for guaranteed uniqueness
+            new_gap_id = f"gap_{uuid.uuid4().hex[:12]}"
 
             df.at[row_index, 'end_time'] = gap_start_time
             if 'TIME' in df.columns:
