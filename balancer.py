@@ -390,12 +390,14 @@ def _get_worker_exclusion_based(
         specialists_df = filtered_workers[
             filtered_workers[primary_skill].apply(lambda v: skill_value_to_numeric(v) == 1)
         ]
-        generalists_df = filtered_workers[
+        generalists_all = filtered_workers[
             filtered_workers[primary_skill].apply(lambda v: skill_value_to_numeric(v) == 0)
         ]
 
         # Apply shift start/end buffers ONLY to generalists (overflow pool)
         # Specialists (1, w) handle their own work even at shift boundaries
+        # Keep original generalists_all for fallback if no specialists available
+        generalists_df = generalists_all
         if not generalists_df.empty:
             if shift_start_buffer > 0:
                 generalists_df = _filter_near_shift_start(generalists_df, current_dt, shift_start_buffer)
@@ -470,9 +472,19 @@ def _get_worker_exclusion_based(
                     return candidate, primary_skill, modality
 
         # Use generalists if: (1) no specialists, OR (2) overflow triggered
-        if not generalists_df.empty:
-            balanced_generalists = _apply_minimum_balancer(generalists_df, primary_skill, modality)
-            generalists_to_check = balanced_generalists if not balanced_generalists.empty else generalists_df
+        # If no buffer-filtered generalists but specialists_df is empty, fallback to all generalists
+        generalists_to_use = generalists_df
+        if generalists_to_use.empty and specialists_df.empty and not generalists_all.empty:
+            # No specialists available - ignore shift buffers and use any generalist
+            generalists_to_use = generalists_all
+            selection_logger.info(
+                "No specialists available for skill %s - ignoring shift buffers for generalists",
+                primary_skill,
+            )
+
+        if not generalists_to_use.empty:
+            balanced_generalists = _apply_minimum_balancer(generalists_to_use, primary_skill, modality)
+            generalists_to_check = balanced_generalists if not balanced_generalists.empty else generalists_to_use
 
             generalist_workers = generalists_to_check['PPL'].unique()
             generalist_ratios = {p: weighted_ratio(p) for p in generalist_workers}
