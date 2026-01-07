@@ -761,7 +761,8 @@ def load_today_from_master():
 
                 d['info_texts'] = []
 
-            save_state()
+        # Persist state OUTSIDE the lock to prevent blocking I/O
+        save_state()
 
         workers_added = 0
         if SKILL_ROSTER_AUTO_IMPORT:
