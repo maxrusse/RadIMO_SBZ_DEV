@@ -853,6 +853,14 @@ def prep_next_day():
 
     worker_skills = load_worker_skill_json()
 
+    # Quick break config with defaults
+    quick_break_config = APP_CONFIG.get('balancer', {}).get('quick_break', {})
+    quick_break = {
+        'duration_minutes': quick_break_config.get('duration_minutes', 30),
+        'gap_type': quick_break_config.get('gap_type', 'Break'),
+        'mode': quick_break_config.get('mode', 'split_shift')
+    }
+
     return render_template(
         'prep_next_day.html',
         target_date=next_day.strftime('%Y-%m-%d'),
@@ -866,7 +874,8 @@ def prep_next_day():
         worker_skills=worker_skills,
         task_roles=task_roles,
         skill_value_colors=APP_CONFIG.get('skill_value_colors', {}),
-        ui_colors=APP_CONFIG.get('ui_colors', {})
+        ui_colors=APP_CONFIG.get('ui_colors', {}),
+        quick_break=quick_break
     )
 
 @routes.route('/api/prep-next-day/data', methods=['GET'])

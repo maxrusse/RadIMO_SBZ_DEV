@@ -1391,7 +1391,8 @@
       "worker_skills": {{ worker_skills|default ({}) | tojson }},
       "task_roles": {{ task_roles|default ([]) | tojson }},
       "skill_value_colors": {{ skill_value_colors|default ({}) | tojson }},
-      "ui_colors": {{ ui_colors|default ({}) | tojson }}
+      "ui_colors": {{ ui_colors|default ({}) | tojson }},
+      "quick_break": {{ quick_break|default ({"duration_minutes": 30, "gap_type": "Break", "mode": "split_shift"}) | tojson }}
     }
   </script>
 
