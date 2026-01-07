@@ -198,6 +198,55 @@
       border-color: #dc3545;
     }
 
+    .skill-input.value-w {
+      background: #cce5ff;
+      border-color: #007bff;
+    }
+
+    .skill-select {
+      width: 60px;
+      padding: 0.3rem;
+      text-align: center;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .skill-select:focus {
+      outline: 2px solid #004892;
+      border-color: transparent;
+    }
+
+    .modifier-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      padding: 0.75rem;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+    }
+
+    .modifier-row label {
+      font-weight: 500;
+      color: #333;
+    }
+
+    .modifier-input {
+      width: 80px;
+      padding: 0.4rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    .modifier-help {
+      font-size: 0.8rem;
+      color: #666;
+    }
+
     .add-worker {
       margin-top: 1rem;
       padding-top: 0.75rem;
@@ -275,6 +324,7 @@
     <div>
       <strong>Values:</strong>
       <span style="color: #28a745;">1 = assigned</span> ·
+      <span style="color: #007bff;">w = weighted (training)</span> ·
       <span style="color: #856404;">0 = helper</span> ·
       <span style="color: #dc3545;">-1 = excluded</span>
     </div>
@@ -305,6 +355,11 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
           <h3 id="selectedWorkerTitle">Worker: -</h3>
           <button class="btn btn-secondary" style="background: #dc3545;" onclick="deleteWorker()">Delete</button>
+        </div>
+        <div class="modifier-row">
+          <label for="workerModifier">Global Modifier:</label>
+          <input type="number" id="workerModifier" class="modifier-input" step="0.1" min="0.1" max="2.0" value="1.0" onchange="updateModifier(this.value)">
+          <span class="modifier-help">(Used for 'w' assignments. 1.0 = normal, 0.5 = training/50% load)</span>
         </div>
         <div style="overflow-x: auto;">
           <table class="matrix-table">
@@ -454,38 +509,66 @@
           let value = workerData[key];
           if (value === undefined) value = 0;
 
-          const input = document.createElement('input');
-          input.type = 'number';
-          input.className = 'skill-input';
-          input.min = '-1';
-          input.max = '1';
-          input.value = value;
-          applyValueColor(input, value);
+          // Use select dropdown to support 'w' value
+          const select = document.createElement('select');
+          select.className = 'skill-select skill-input';
 
-          input.addEventListener('change', function () {
-            // Clamp value to [-1, 1] range
-            let val = parseInt(this.value, 10);
-            if (isNaN(val)) val = 0;
-            val = Math.max(-1, Math.min(1, val));
-            this.value = val;
-            updateSkill(mod, skill, val);
+          const options = [
+            { value: '1', label: '1' },
+            { value: 'w', label: 'w' },
+            { value: '0', label: '0' },
+            { value: '-1', label: '-1' }
+          ];
+
+          options.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.label;
+            select.appendChild(option);
+          });
+
+          // Set current value (normalize to string for comparison)
+          const strValue = String(value).toLowerCase();
+          select.value = strValue === 'w' ? 'w' : String(parseInt(value) || 0);
+          applyValueColor(select, select.value);
+
+          select.addEventListener('change', function () {
+            const val = this.value;
+            updateSkill(mod, skill, val === 'w' ? 'w' : parseInt(val));
             applyValueColor(this, val);
             markDirty();
           });
 
-          cell.appendChild(input);
+          cell.appendChild(select);
           row.appendChild(cell);
         });
 
         tbody.appendChild(row);
       });
+
+      // Update modifier input
+      const modifierInput = document.getElementById('workerModifier');
+      const modifier = workerData.modifier !== undefined ? workerData.modifier : 1.0;
+      modifierInput.value = modifier;
     }
 
-    function applyValueColor(input, val) {
-      input.classList.remove('value--1', 'value-0', 'value-1');
-      if (val === 1) input.classList.add('value-1');
-      else if (val === 0) input.classList.add('value-0');
-      else if (val === -1) input.classList.add('value--1');
+    function applyValueColor(element, val) {
+      element.classList.remove('value--1', 'value-0', 'value-1', 'value-w');
+      const strVal = String(val).toLowerCase();
+      if (strVal === '1') element.classList.add('value-1');
+      else if (strVal === 'w') element.classList.add('value-w');
+      else if (strVal === '0') element.classList.add('value-0');
+      else if (strVal === '-1') element.classList.add('value--1');
+    }
+
+    function updateModifier(value) {
+      if (!rosterData[selectedWorker]) return;
+      let val = parseFloat(value);
+      if (isNaN(val) || val < 0.1) val = 0.1;
+      if (val > 2.0) val = 2.0;
+      rosterData[selectedWorker].modifier = val;
+      document.getElementById('workerModifier').value = val;
+      markDirty();
     }
 
     function updateSkill(modality, skill, value) {
@@ -508,7 +591,7 @@
       }
 
       // Create new worker with flat Skill×Modality combinations (all set to 0)
-      rosterData[workerId] = {};
+      rosterData[workerId] = { modifier: 1.0 };
       skills.forEach(skill => {
         modalities.forEach(mod => {
           if (isValidCombination(mod, skill)) {

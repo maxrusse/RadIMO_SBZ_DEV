@@ -22,6 +22,7 @@ from config import (
     SKILL_ROSTER_AUTO_IMPORT,
     selection_logger,
 )
+from lib.utils import is_weighted_skill
 from state_manager import StateManager
 
 # Get state references
@@ -164,6 +165,36 @@ def build_disabled_worker_entry() -> Dict[str, Any]:
             key = f"{skill}_{mod}"
             entry[key] = -1
     return entry
+
+
+def get_roster_modifier(canonical_id: str) -> float:
+    """
+    Get worker's global modifier from skill roster.
+
+    Returns the 'modifier' field from the worker's roster entry.
+    Defaults to 1.0 if not set or worker not in roster.
+
+    Args:
+        canonical_id: Worker's canonical ID
+
+    Returns:
+        Modifier value (float), defaults to 1.0
+    """
+    # Ensure roster is loaded
+    if not worker_skill_json_roster:
+        load_worker_skill_json()
+
+    worker_data = worker_skill_json_roster.get(canonical_id, {})
+    modifier = worker_data.get('modifier', 1.0)
+
+    try:
+        modifier = float(modifier)
+        if modifier <= 0:
+            modifier = 1.0
+    except (TypeError, ValueError):
+        modifier = 1.0
+
+    return modifier
 
 
 def auto_populate_skill_roster(modality_dfs: Dict[str, pd.DataFrame]) -> int:
@@ -314,7 +345,15 @@ def apply_skill_overrides(roster_combinations: dict, rule_overrides: dict) -> di
     Apply CSV rule skill_overrides to roster Skill x Modality combinations.
 
     First expands shortcuts (all, skill-only, mod-only), then applies.
-    Roster -1 (hard exclude) always wins and cannot be overridden.
+
+    Priority rules:
+    - Roster -1 (hard exclude) always wins and cannot be overridden
+    - Roster 'w' (weighted/training):
+      - CSV 1 → 'w' (worker is weighted, stays weighted)
+      - CSV 0 → -1 (not assigned to team, excluded)
+      - CSV -1 → -1 (explicit exclusion)
+      - No override → -1 (not on any shift, excluded)
+    - Roster 1 or 0 → use CSV value (normal override)
 
     Args:
         roster_combinations: Worker's baseline skill x modality combinations
@@ -328,14 +367,37 @@ def apply_skill_overrides(roster_combinations: dict, rule_overrides: dict) -> di
     # Expand shortcuts first
     expanded_overrides = expand_skill_overrides(rule_overrides)
 
+    # Track which keys have been processed by an override
+    processed_keys = set()
+
     for key, override_value in expanded_overrides.items():
         if key in final:
+            processed_keys.add(key)
+            roster_value = final[key]
+
             # Roster -1 (hard exclude) always wins
-            if final[key] == -1:
+            if roster_value == -1:
                 continue  # Keep -1, ignore override
 
-            # Apply override
+            # Roster 'w' (weighted/training) special handling
+            if is_weighted_skill(roster_value):
+                if override_value == 1:
+                    # CSV assigns as specialist → keep as weighted
+                    final[key] = 'w'
+                else:
+                    # CSV assigns as 0 (helper) or -1 (exclude) → exclude
+                    # Weighted workers are only included when explicitly assigned
+                    final[key] = -1
+                continue
+
+            # Normal override for roster 1 or 0
             final[key] = override_value
+
+    # Handle roster 'w' values that were NOT processed by any override
+    # These workers are not on any shift for this skill → exclude them
+    for key, value in final.items():
+        if key not in processed_keys and is_weighted_skill(value):
+            final[key] = -1
 
     return final
 

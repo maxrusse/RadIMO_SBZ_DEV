@@ -26,6 +26,7 @@ from lib.utils import (
 )
 from data_manager import (
     get_canonical_worker_id,
+    get_roster_modifier,
     global_worker_data,
     modality_data,
     save_state
@@ -108,8 +109,18 @@ def update_global_assignment(person: str, role: str, modality: str, is_weighted:
     # Only apply personal modifier for weighted ('w') assignments
     # skill=1 (regular specialist) and skill=0 (generalist) use modifier=1.0
     if is_weighted:
-        modifier = modality_data[modality]['worker_modifiers'].get(person, 1.0)
-        modifier = coerce_float(modifier, 1.0)
+        # Priority: shift modifier (if != 1.0) > roster modifier > default 1.0
+        # Shift modifier of 1.0 is treated as "not explicitly set"
+        shift_modifier = modality_data[modality]['worker_modifiers'].get(person, 1.0)
+        shift_modifier = coerce_float(shift_modifier, 1.0)
+
+        if shift_modifier != 1.0:
+            # Shift explicitly set a non-default modifier
+            modifier = shift_modifier
+        else:
+            # Fallback to roster modifier (for trainees without shift-specific modifier)
+            modifier = get_roster_modifier(canonical_id)
+
         modifier = modifier if modifier > 0 else 1.0
     else:
         modifier = 1.0
