@@ -252,7 +252,13 @@ def reconcile_live_worker_tracking(modality: Optional[str] = None) -> None:
 
 
 def _update_schedule_row(modality: str, row_index: int, updates: dict, use_staged: bool) -> tuple:
-    """Update a single row in the schedule."""
+    """Update a single row in the schedule.
+
+    Returns:
+        (success: bool, error_or_info: str or dict)
+        On success: (True, {'reindexed': bool}) - reindexed=True if DataFrame was rebuilt
+        On failure: (False, error_message)
+    """
     # Import here to avoid circular imports
     from data_manager.file_ops import backup_dataframe
 
@@ -261,6 +267,8 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
 
     if not _validate_row_index(df, row_index):
         return False, 'Invalid row index'
+
+    reindexed = False
 
     try:
         if 'PPL' in updates:
@@ -313,10 +321,11 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
                         f"Resolved overlapping shifts for {worker_name} after edit: "
                         f"{len(df)} -> {len(resolved_df)} rows"
                     )
+                    reindexed = True
                 data_dict['working_hours_df'] = resolved_df
 
         backup_dataframe(modality, use_staged=use_staged)
-        return True, None
+        return True, {'reindexed': reindexed}
 
     except ValueError as e:
         return False, f'Invalid time format: {e}'
@@ -325,12 +334,20 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
 
 
 def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) -> tuple:
-    """Add a new worker row to the schedule."""
+    """Add a new worker row to the schedule.
+
+    Returns:
+        (success: bool, row_index_or_info: int or dict, error: str or None)
+        On success: (True, {'row_index': int, 'reindexed': bool}, None)
+        On failure: (False, None, error_message)
+    """
     # Import here to avoid circular imports
     from data_manager.file_ops import backup_dataframe
 
     data_dict = _get_schedule_data_dict(modality, use_staged)
     df = data_dict['working_hours_df']
+
+    reindexed = False
 
     try:
         ppl_name = worker_data.get('PPL', 'Neuer Worker (NW)')
@@ -377,21 +394,23 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
 
         # Resolve any overlapping shifts for this worker (later shift wins)
         df = data_dict['working_hours_df']
+        original_len = len(df)
         worker_shifts = df[df['PPL'] == ppl_name]
         if len(worker_shifts) > 1:
             # Use next workday for staged data, today for live
             target_date = get_next_workday().date() if use_staged else datetime.today().date()
             resolved_df = resolve_overlapping_shifts_df(df, target_date)
-            if len(resolved_df) != len(df):
+            if len(resolved_df) != original_len:
                 selection_logger.info(
                     f"Resolved overlapping shifts for {ppl_name} after add: "
-                    f"{len(df)} -> {len(resolved_df)} rows"
+                    f"{original_len} -> {len(resolved_df)} rows"
                 )
+                reindexed = True
             data_dict['working_hours_df'] = resolved_df
 
         backup_dataframe(modality, use_staged=use_staged)
         new_idx = len(data_dict['working_hours_df']) - 1
-        return True, new_idx, None
+        return True, {'row_index': new_idx, 'reindexed': reindexed}, None
 
     except ValueError as e:
         return False, None, f'Invalid time format: {e}'

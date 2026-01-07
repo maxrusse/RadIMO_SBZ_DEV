@@ -713,6 +713,17 @@ def load_today_from_master():
                 APP_CONFIG
             )
 
+            # ALWAYS reset global state and ALL modalities first to prevent stale data
+            # This handles both empty returns and partial modality returns
+            global_worker_data['weighted_counts'] = {}
+
+            for modality in allowed_modalities:
+                d = modality_data[modality]
+                d['skill_counts'] = {skill: {} for skill in SKILL_COLUMNS}
+                d['working_hours_df'] = None
+                d['info_texts'] = []
+                global_worker_data['assignments_per_mod'][modality] = {}
+
             if not modality_dfs:
                 # No staff entries found - this is OK, not all shifts have staff (balancer handles this)
                 mapping_rules = APP_CONFIG.get('medweb_mapping', {}).get('rules', [])
@@ -725,6 +736,9 @@ def load_today_from_master():
                             break
 
                 selection_logger.info(f"No staff entries found for {target_date.strftime('%d.%m.%Y')} - this is expected for some shifts")
+
+                # Persist cleared state
+                save_state()
 
                 return jsonify({
                     "success": True,
@@ -741,16 +755,12 @@ def load_today_from_master():
                     }
                 })
 
-            global_worker_data['weighted_counts'] = {}
-
+            # Now populate modalities that have data (others remain cleared)
             for modality, df in modality_dfs.items():
                 d = modality_data[modality]
-                d['skill_counts'] = {skill: {} for skill in SKILL_COLUMNS}
-                global_worker_data['assignments_per_mod'][modality] = {}
                 d['working_hours_df'] = df
 
                 if df is None or df.empty:
-                    d['info_texts'] = []
                     continue
 
                 for worker in df['PPL'].unique():
@@ -895,11 +905,12 @@ def update_prep_row():
     if modality not in staged_modality_data:
         return jsonify({'error': 'Invalid modality'}), 400
 
-    success, error = _update_schedule_row(modality, row_index, updates, use_staged=True)
+    success, result = _update_schedule_row(modality, row_index, updates, use_staged=True)
 
     if success:
-        return jsonify({'success': True})
-    return jsonify({'error': error}), 400
+        # result is {'reindexed': bool} on success
+        return jsonify({'success': True, 'schedule_reindexed': result.get('reindexed', False)})
+    return jsonify({'error': result}), 400
 
 @routes.route('/api/prep-next-day/add-worker', methods=['POST'])
 @admin_required
@@ -911,10 +922,15 @@ def add_prep_worker():
     if modality not in staged_modality_data:
         return jsonify({'error': 'Invalid modality'}), 400
 
-    success, row_index, error = _add_worker_to_schedule(modality, worker_data, use_staged=True)
+    success, result, error = _add_worker_to_schedule(modality, worker_data, use_staged=True)
 
     if success:
-        return jsonify({'success': True, 'row_index': row_index})
+        # result is {'row_index': int, 'reindexed': bool} on success
+        return jsonify({
+            'success': True,
+            'row_index': result.get('row_index'),
+            'schedule_reindexed': result.get('reindexed', False)
+        })
     return jsonify({'error': error}), 400
 
 @routes.route('/api/prep-next-day/delete-worker', methods=['POST'])
@@ -954,12 +970,13 @@ def update_live_row():
     if modality not in modality_data:
         return jsonify({'error': 'Invalid modality'}), 400
 
-    success, error = _update_schedule_row(modality, row_index, updates, use_staged=False)
+    success, result = _update_schedule_row(modality, row_index, updates, use_staged=False)
 
     if success:
         selection_logger.info(f"Live schedule updated for {modality}, row {row_index} (no counter reset)")
-        return jsonify({'success': True})
-    return jsonify({'error': error}), 400
+        # result is {'reindexed': bool} on success
+        return jsonify({'success': True, 'schedule_reindexed': result.get('reindexed', False)})
+    return jsonify({'error': result}), 400
 
 @routes.route('/api/live-schedule/add-worker', methods=['POST'])
 @admin_required
@@ -972,7 +989,7 @@ def add_live_worker():
         return jsonify({'error': 'Invalid modality'}), 400
 
     ppl_name = worker_data.get('PPL', 'Neuer Worker (NW)')
-    success, row_index, error = _add_worker_to_schedule(modality, worker_data, use_staged=False)
+    success, result, error = _add_worker_to_schedule(modality, worker_data, use_staged=False)
 
     if success:
         d = modality_data[modality]
@@ -983,7 +1000,12 @@ def add_live_worker():
                 d['skill_counts'][skill][ppl_name] = 0
 
         selection_logger.info(f"Worker {ppl_name} added to LIVE {modality} schedule (no counter reset)")
-        return jsonify({'success': True, 'row_index': row_index})
+        # result is {'row_index': int, 'reindexed': bool} on success
+        return jsonify({
+            'success': True,
+            'row_index': result.get('row_index'),
+            'schedule_reindexed': result.get('reindexed', False)
+        })
 
     return jsonify({'error': error}), 400
 

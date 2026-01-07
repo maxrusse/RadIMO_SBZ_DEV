@@ -190,6 +190,26 @@ def calculate_work_hours_now(current_dt: datetime, modality: str) -> dict:
 
     return hours_by_canonical
 
+
+def calculate_global_work_hours_now(current_dt: datetime) -> dict:
+    """
+    Calculate cumulative work hours for all workers across ALL modalities up to current_dt.
+
+    This aggregates hours from all modalities to provide a consistent basis for
+    comparing against global weighted counts. Uses caching via calculate_work_hours_now.
+
+    Returns dict: {canonical_id: total_hours_across_all_modalities}
+    """
+    global_hours = {}
+
+    for mod in modality_data.keys():
+        mod_hours = calculate_work_hours_now(current_dt, mod)
+        for canonical_id, hours in mod_hours.items():
+            global_hours[canonical_id] = global_hours.get(canonical_id, 0.0) + hours
+
+    return global_hours
+
+
 def _filter_active_rows(df: Optional[pd.DataFrame], current_dt: datetime) -> Optional[pd.DataFrame]:
     """Return only rows active at ``current_dt`` (same-day shifts only).
 
@@ -379,12 +399,14 @@ def _get_worker_exclusion_based(
             if filtered_workers.empty:
                 return None
 
-        # Calculate workload ratios
-        hours_map = calculate_work_hours_now(current_dt, modality)
+        # Calculate workload ratios using GLOBAL hours (across all modalities)
+        # to be consistent with global weighted counts - both are now in the same units
+        global_hours_map = calculate_global_work_hours_now(current_dt)
 
         def weighted_ratio(person):
             canonical_id = get_canonical_worker_id(person)
-            hours_worked = hours_map.get(canonical_id, 0.0)
+            # Use global hours to match global weighted counts (consistent units)
+            hours_worked = global_hours_map.get(canonical_id, 0.0)
             weighted_count = get_global_weighted_count(canonical_id)
             if hours_worked <= 0:
                 return 0.0 if weighted_count <= 0 else float('inf')
