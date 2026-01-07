@@ -67,7 +67,7 @@ def startup_initialization():
     # Initialize Modalities
     for mod in allowed_modalities:
         backup_dir = os.path.join(app.config['UPLOAD_FOLDER'], "backups")
-        live_backup = os.path.join(backup_dir, f"Cortex_{mod.upper()}_live.xlsx")
+        live_backup = os.path.join(backup_dir, f"Cortex_{mod.upper()}_live.json")
 
         if os.path.exists(live_backup):
             selection_logger.info(f"Attempting to load LIVE backup for {mod}: {live_backup}")

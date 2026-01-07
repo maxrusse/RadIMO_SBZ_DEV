@@ -349,7 +349,7 @@ def backup_dataframe(modality: str, use_staged: bool = False):
         backup_dir = os.path.join(UPLOAD_FOLDER, "backups")
         os.makedirs(backup_dir, exist_ok=True)
         suffix = "_staged" if use_staged else "_live"
-        backup_file = os.path.join(backup_dir, f"Cortex_{modality.upper()}{suffix}.xlsx")
+        backup_file = os.path.join(backup_dir, f"Cortex_{modality.upper()}{suffix}.json")
         try:
             df_backup = d['working_hours_df'].copy()
 
@@ -371,11 +371,13 @@ def backup_dataframe(modality: str, use_staged: bool = False):
             ]
             df_backup = df_backup[cols_to_backup].copy()
 
-            with pd.ExcelWriter(backup_file, engine='openpyxl') as writer:
-                df_backup.to_excel(writer, sheet_name='Tabelle1', index=False)
-                if d.get('info_texts'):
-                    df_info = pd.DataFrame({'Info': d['info_texts']})
-                    df_info.to_excel(writer, sheet_name='Tabelle2', index=False)
+            # Convert DataFrame to JSON-serializable format
+            backup_data = {
+                'working_hours': df_backup.to_dict(orient='records'),
+                'info_texts': d.get('info_texts', [])
+            }
+            with open(backup_file, 'w', encoding='utf-8') as f:
+                json.dump(backup_data, f, ensure_ascii=False, indent=2, default=str)
 
             mode_label = "staged" if use_staged else "live"
             selection_logger.info(f"{mode_label.capitalize()} backup updated for modality {modality} at {backup_file}")
@@ -390,7 +392,7 @@ def backup_dataframe(modality: str, use_staged: bool = False):
 
 def load_staged_dataframe(modality: str) -> bool:
     """
-    Load staged or scheduled dataframe for a modality.
+    Load staged or scheduled dataframe for a modality from JSON.
 
     Uses try/except instead of os.path.exists to prevent TOCTOU race conditions
     (file could be deleted between check and open).
@@ -399,43 +401,41 @@ def load_staged_dataframe(modality: str) -> bool:
     staged_file = d['staged_file_path']
     scheduled_file = modality_data[modality]['scheduled_file_path']
 
-    # Helper function to load Excel file and process it
-    def _load_excel(file_path: str) -> bool:
+    # Helper function to load JSON file and process it
+    def _load_json(file_path: str) -> bool:
         try:
-            with pd.ExcelFile(file_path, engine='openpyxl') as xls:
-                if 'Tabelle1' not in xls.sheet_names:
-                    selection_logger.warning(f"File {file_path} missing 'Tabelle1' sheet")
-                    return False
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
 
-                df = pd.read_excel(xls, sheet_name='Tabelle1')
+            if 'working_hours' not in data:
+                selection_logger.warning(f"File {file_path} missing 'working_hours' key")
+                return False
 
-                if 'TIME' in df.columns:
-                    time_data = df['TIME'].apply(parse_time_range)
-                    df['start_time'] = time_data.apply(lambda x: x[0])
-                    df['end_time'] = time_data.apply(lambda x: x[1])
-                    df['shift_duration'] = df.apply(
-                        lambda row: calculate_shift_duration_hours(row['start_time'], row['end_time']),
-                        axis=1
-                    )
+            df = pd.DataFrame(data['working_hours'])
 
-                if 'counts_for_hours' not in df.columns:
-                    df['counts_for_hours'] = True
+            if 'TIME' in df.columns:
+                time_data = df['TIME'].apply(parse_time_range)
+                df['start_time'] = time_data.apply(lambda x: x[0])
+                df['end_time'] = time_data.apply(lambda x: x[1])
+                df['shift_duration'] = df.apply(
+                    lambda row: calculate_shift_duration_hours(row['start_time'], row['end_time']),
+                    axis=1
+                )
 
-                d['working_hours_df'] = df
-                d['total_work_hours'] = _calculate_total_work_hours(df)
+            if 'counts_for_hours' not in df.columns:
+                df['counts_for_hours'] = True
 
-                if 'Tabelle2' in xls.sheet_names:
-                    df_info = pd.read_excel(xls, sheet_name='Tabelle2')
-                    if 'Info' in df_info.columns:
-                        d['info_texts'] = df_info['Info'].tolist()
+            d['working_hours_df'] = df
+            d['total_work_hours'] = _calculate_total_work_hours(df)
+            d['info_texts'] = data.get('info_texts', [])
 
-                try:
-                    d['last_modified'] = datetime.fromtimestamp(os.path.getmtime(file_path))
-                except OSError:
-                    d['last_modified'] = get_local_now()
+            try:
+                d['last_modified'] = datetime.fromtimestamp(os.path.getmtime(file_path))
+            except OSError:
+                d['last_modified'] = get_local_now()
 
-                selection_logger.info(f"Loaded staged data for {modality} from {file_path}")
-                return True
+            selection_logger.info(f"Loaded staged data for {modality} from {file_path}")
+            return True
         except FileNotFoundError:
             # File doesn't exist - caller should try fallback
             raise
@@ -445,14 +445,14 @@ def load_staged_dataframe(modality: str) -> bool:
 
     # Try staged file first, fall back to scheduled file
     try:
-        return _load_excel(staged_file)
+        return _load_json(staged_file)
     except FileNotFoundError:
         pass
 
     # Staged file not found, try scheduled file
     try:
         selection_logger.info(f"No staged file for {modality}, falling back to scheduled file: {scheduled_file}")
-        return _load_excel(scheduled_file)
+        return _load_json(scheduled_file)
     except FileNotFoundError:
         selection_logger.info(f"No staged or scheduled file found for {modality}")
         return False
@@ -467,11 +467,13 @@ def initialize_data(file_path: str, modality: str):
 
     with lock:
         try:
-            excel_file = pd.ExcelFile(file_path)
-            if 'Tabelle1' not in excel_file.sheet_names:
-                raise ValueError("Blatt 'Tabelle1' nicht gefunden")
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
 
-            df = pd.read_excel(excel_file, sheet_name='Tabelle1')
+            if 'working_hours' not in data:
+                raise ValueError("'working_hours' key not found in JSON")
+
+            df = pd.DataFrame(data['working_hours'])
             required_columns = ['PPL', 'TIME']
             valid, error_msg = validate_excel_structure(df, required_columns, SKILL_COLUMNS)
             if not valid:
@@ -508,7 +510,7 @@ def initialize_data(file_path: str, modality: str):
                 df['tasks'] = ''
             if 'counts_for_hours' not in df.columns:
                 df['counts_for_hours'] = True
-            
+
             df = df[[col for col in col_order if col in df.columns]]
 
             d['working_hours_df'] = df
@@ -525,23 +527,20 @@ def initialize_data(file_path: str, modality: str):
                 else:
                     d['skill_counts'][skill] = {}
 
-            if 'Tabelle2' in excel_file.sheet_names:
-                d['info_texts'] = pd.read_excel(excel_file, sheet_name='Tabelle2')['Info'].tolist()
-            else:
-                d['info_texts'] = []
+            d['info_texts'] = data.get('info_texts', [])
 
             if SKILL_ROSTER_AUTO_IMPORT:
                 auto_populate_skill_roster({modality: df})
 
         except Exception as e:
-            error_message = f"Fehler beim Laden der Excel-Datei für Modality '{modality}': {str(e)}"
+            error_message = f"Fehler beim Laden der JSON-Datei für Modality '{modality}': {str(e)}"
             selection_logger.error(error_message)
             selection_logger.exception("Stack trace:")
             raise ValueError(error_message)
 
-def quarantine_excel(file_path: str, reason: str) -> Optional[str]:
+def quarantine_file(file_path: str, reason: str) -> Optional[str]:
     """
-    Move a defective Excel file to quarantine directory.
+    Move a defective file to quarantine directory.
 
     Uses try/except instead of os.path.exists to prevent TOCTOU race condition
     (file could be deleted between check and move).
@@ -553,18 +552,18 @@ def quarantine_excel(file_path: str, reason: str) -> Optional[str]:
     invalid_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     original = Path(file_path)
-    target = invalid_dir / f"{original.stem}_{timestamp}{original.suffix or '.xlsx'}"
+    target = invalid_dir / f"{original.stem}_{timestamp}{original.suffix or '.json'}"
 
     try:
         shutil.move(str(original), str(target))
-        selection_logger.warning("Defekte Excel '%s' nach '%s' verschoben (%s)", file_path, target, reason)
+        selection_logger.warning("Defekte Datei '%s' nach '%s' verschoben (%s)", file_path, target, reason)
         return str(target)
     except FileNotFoundError:
         # File was already deleted - not an error, just log and return
-        selection_logger.debug("Excel '%s' existiert nicht mehr (bereits gelöscht)", file_path)
+        selection_logger.debug("Datei '%s' existiert nicht mehr (bereits gelöscht)", file_path)
         return None
     except OSError as exc:
-        selection_logger.warning("Excel '%s' konnte nicht verschoben werden (%s): %s", file_path, reason, exc)
+        selection_logger.warning("Datei '%s' konnte nicht verschoben werden (%s): %s", file_path, reason, exc)
         return None
 
 def attempt_initialize_data(
@@ -583,7 +582,7 @@ def attempt_initialize_data(
             file_path, modality, context or 'runtime', exc,
         )
         if remove_on_failure:
-            quarantine_excel(file_path, f"{context or 'runtime'}: {exc}")
+            quarantine_file(file_path, f"{context or 'runtime'}: {exc}")
         return False
 
 # -----------------------------------------------------------
@@ -1879,8 +1878,20 @@ def preload_next_workday(csv_path: str, config: dict) -> dict:
                 export_df['TIME'] = export_df['start_time'].apply(lambda x: x.strftime(TIME_FORMAT)) + '-' + \
                                     export_df['end_time'].apply(lambda x: x.strftime(TIME_FORMAT))
 
-                with pd.ExcelWriter(target_path, engine='openpyxl') as writer:
-                    export_df.to_excel(writer, sheet_name='Tabelle1', index=False)
+                # Exclude internal columns from export
+                cols_to_export = [
+                    col for col in export_df.columns
+                    if col not in ['start_time', 'end_time', 'shift_duration', 'canonical_id']
+                ]
+                export_df = export_df[cols_to_export]
+
+                # Save as JSON
+                scheduled_data = {
+                    'working_hours': export_df.to_dict(orient='records'),
+                    'info_texts': []
+                }
+                with open(target_path, 'w', encoding='utf-8') as f:
+                    json.dump(scheduled_data, f, ensure_ascii=False, indent=2, default=str)
 
                 selection_logger.info(f"Scheduled file saved for {modality} at {target_path}")
                 saved_modalities.append(modality)
