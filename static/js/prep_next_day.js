@@ -3067,11 +3067,10 @@ async function onQuickGap30(tab, gIdx, shiftIdx) {
     return;
   }
 
-  // Get current time (rounded to nearest 5 minutes)
+  // Get current time (exact minute)
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const roundedMinutes = Math.round(currentMinutes / 5) * 5;
-  const gapStart = formatMinutesToTime(roundedMinutes);
+  const gapStart = formatMinutesToTime(currentMinutes);
   const gapEnd = addMinutes(gapStart, QUICK_BREAK.duration_minutes);
   const gapType = QUICK_BREAK.gap_type || 'Break';
 
@@ -3169,7 +3168,7 @@ async function onQuickGapFromModal() {
   }
   const { tab, groupIdx } = currentEditEntry;
   // Close modal first, then add gap
-  closeEditModal();
+  closeModal();
   await onQuickGap30(tab, groupIdx, 0);
 }
 
