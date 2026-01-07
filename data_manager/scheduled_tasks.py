@@ -157,6 +157,7 @@ def preload_next_workday(csv_path: str, config: dict) -> dict:
 
     try:
         next_day = get_next_workday()
+        date_str = next_day.strftime('%Y-%m-%d')
 
         modality_dfs = build_working_hours_from_medweb(
             csv_path,
@@ -164,21 +165,34 @@ def preload_next_workday(csv_path: str, config: dict) -> dict:
             config
         )
 
+        # Clear scheduled files for ALL modalities first to prevent stale data
+        # This ensures modalities with no data don't keep old scheduled files
+        cleared_modalities = []
+        for modality in allowed_modalities:
+            d = modality_data[modality]
+            target_path = d['scheduled_file_path']
+            if os.path.exists(target_path):
+                try:
+                    os.remove(target_path)
+                    cleared_modalities.append(modality)
+                    selection_logger.info(f"Cleared old scheduled file for {modality}")
+                except OSError as e:
+                    selection_logger.warning(f"Could not remove old scheduled file for {modality}: {e}")
+
         if not modality_dfs:
             # No staff entries found - this is OK, not all shifts have staff (balancer handles this)
-            date_str = next_day.strftime('%Y-%m-%d')
             selection_logger.info(f"No staff entries found for {date_str} - this is expected for some shifts")
             return {
                 'success': True,
                 'target_date': date_str,
                 'message': f'Keine Mitarbeiter für {date_str} gefunden - Schichten können leer sein',
                 'modalities_loaded': [],
-                'total_workers': 0
+                'total_workers': 0,
+                'cleared_modalities': cleared_modalities
             }
 
         saved_modalities = []
         total_workers = 0
-        date_str = next_day.strftime('%Y-%m-%d')
 
         for modality, df in modality_dfs.items():
             d = modality_data[modality]

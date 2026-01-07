@@ -171,6 +171,7 @@ def auto_populate_skill_roster(modality_dfs: Dict[str, pd.DataFrame]) -> int:
     Auto-populate skill roster with new workers found in uploaded schedules.
 
     New workers are added with all skills disabled (-1) by default.
+    Uses canonical_id (derived from PPL if not present) to ensure consistent worker IDs.
     """
     roster = load_worker_skill_json()
     added_count = 0
@@ -180,8 +181,14 @@ def auto_populate_skill_roster(modality_dfs: Dict[str, pd.DataFrame]) -> int:
             continue
 
         for _, row in df.iterrows():
-            raw_worker_id = row.get('canonical_id', row.get('PPL', ''))
-            worker_id = str(raw_worker_id).strip() if pd.notna(raw_worker_id) else ''
+            # Always derive canonical_id from PPL to ensure consistent IDs
+            # The canonical_id is typically the abbreviation/code extracted from "Name (Code)"
+            ppl_value = row.get('PPL', '')
+            if pd.isna(ppl_value) or not str(ppl_value).strip():
+                continue
+
+            # Use get_canonical_worker_id to extract consistent ID (e.g., "ABC" from "Name (ABC)")
+            worker_id = get_canonical_worker_id(str(ppl_value))
             if not worker_id or worker_id in roster:
                 continue
 
