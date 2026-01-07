@@ -9,6 +9,7 @@ const WORKER_SKILLS = CONFIG.worker_skills;
 const TASK_ROLES = CONFIG.task_roles;
 const SKILL_VALUE_COLORS = CONFIG.skill_value_colors;
 const UI_COLORS = CONFIG.ui_colors;
+const QUICK_BREAK = CONFIG.quick_break || { duration_minutes: 30, gap_type: 'Break', mode: 'split_shift' };
 
 // Generate dynamic CSS for modality and skill colors from config
 (function () {
@@ -1387,6 +1388,10 @@ function renderTable(tab) {
           const gapEnd = lastSeg.end || shift.end_time || '13:00';
           shiftEditor += `<div class="gap-indicator" style="margin-top:0.1rem;">⏸ ${escapeHtml(gapStart)}-${escapeHtml(gapEnd)}</div>`;
         }
+        // Add quick 30-min gap button in edit mode too (only for non-gap rows)
+        if (!isGapRow) {
+          shiftEditor += `<button type="button" class="btn-quick-gap" onclick="onQuickGap30('${tab}', ${gIdx}, ${shiftIdx})" title="Add break NOW (${QUICK_BREAK.duration_minutes} min)">☕</button>`;
+        }
         tr.innerHTML += `<td class="grid-cell shift-col">${shiftEditor}</td>`;
       } else {
         // View mode: show timeline with segments and gaps in time order
@@ -1418,6 +1423,10 @@ function renderTable(tab) {
         }
 
         timelineHtml += '</div>';
+        // Add quick 30-min gap button (only for non-gap rows with valid shifts)
+        if (!isGapRow) {
+          timelineHtml += `<button type="button" class="btn-quick-gap" onclick="onQuickGap30('${tab}', ${gIdx}, ${shiftIdx})" title="Add break NOW (${QUICK_BREAK.duration_minutes} min)">☕</button>`;
+        }
         tr.innerHTML += `<td class="grid-cell shift-col">${timelineHtml}</td>`;
       }
 
@@ -1648,10 +1657,13 @@ function renderEditModalContent() {
   const duplicateBadge = numShifts > 1 ? `<span class="duplicate-badge">${numShifts}x</span>` : '';
   const borderColor = tab === 'today' ? (UI_COLORS.today_tab || '#28a745') : (UI_COLORS.tomorrow_tab || '#ffc107');
 
-  // Header with worker name (similar to Add Worker modal)
+  // Header with worker name and quick break button
   html += `<div style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border-radius: 8px;">
     <div class="form-group" style="margin-bottom: 0;">
-      <label style="font-weight: 600; display: block; margin-bottom: 0.3rem;">Worker</label>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+        <label style="font-weight: 600;">Worker</label>
+        <button type="button" class="btn-quick-gap" onclick="onQuickGapFromModal()" title="Add ${QUICK_BREAK.duration_minutes}-min break at current time">☕ Break NOW</button>
+      </div>
       <div style="font-size: 1rem; padding: 0.5rem; background: #e9ecef; border-radius: 4px;">
         <strong>${escapedWorker}</strong> ${duplicateBadge}
       </div>
@@ -3036,6 +3048,132 @@ async function callAddGap(endpoint, modality, rowIndex, type, start, end) {
 
 // =============================================
 // END ADD WORKER MODAL FUNCTIONS
+// =============================================
+
+
+// =============================================
+// QUICK BREAK NOW FEATURE
+// =============================================
+
+/**
+ * Add a break (gap) starting NOW for a worker.
+ * Uses add-gap API to split existing shifts at the break time.
+ * Falls back to standalone gap entry if no shift exists at that time.
+ */
+async function onQuickGap30(tab, gIdx, shiftIdx) {
+  const group = entriesData[tab][gIdx];
+  if (!group) {
+    showMessage('error', 'Invalid worker group');
+    return;
+  }
+
+  // Get current time (exact minute)
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const gapStart = formatMinutesToTime(currentMinutes);
+  const gapEnd = addMinutes(gapStart, QUICK_BREAK.duration_minutes);
+  const gapType = QUICK_BREAK.gap_type || 'Break';
+
+  // Find shifts that overlap with the gap time
+  const shifts = group.shiftsArray || [];
+  const overlappingShifts = shifts.filter(s => {
+    const shiftStart = s.start_time || '00:00';
+    const shiftEnd = s.end_time || '23:59';
+    return gapStart < shiftEnd && gapEnd > shiftStart;
+  });
+
+  // If not in edit mode, show confirmation popup
+  if (!editMode[tab]) {
+    let msg = `Add ${QUICK_BREAK.duration_minutes}-min break for ${group.worker}?\n\nTime: ${gapStart} - ${gapEnd}`;
+    if (overlappingShifts.length > 0) {
+      msg += `\n\nWill split shift(s) at break time.`;
+    } else {
+      msg += `\n\nNo shift at this time - will create gap entry.`;
+    }
+    if (!confirm(msg)) return;
+  }
+
+  try {
+    if (overlappingShifts.length > 0) {
+      // Use add-gap API to split existing shifts
+      const gapEndpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
+
+      for (const shift of overlappingShifts) {
+        // Get all modalities with valid row_index for this shift
+        const modKeys = MODALITIES.map(m => m.toLowerCase()).filter(modKey => {
+          const modData = shift.modalities[modKey];
+          return modData && modData.row_index !== undefined && modData.row_index >= 0;
+        });
+
+        for (const modKey of modKeys) {
+          const modData = shift.modalities[modKey];
+          await callAddGap(gapEndpoint, modKey, modData.row_index, gapType, gapStart, gapEnd);
+        }
+      }
+
+      showMessage('success', `Added break (${gapStart}-${gapEnd}) for ${group.worker} - shift split`);
+    } else {
+      // No overlapping shift - create standalone gap entry
+      const addEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
+      const skills = {};
+      SKILLS.forEach(skill => { skills[skill] = -1; });
+
+      const response = await fetch(addEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          modality: MODALITIES[0].toLowerCase(),
+          ppl_name: group.worker,
+          start_time: gapStart,
+          end_time: gapEnd,
+          modifier: 1.0,
+          counts_for_hours: false,
+          tasks: gapType,
+          ...skills
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to create gap');
+      }
+
+      showMessage('success', `Added break (${gapStart}-${gapEnd}) for ${group.worker}`);
+    }
+
+    await loadData();
+  } catch (error) {
+    showMessage('error', error.message || 'Failed to add break');
+  }
+}
+
+/** Format total minutes to HH:MM string */
+function formatMinutesToTime(totalMinutes) {
+  const hours = Math.floor(totalMinutes / 60) % 24;
+  const mins = totalMinutes % 60;
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+}
+
+/** Add minutes to a time string (HH:MM format) */
+function addMinutes(timeStr, minutes) {
+  const [hours, mins] = timeStr.split(':').map(Number);
+  return formatMinutesToTime(hours * 60 + mins + minutes);
+}
+
+/** Called from edit modal - uses currentEditEntry context */
+async function onQuickGapFromModal() {
+  if (!currentEditEntry) {
+    showMessage('error', 'No entry selected');
+    return;
+  }
+  const { tab, groupIdx } = currentEditEntry;
+  // Close modal first, then add gap
+  closeModal();
+  await onQuickGap30(tab, groupIdx, 0);
+}
+
+// =============================================
+// END QUICK BREAK NOW FEATURE
 // =============================================
 
 

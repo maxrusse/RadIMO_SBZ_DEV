@@ -272,6 +272,12 @@ balancer:
     shift_default: true   # type: "shift" entries count towards hours (default)
     gap_default: false    # type: "gap" entries don't count towards hours (default)
 
+  # Quick break button settings (☕ button in prep page)
+  # Creates a gap entry (all skills = -1) at current time
+  quick_break:
+    duration_minutes: 30          # Duration of the break in minutes
+    gap_type: "Break"             # Gap type label used for the break
+
   # Exclusion-based routing configuration
   # Define which workers to EXCLUDE when requesting each skill
   # Workers with excluded_skill=1 won't receive work for this skill
