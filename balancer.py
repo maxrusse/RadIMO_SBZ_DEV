@@ -39,6 +39,27 @@ def get_global_weighted_count(canonical_id):
     """Get single global weighted count for a worker (consolidated across all modalities)."""
     return global_worker_data['weighted_counts'].get(canonical_id, 0.0)
 
+
+def get_modality_weighted_count(canonical_id: str, modality: str) -> float:
+    """
+    Compute weighted count for a worker in a specific modality.
+
+    Calculated from assignments_per_mod using skill×modality weights.
+    This replaces the broken WeightedCounts structure that was never populated.
+    """
+    assignments = global_worker_data['assignments_per_mod'].get(modality, {}).get(canonical_id, {})
+    if not assignments:
+        return 0.0
+
+    total_weight = 0.0
+    for skill in SKILL_COLUMNS:
+        count = assignments.get(skill, 0)
+        if count > 0:
+            weight = get_skill_modality_weight(skill, modality)
+            total_weight += count * weight
+    return total_weight
+
+
 def get_global_assignments(canonical_id):
     totals = {skill: 0 for skill in SKILL_COLUMNS}
     totals['total'] = 0

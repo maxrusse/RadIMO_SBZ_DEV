@@ -70,6 +70,7 @@ from balancer import (
     update_global_assignment,
     get_global_assignments,
     get_global_weighted_count,
+    get_modality_weighted_count,
     BALANCER_SETTINGS
 )
 
@@ -742,9 +743,7 @@ def load_today_from_master():
 
             for modality, df in modality_dfs.items():
                 d = modality_data[modality]
-                d['draw_counts'] = {}
                 d['skill_counts'] = {skill: {} for skill in SKILL_COLUMNS}
-                d['WeightedCounts'] = {}
                 global_worker_data['assignments_per_mod'][modality] = {}
                 d['working_hours_df'] = df
 
@@ -753,8 +752,6 @@ def load_today_from_master():
                     continue
 
                 for worker in df['PPL'].unique():
-                    d['draw_counts'][worker] = 0
-                    d['WeightedCounts'][worker] = 0.0
                     for skill in SKILL_COLUMNS:
                         if skill not in d['skill_counts']:
                             d['skill_counts'][skill] = {}
@@ -976,10 +973,6 @@ def add_live_worker():
 
     if success:
         d = modality_data[modality]
-        if ppl_name not in d['draw_counts']:
-            d['draw_counts'][ppl_name] = 0
-        if ppl_name not in d['WeightedCounts']:
-            d['WeightedCounts'][ppl_name] = 0.0
         for skill in SKILL_COLUMNS:
             if skill not in d['skill_counts']:
                 d['skill_counts'][skill] = {}
@@ -1093,7 +1086,6 @@ def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
                     actual_modality,
                 )
 
-                d['draw_counts'][person] = d['draw_counts'].get(person, 0) + 1
                 if actual_skill in SKILL_COLUMNS:
                     if actual_skill not in d['skill_counts']:
                         d['skill_counts'][actual_skill] = {}
@@ -1316,7 +1308,8 @@ def get_worker_load_data():
                 'modifier': float(row.get('Modifier', 1.0)) if pd.notnull(row.get('Modifier')) else 1.0,
                 'skills': {},
                 'skill_counts': {},
-                'weighted_count': d['WeightedCounts'].get(worker_name, 0.0)
+                # Compute per-modality weight from assignments_per_mod using skill×modality weights
+                'weighted_count': get_modality_weighted_count(canonical_id, modality)
             }
 
             # Collect skill values and counts for this modality

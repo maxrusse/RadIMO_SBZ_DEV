@@ -143,9 +143,7 @@ class StateManager:
                     'info_texts': [],
                     'total_work_hours': {},
                     'worker_modifiers': {},
-                    'draw_counts': {},
                     'skill_counts': {skill: {} for skill in skill_columns},
-                    'WeightedCounts': {},
                     'scheduled_file_path': os.path.join(upload_folder, f"Cortex_{mod.upper()}_scheduled.xlsx"),
                     'last_reset_date': None
                 }
@@ -239,9 +237,7 @@ class StateManager:
             for mod in allowed_modalities:
                 d = self._modality_data[mod]
                 state['modality_data'][mod] = {
-                    'draw_counts': d['draw_counts'],
                     'skill_counts': d['skill_counts'],
-                    'WeightedCounts': d['WeightedCounts'],
                     'last_reset_date': d['last_reset_date'].isoformat() if d['last_reset_date'] else None
                 }
 
@@ -281,11 +277,9 @@ class StateManager:
                 for mod in allowed_modalities:
                     if mod in state['modality_data']:
                         mod_state = state['modality_data'][mod]
-                        self._modality_data[mod]['draw_counts'] = mod_state.get('draw_counts', {})
                         self._modality_data[mod]['skill_counts'] = mod_state.get(
                             'skill_counts', {skill: {} for skill in skill_columns}
                         )
-                        self._modality_data[mod]['WeightedCounts'] = mod_state.get('WeightedCounts', {})
 
                         last_reset_str = mod_state.get('last_reset_date')
                         if last_reset_str:
@@ -317,9 +311,7 @@ class StateManager:
                         'info_texts': [],
                         'total_work_hours': {},
                         'worker_modifiers': {},
-                        'draw_counts': {},
                         'skill_counts': {skill: {} for skill in skill_columns},
-                        'WeightedCounts': {},
                         'scheduled_file_path': self._modality_data[mod].get('scheduled_file_path', ''),
                         'last_reset_date': None
                     }

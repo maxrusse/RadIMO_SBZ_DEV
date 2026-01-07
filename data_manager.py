@@ -269,9 +269,7 @@ def save_state():
         for mod in allowed_modalities:
             d = modality_data[mod]
             state['modality_data'][mod] = {
-                'draw_counts': d['draw_counts'],
                 'skill_counts': d['skill_counts'],
-                'WeightedCounts': d['WeightedCounts'],
                 'last_reset_date': d['last_reset_date'].isoformat() if d['last_reset_date'] else None
             }
 
@@ -311,9 +309,7 @@ def load_state():
             for mod in allowed_modalities:
                 if mod in state['modality_data']:
                     mod_state = state['modality_data'][mod]
-                    modality_data[mod]['draw_counts'] = mod_state.get('draw_counts', {})
                     modality_data[mod]['skill_counts'] = mod_state.get('skill_counts', {skill: {} for skill in SKILL_COLUMNS})
-                    modality_data[mod]['WeightedCounts'] = mod_state.get('WeightedCounts', {})
 
                     last_reset_str = mod_state.get('last_reset_date')
                     if last_reset_str:
@@ -466,9 +462,7 @@ def load_staged_dataframe(modality: str) -> bool:
 # -----------------------------------------------------------
 def initialize_data(file_path: str, modality: str):
     d = modality_data[modality]
-    d['draw_counts'] = {}
     d['skill_counts'] = {skill: {} for skill in SKILL_COLUMNS}
-    d['WeightedCounts'] = {}
     global_worker_data['assignments_per_mod'][modality] = {}
 
     with lock:
@@ -523,7 +517,6 @@ def initialize_data(file_path: str, modality: str):
             d['worker_modifiers'] = df.groupby('PPL')['Modifier'].first().to_dict()
             d['total_work_hours'] = _calculate_total_work_hours(df)
             unique_workers = df['PPL'].unique()
-            d['draw_counts'] = {w: 0 for w in unique_workers}
 
             d['skill_counts'] = {}
             for skill in SKILL_COLUMNS:
@@ -531,8 +524,6 @@ def initialize_data(file_path: str, modality: str):
                     d['skill_counts'][skill] = {w: 0 for w in unique_workers}
                 else:
                     d['skill_counts'][skill] = {}
-
-            d['WeightedCounts'] = {w: 0.0 for w in unique_workers}
 
             if 'Tabelle2' in excel_file.sheet_names:
                 d['info_texts'] = pd.read_excel(excel_file, sheet_name='Tabelle2')['Info'].tolist()
@@ -617,7 +608,7 @@ def reconcile_live_worker_tracking(modality: Optional[str] = None) -> None:
     """
     Reconcile live worker tracking data after edits/deletions.
 
-    Ensures draw_counts, skill_counts, weighted counts, and global assignment tracking
+    Ensures skill_counts, weighted counts, and global assignment tracking
     only include workers currently present in the live schedules.
     """
     active_workers_by_mod = {}
@@ -638,9 +629,6 @@ def reconcile_live_worker_tracking(modality: Optional[str] = None) -> None:
         d = modality_data[mod]
         active_workers = active_workers_by_mod.get(mod, set())
         df = d.get('working_hours_df')
-
-        d['draw_counts'] = {name: d['draw_counts'].get(name, 0) for name in active_workers}
-        d['WeightedCounts'] = {name: d['WeightedCounts'].get(name, 0.0) for name in active_workers}
 
         new_skill_counts = {}
         for skill in SKILL_COLUMNS:
@@ -1039,9 +1027,7 @@ def check_and_perform_daily_reset():
             # Reset per-modality tracking
             d['last_reset_date'] = today
             global_worker_data['assignments_per_mod'][mod] = {}
-            d['draw_counts'] = {}
             d['skill_counts'] = {skill: {} for skill in SKILL_COLUMNS}
-            d['WeightedCounts'] = {}
 
             # Try to load scheduled file for this modality
             scheduled_path = d['scheduled_file_path']
