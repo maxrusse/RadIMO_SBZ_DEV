@@ -1387,6 +1387,10 @@ function renderTable(tab) {
           const gapEnd = lastSeg.end || shift.end_time || '13:00';
           shiftEditor += `<div class="gap-indicator" style="margin-top:0.1rem;">⏸ ${escapeHtml(gapStart)}-${escapeHtml(gapEnd)}</div>`;
         }
+        // Add quick 30-min gap button in edit mode too (only for non-gap rows)
+        if (!isGapRow) {
+          shiftEditor += `<button type="button" class="btn-quick-gap" onclick="onQuickGap30('${tab}', ${gIdx}, ${shiftIdx})" title="Add 30-min break at end of shift">☕</button>`;
+        }
         tr.innerHTML += `<td class="grid-cell shift-col">${shiftEditor}</td>`;
       } else {
         // View mode: show timeline with segments and gaps in time order
@@ -1418,6 +1422,10 @@ function renderTable(tab) {
         }
 
         timelineHtml += '</div>';
+        // Add quick 30-min gap button (only for non-gap rows with valid shifts)
+        if (!isGapRow) {
+          timelineHtml += `<button type="button" class="btn-quick-gap" onclick="onQuickGap30('${tab}', ${gIdx}, ${shiftIdx})" title="Add 30-min break at end of shift">☕</button>`;
+        }
         tr.innerHTML += `<td class="grid-cell shift-col">${timelineHtml}</td>`;
       }
 
@@ -3036,6 +3044,94 @@ async function callAddGap(endpoint, modality, rowIndex, type, start, end) {
 
 // =============================================
 // END ADD WORKER MODAL FUNCTIONS
+// =============================================
+
+
+// =============================================
+// QUICK 30-MIN GAP FEATURE
+// =============================================
+
+/**
+ * Add a 30-minute gap at the end of a shift (checkout for break).
+ * If not in edit mode, shows a confirmation popup first.
+ * @param {string} tab - 'today' or 'tomorrow'
+ * @param {number} gIdx - Group index in entriesData
+ * @param {number} shiftIdx - Shift index within the group
+ */
+async function onQuickGap30(tab, gIdx, shiftIdx) {
+  const group = entriesData[tab][gIdx];
+  if (!group) {
+    showMessage('error', 'Invalid worker group');
+    return;
+  }
+
+  const shift = group.shiftsArray[shiftIdx];
+  if (!shift) {
+    showMessage('error', 'Invalid shift');
+    return;
+  }
+
+  // Calculate gap times: 30 min before shift end
+  const endTime = shift.end_time || '15:00';
+  const gapEnd = endTime;
+  const gapStart = subtractMinutes(endTime, 30);
+
+  // If not in edit mode, show confirmation popup
+  const isEditMode = editMode[tab];
+  if (!isEditMode) {
+    const confirmed = confirm(
+      `Add 30-min break for ${group.worker}?\n\n` +
+      `Shift: ${shift.start_time} - ${shift.end_time}\n` +
+      `Gap: ${gapStart} - ${gapEnd}\n\n` +
+      `This will shorten the shift by 30 minutes.`
+    );
+    if (!confirmed) return;
+  }
+
+  // Find modalities with valid row_index for this shift
+  const modKeysWithData = MODALITIES.map(m => m.toLowerCase()).filter(modKey => {
+    const modData = shift.modalities[modKey];
+    return modData && modData.row_index !== undefined && modData.row_index >= 0;
+  });
+
+  if (modKeysWithData.length === 0) {
+    showMessage('error', 'No assigned modalities found for this shift');
+    return;
+  }
+
+  const gapEndpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
+
+  try {
+    // Add gap to all modalities in this shift
+    for (const modKey of modKeysWithData) {
+      const modData = shift.modalities[modKey];
+      await callAddGap(gapEndpoint, modKey, modData.row_index, 'Break', gapStart, gapEnd);
+    }
+
+    showMessage('success', `Added 30-min break (${gapStart}-${gapEnd}) for ${group.worker}`);
+    await loadData();
+  } catch (error) {
+    showMessage('error', error.message || 'Failed to add gap');
+  }
+}
+
+/**
+ * Subtract minutes from a time string (HH:MM format)
+ * @param {string} timeStr - Time in HH:MM format
+ * @param {number} minutes - Minutes to subtract
+ * @returns {string} - New time in HH:MM format
+ */
+function subtractMinutes(timeStr, minutes) {
+  const [hours, mins] = timeStr.split(':').map(Number);
+  let totalMins = hours * 60 + mins - minutes;
+  if (totalMins < 0) totalMins = 0;
+  const newHours = Math.floor(totalMins / 60);
+  const newMins = totalMins % 60;
+  return `${String(newHours).padStart(2, '0')}:${String(newMins).padStart(2, '0')}`;
+}
+
+// =============================================
+// END QUICK 30-MIN GAP FEATURE
 // =============================================
 
 
