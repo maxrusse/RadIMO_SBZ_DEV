@@ -24,31 +24,13 @@ from lib.utils import (
     calculate_shift_duration_hours,
 )
 from state_manager import StateManager
+from data_manager.file_ops import _calculate_total_work_hours
 
 # Get state references
 _state = StateManager.get_instance()
 global_worker_data = _state.global_worker_data
 modality_data = _state.modality_data
 staged_modality_data = _state.staged_modality_data
-
-
-def _calculate_total_work_hours(df: pd.DataFrame) -> dict:
-    """Calculate total work hours per worker from DataFrame."""
-    if df is None or df.empty:
-        return {}
-
-    if 'shift_duration' not in df.columns:
-        return {}
-
-    if 'counts_for_hours' in df.columns:
-        hours_df = df[df['counts_for_hours'].fillna(True).astype(bool)]
-    else:
-        hours_df = df
-
-    if hours_df.empty:
-        return {}
-
-    return hours_df.groupby('PPL')['shift_duration'].sum().to_dict()
 
 
 def _validate_row_index(df: pd.DataFrame, row_index: int) -> bool:
