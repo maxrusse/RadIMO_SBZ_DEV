@@ -48,10 +48,13 @@ def compute_time_ranges(row: pd.Series, rule: dict, target_date: datetime, confi
     """
     Compute time ranges from rule's inline 'times' field.
 
-    Structure supports day-specific times:
+    Structure supports day-specific times with both single string and array formats:
         times:
-            default: "07:00-15:00"
-            Montag: "08:00-16:00"
+            default: "07:00-15:00"              # Single time
+            Montag: "08:00-16:00"               # Single time for specific day
+            Dienstag:                           # Array format for multiple shifts
+                - "07:00-12:00"
+                - "14:00-18:00"
             Freitag: "07:00-13:00"
     """
     times_config = rule.get('times', {})
@@ -65,19 +68,38 @@ def compute_time_ranges(row: pd.Series, rule: dict, target_date: datetime, confi
 
     # Check for day-specific time first, then 'friday' alias, then default
     if weekday_name in times_config:
-        time_str = times_config[weekday_name]
+        day_times = times_config[weekday_name]
     elif weekday_name == 'Freitag' and 'friday' in times_config:
-        time_str = times_config['friday']
+        day_times = times_config['friday']
+    elif 'default' in times_config:
+        day_times = times_config['default']
     else:
-        time_str = times_config.get('default', '07:00-15:00')
-
-    try:
-        start_str, end_str = time_str.split('-')
-        start_time = datetime.strptime(start_str.strip(), TIME_FORMAT).time()
-        end_time = datetime.strptime(end_str.strip(), TIME_FORMAT).time()
-        return [(start_time, end_time)]
-    except Exception:
         return [(time(7, 0), time(15, 0))]
+
+    # Handle both single string and array formats (aligned with parse_gap_times)
+    if isinstance(day_times, str):
+        time_ranges_str = [day_times]
+    elif isinstance(day_times, list):
+        time_ranges_str = day_times
+    else:
+        return [(time(7, 0), time(15, 0))]
+
+    time_ranges = []
+    for time_range_str in time_ranges_str:
+        try:
+            start_str, end_str = time_range_str.split('-')
+            start_time = datetime.strptime(start_str.strip(), TIME_FORMAT).time()
+            end_time = datetime.strptime(end_str.strip(), TIME_FORMAT).time()
+            time_ranges.append((start_time, end_time))
+        except Exception as e:
+            selection_logger.warning(f"Could not parse shift time range '{time_range_str}': {e}")
+            continue
+
+    # Return default if no valid time ranges were parsed
+    if not time_ranges:
+        return [(time(7, 0), time(15, 0))]
+
+    return time_ranges
 
 
 def parse_gap_times(times_config: dict, weekday_name: str) -> List[Tuple[time, time]]:
