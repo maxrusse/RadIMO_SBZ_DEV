@@ -238,6 +238,80 @@ skill_value_colors:
 
 ---
 
+## Skill Value Hierarchy & Overwrite Logic
+
+This section documents how skill values (`-1`, `0`, `1`, `w`) are resolved across the system.
+
+### Skill Value Meanings
+
+| Value | Name | Meaning | Balancer Behavior |
+|-------|------|---------|-------------------|
+| `-1` | **Excluded** | Worker cannot perform this skill/modality | Filtered out entirely - never receives work |
+| `0` | **Generalist** | Worker CAN do this work as backup | Fallback pool - only receives work when specialists overloaded |
+| `1` | **Specialist** | Worker is trained for this work | Priority assignment, uses modifier=1.0 |
+| `w` | **Weighted** | Worker is in training/assisted | Priority assignment, uses personal modifier (reduced workload) |
+
+### Value Sources (Priority Order)
+
+1. **Skill Roster** (`worker_skill_roster.json`) - baseline per-worker skill settings
+2. **CSV Mapping Rules** (`skill_overrides` in config) - shift-specific overrides
+3. **Prep Page Edits** - manual daily adjustments
+
+### Overwrite Rules During CSV Loading
+
+When CSV mapping rules apply `skill_overrides` to a worker's roster values:
+
+| Roster Value | CSV Override | Result | Explanation |
+|--------------|--------------|--------|-------------|
+| `-1` | any | `-1` | **Roster `-1` always wins** - hard exclusions cannot be overridden |
+| `w` | `1` | `w` | Worker stays weighted (CSV assigns them, they stay in training mode) |
+| `w` | `0` | `-1` | Not explicitly assigned to team → **excluded** (not helper) |
+| `w` | `-1` | `-1` | Explicit exclusion from CSV |
+| `w` | *(no match)* | `-1` | Not on any shift for this skill → **excluded** |
+| `1` | any | CSV value | Normal override |
+| `0` | any | CSV value | Normal override |
+
+**Key insight:** Workers with roster `w` are only included when explicitly assigned via CSV (`skill_overrides: 1`). If not assigned, they become `-1` (excluded), not `0` (helper). This prevents trainees from accidentally being assigned to teams they're not part of.
+
+### Overwrite Rules During Prep/UI Edits
+
+Manual edits in the prep page can change any value:
+
+- No restrictions - allows daily flexibility
+- Can change `-1` → `w`/`1`/`0` (e.g., adding someone new to a team)
+- Can change `w` → `1` (promoting from training to full)
+- Changes persist only for that day's schedule
+
+### Modifier Priority
+
+When a worker has skill=`w`, the system uses their personal modifier to reduce their workload:
+
+```
+Priority: Shift Modifier > Roster Modifier > Default (1.0)
+```
+
+| Source | When Used |
+|--------|-----------|
+| **Shift Modifier** | If shift explicitly sets `Modifier ≠ 1.0` |
+| **Roster Modifier** | If shift modifier is default (1.0), use roster's `modifier` field |
+| **Default** | If neither is set, use `1.0` |
+
+**Roster modifier setup:**
+
+In the Skill Roster page, each worker has a global `modifier` field:
+- `1.0` = normal workload (default)
+- `0.5` = 50% workload (trainee)
+- `0.75` = 75% workload (experienced but supported)
+
+The modifier affects weighted (`w`) assignments by adjusting the workload calculation:
+```
+weight = base_weight × (1.0 / modifier)
+```
+
+Example: modifier=0.5 means each assignment counts double toward the worker's total, effectively halving their workload.
+
+---
+
 ## UI Colors
 
 Top-level UI theme settings.
