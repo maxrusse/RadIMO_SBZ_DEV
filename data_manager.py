@@ -44,50 +44,23 @@ from lib.utils import (
 )
 
 # -----------------------------------------------------------
-# Global State & Locks
+# Global State & Locks (via StateManager Singleton)
 # -----------------------------------------------------------
-lock = Lock()
+from state_manager import StateManager, get_state
 
-# Global worker data structure for cross-modality tracking
-global_worker_data = {
-    'worker_ids': {},  # Map of worker name variations to canonical ID
-    # Single global weighted counts (consolidated across all modalities):
-    'weighted_counts': {},  # {worker_id: count}
-    'assignments_per_mod': {mod: {} for mod in allowed_modalities},
-    'last_reset_date': None  # Global reset date tracker
-}
+# Initialize the StateManager singleton
+_state = StateManager.get_instance()
+_state.initialize(allowed_modalities, SKILL_COLUMNS, UPLOAD_FOLDER)
 
-# Modality active data (Live)
-modality_data = {}
-for mod in allowed_modalities:
-    modality_data[mod] = {
-        'working_hours_df': None,
-        'info_texts': [],
-        'total_work_hours': {},
-        'worker_modifiers': {},
-        'draw_counts': {},
-        'skill_counts': {skill: {} for skill in SKILL_COLUMNS},
-        'WeightedCounts': {},
-        'scheduled_file_path': os.path.join(UPLOAD_FOLDER, f"Cortex_{mod.upper()}_scheduled.xlsx"),
-        'last_reset_date': None
-    }
+# Lock for atomic operations (delegates to StateManager)
+lock = _state.lock
 
-# Staged data (Next Day Prep)
-staged_modality_data = {}
-for mod in allowed_modalities:
-    staged_modality_data[mod] = {
-        'working_hours_df': None,
-        'info_texts': [],
-        'total_work_hours': {},
-        'worker_modifiers': {},
-        'staged_file_path': os.path.join(UPLOAD_FOLDER, "backups", f"Cortex_{mod.upper()}_staged.xlsx"),
-        'last_modified': None,
-        'last_prepped_at': None,
-        'last_prepped_by': None
-    }
-
-# JSON worker skill roster (loaded dynamically)
-worker_skill_json_roster = {}
+# Backward-compatible module-level aliases
+# These reference the StateManager's internal dictionaries directly
+global_worker_data = _state.global_worker_data
+modality_data = _state.modality_data
+staged_modality_data = _state.staged_modality_data
+worker_skill_json_roster = _state.worker_skill_json_roster
 
 # -----------------------------------------------------------
 # Worker ID & Skill Roster Helpers
@@ -110,6 +83,15 @@ def get_canonical_worker_id(worker_name: str) -> str:
     canonical_id = canonical_id or worker_key
     global_worker_data['worker_ids'][worker_key] = canonical_id
     return canonical_id
+
+
+def invalidate_work_hours_cache(modality: str = None) -> None:
+    """Invalidate the work hours cache when modality data changes.
+
+    Args:
+        modality: Specific modality to invalidate, or None for all modalities.
+    """
+    _state.invalidate_work_hours_cache(modality)
 
 
 def get_all_workers_by_canonical_id():
@@ -287,9 +269,7 @@ def save_state():
         for mod in allowed_modalities:
             d = modality_data[mod]
             state['modality_data'][mod] = {
-                'draw_counts': d['draw_counts'],
                 'skill_counts': d['skill_counts'],
-                'WeightedCounts': d['WeightedCounts'],
                 'last_reset_date': d['last_reset_date'].isoformat() if d['last_reset_date'] else None
             }
 
@@ -329,9 +309,7 @@ def load_state():
             for mod in allowed_modalities:
                 if mod in state['modality_data']:
                     mod_state = state['modality_data'][mod]
-                    modality_data[mod]['draw_counts'] = mod_state.get('draw_counts', {})
                     modality_data[mod]['skill_counts'] = mod_state.get('skill_counts', {skill: {} for skill in SKILL_COLUMNS})
-                    modality_data[mod]['WeightedCounts'] = mod_state.get('WeightedCounts', {})
 
                     last_reset_str = mod_state.get('last_reset_date')
                     if last_reset_str:
@@ -484,9 +462,7 @@ def load_staged_dataframe(modality: str) -> bool:
 # -----------------------------------------------------------
 def initialize_data(file_path: str, modality: str):
     d = modality_data[modality]
-    d['draw_counts'] = {}
     d['skill_counts'] = {skill: {} for skill in SKILL_COLUMNS}
-    d['WeightedCounts'] = {}
     global_worker_data['assignments_per_mod'][modality] = {}
 
     with lock:
@@ -536,10 +512,11 @@ def initialize_data(file_path: str, modality: str):
             df = df[[col for col in col_order if col in df.columns]]
 
             d['working_hours_df'] = df
+            # Invalidate work hours cache when data changes
+            invalidate_work_hours_cache(modality)
             d['worker_modifiers'] = df.groupby('PPL')['Modifier'].first().to_dict()
             d['total_work_hours'] = _calculate_total_work_hours(df)
             unique_workers = df['PPL'].unique()
-            d['draw_counts'] = {w: 0 for w in unique_workers}
 
             d['skill_counts'] = {}
             for skill in SKILL_COLUMNS:
@@ -547,8 +524,6 @@ def initialize_data(file_path: str, modality: str):
                     d['skill_counts'][skill] = {w: 0 for w in unique_workers}
                 else:
                     d['skill_counts'][skill] = {}
-
-            d['WeightedCounts'] = {w: 0.0 for w in unique_workers}
 
             if 'Tabelle2' in excel_file.sheet_names:
                 d['info_texts'] = pd.read_excel(excel_file, sheet_name='Tabelle2')['Info'].tolist()
@@ -633,7 +608,7 @@ def reconcile_live_worker_tracking(modality: Optional[str] = None) -> None:
     """
     Reconcile live worker tracking data after edits/deletions.
 
-    Ensures draw_counts, skill_counts, weighted counts, and global assignment tracking
+    Ensures skill_counts, weighted counts, and global assignment tracking
     only include workers currently present in the live schedules.
     """
     active_workers_by_mod = {}
@@ -654,9 +629,6 @@ def reconcile_live_worker_tracking(modality: Optional[str] = None) -> None:
         d = modality_data[mod]
         active_workers = active_workers_by_mod.get(mod, set())
         df = d.get('working_hours_df')
-
-        d['draw_counts'] = {name: d['draw_counts'].get(name, 0) for name in active_workers}
-        d['WeightedCounts'] = {name: d['WeightedCounts'].get(name, 0.0) for name in active_workers}
 
         new_skill_counts = {}
         for skill in SKILL_COLUMNS:
@@ -1039,6 +1011,9 @@ def check_and_perform_daily_reset():
 
         selection_logger.info("Starting global daily reset for all modalities")
 
+        # Invalidate all work hours caches at start of reset
+        invalidate_work_hours_cache()
+
         # Mark reset date FIRST (atomic check-and-set pattern)
         # This prevents other threads from entering even if we fail midway
         global_worker_data['last_reset_date'] = today
@@ -1052,9 +1027,7 @@ def check_and_perform_daily_reset():
             # Reset per-modality tracking
             d['last_reset_date'] = today
             global_worker_data['assignments_per_mod'][mod] = {}
-            d['draw_counts'] = {}
             d['skill_counts'] = {skill: {} for skill in SKILL_COLUMNS}
-            d['WeightedCounts'] = {}
 
             # Try to load scheduled file for this modality
             scheduled_path = d['scheduled_file_path']

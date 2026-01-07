@@ -30,6 +30,7 @@ from data_manager import (
     modality_data,
     save_state
 )
+from state_manager import get_state
 
 # -----------------------------------------------------------
 # Helper functions to compute global totals across modalities
@@ -37,6 +38,27 @@ from data_manager import (
 def get_global_weighted_count(canonical_id):
     """Get single global weighted count for a worker (consolidated across all modalities)."""
     return global_worker_data['weighted_counts'].get(canonical_id, 0.0)
+
+
+def get_modality_weighted_count(canonical_id: str, modality: str) -> float:
+    """
+    Compute weighted count for a worker in a specific modality.
+
+    Calculated from assignments_per_mod using skill×modality weights.
+    This replaces the broken WeightedCounts structure that was never populated.
+    """
+    assignments = global_worker_data['assignments_per_mod'].get(modality, {}).get(canonical_id, {})
+    if not assignments:
+        return 0.0
+
+    total_weight = 0.0
+    for skill in SKILL_COLUMNS:
+        count = assignments.get(skill, 0)
+        if count > 0:
+            weight = get_skill_modality_weight(skill, modality)
+            total_weight += count * weight
+    return total_weight
+
 
 def get_global_assignments(canonical_id):
     totals = {skill: 0 for skill in SKILL_COLUMNS}
@@ -108,16 +130,35 @@ def update_global_assignment(person: str, role: str, modality: str, is_weighted:
     return canonical_id
 
 def calculate_work_hours_now(current_dt: datetime, modality: str) -> dict:
+    """
+    Calculate cumulative work hours for all workers up to current_dt.
+
+    Uses TTL cache (~1 minute) to avoid recalculating on every assignment.
+    Cache key is based on modality and minute-truncated timestamp.
+    """
+    # Round to minute for cache key (cache valid for same minute)
+    cache_minute = current_dt.replace(second=0, microsecond=0)
+    cache_key = f"work_hours:{modality}:{cache_minute.isoformat()}"
+
+    state = get_state()
+    cached = state.work_hours_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     d = modality_data[modality]
     if d['working_hours_df'] is None:
         return {}
-    df_copy = d['working_hours_df'].copy()
 
-    if 'counts_for_hours' in df_copy.columns:
-        # Default to True (count for hours) if value is missing
-        df_copy = df_copy[df_copy['counts_for_hours'].fillna(True).astype(bool)].copy()
+    df = d['working_hours_df']
 
-    if df_copy.empty:
+    # Filter without copy - use boolean indexing on original
+    if 'counts_for_hours' in df.columns:
+        mask = df['counts_for_hours'].fillna(True).astype(bool)
+        df_filtered = df.loc[mask]
+    else:
+        df_filtered = df
+
+    if df_filtered.empty:
         return {}
 
     def _calc(row):
@@ -128,18 +169,24 @@ def calculate_work_hours_now(current_dt: datetime, modality: str) -> dict:
             return (end_dt - start_dt).total_seconds() / 3600.0
         return (current_dt - start_dt).total_seconds() / 3600.0
 
-    df_copy['work_hours_now'] = df_copy.apply(_calc, axis=1)
+    # Calculate hours directly - avoid adding column to original DataFrame
+    work_hours = df_filtered.apply(_calc, axis=1)
 
     hours_by_canonical = {}
-    all_workers = df_copy['PPL'].dropna().unique().tolist()
+    all_workers = df_filtered['PPL'].dropna().unique().tolist()
     for worker in all_workers:
         canonical_id = get_canonical_worker_id(worker)
         hours_by_canonical[canonical_id] = 0.0
-    hours_by_worker = df_copy.groupby('PPL')['work_hours_now'].sum().to_dict()
 
-    for worker, hours in hours_by_worker.items():
-        canonical_id = get_canonical_worker_id(worker)
-        hours_by_canonical[canonical_id] = hours_by_canonical.get(canonical_id, 0) + hours
+    # Aggregate by PPL using calculated series
+    for idx, hours in work_hours.items():
+        worker = df_filtered.loc[idx, 'PPL']
+        if pd.notna(worker):
+            canonical_id = get_canonical_worker_id(worker)
+            hours_by_canonical[canonical_id] = hours_by_canonical.get(canonical_id, 0) + hours
+
+    # Cache the result
+    state.work_hours_cache.set(cache_key, hours_by_canonical)
 
     return hours_by_canonical
 
@@ -148,6 +195,8 @@ def _filter_active_rows(df: Optional[pd.DataFrame], current_dt: datetime) -> Opt
 
     Note: Skill values are NOT converted to numeric here to preserve 'w' marker.
     Use skill_value_to_numeric() for comparisons, is_weighted_skill() to check for 'w'.
+
+    Returns a view (not a copy) for performance. Do not modify the returned DataFrame.
     """
     if df is None or df.empty:
         return df
@@ -156,13 +205,15 @@ def _filter_active_rows(df: Optional[pd.DataFrame], current_dt: datetime) -> Opt
         lambda row: is_now_in_shift(row['start_time'], row['end_time'], current_dt),
         axis=1
     )
-    active_df = df[active_mask].copy()
-    return active_df
+    # Return view without copy - callers only read from this
+    return df.loc[active_mask]
 
 def _filter_near_shift_end(df: pd.DataFrame, current_dt: datetime, buffer_minutes: int) -> pd.DataFrame:
     """
     Filter out workers who are within buffer_minutes of their shift end.
     Used to prevent overflow assignments near end of shift.
+
+    Returns a view (not a copy) for performance. Do not modify the returned DataFrame.
     """
     if df is None or df.empty or buffer_minutes <= 0:
         return df
@@ -173,12 +224,14 @@ def _filter_near_shift_end(df: pd.DataFrame, current_dt: datetime, buffer_minute
         return minutes_until_end > buffer_minutes
 
     mask = df.apply(is_not_near_shift_end, axis=1)
-    return df[mask].copy()
+    return df.loc[mask]
 
 def _filter_near_shift_start(df: pd.DataFrame, current_dt: datetime, buffer_minutes: int) -> pd.DataFrame:
     """
     Filter out workers who are within buffer_minutes of their shift start.
     Used to prevent overflow assignments at beginning of shift.
+
+    Returns a view (not a copy) for performance. Do not modify the returned DataFrame.
     """
     if df is None or df.empty or buffer_minutes <= 0:
         return df
@@ -189,7 +242,7 @@ def _filter_near_shift_start(df: pd.DataFrame, current_dt: datetime, buffer_minu
         return minutes_since_start > buffer_minutes
 
     mask = df.apply(is_not_near_shift_start, axis=1)
-    return df[mask].copy()
+    return df.loc[mask]
 
 def _get_effective_assignment_load(
     worker: str,
@@ -309,14 +362,6 @@ def _get_worker_exclusion_based(
         if skill_filtered.empty:
             return None
 
-        # Apply shift start/end buffers (per-worker per-shift)
-        if shift_start_buffer > 0:
-            skill_filtered = _filter_near_shift_start(skill_filtered, current_dt, shift_start_buffer)
-        if shift_end_buffer > 0:
-            skill_filtered = _filter_near_shift_end(skill_filtered, current_dt, shift_end_buffer)
-        if skill_filtered.empty:
-            return None
-
         # Apply exclusion rules if requested
         filtered_workers = skill_filtered
         if apply_exclusions:
@@ -345,9 +390,19 @@ def _get_worker_exclusion_based(
         specialists_df = filtered_workers[
             filtered_workers[primary_skill].apply(lambda v: skill_value_to_numeric(v) == 1)
         ]
-        generalists_df = filtered_workers[
+        generalists_all = filtered_workers[
             filtered_workers[primary_skill].apply(lambda v: skill_value_to_numeric(v) == 0)
         ]
+
+        # Apply shift start/end buffers ONLY to generalists (overflow pool)
+        # Specialists (1, w) handle their own work even at shift boundaries
+        # Keep original generalists_all for fallback if no specialists available
+        generalists_df = generalists_all
+        if not generalists_df.empty:
+            if shift_start_buffer > 0:
+                generalists_df = _filter_near_shift_start(generalists_df, current_dt, shift_start_buffer)
+            if shift_end_buffer > 0:
+                generalists_df = _filter_near_shift_end(generalists_df, current_dt, shift_end_buffer)
 
         # Strategy: Try specialists first, overflow to generalists if needed
         if not specialists_df.empty:
@@ -417,9 +472,19 @@ def _get_worker_exclusion_based(
                     return candidate, primary_skill, modality
 
         # Use generalists if: (1) no specialists, OR (2) overflow triggered
-        if not generalists_df.empty:
-            balanced_generalists = _apply_minimum_balancer(generalists_df, primary_skill, modality)
-            generalists_to_check = balanced_generalists if not balanced_generalists.empty else generalists_df
+        # If no buffer-filtered generalists but specialists_df is empty, fallback to all generalists
+        generalists_to_use = generalists_df
+        if generalists_to_use.empty and specialists_df.empty and not generalists_all.empty:
+            # No specialists available - ignore shift buffers and use any generalist
+            generalists_to_use = generalists_all
+            selection_logger.info(
+                "No specialists available for skill %s - ignoring shift buffers for generalists",
+                primary_skill,
+            )
+
+        if not generalists_to_use.empty:
+            balanced_generalists = _apply_minimum_balancer(generalists_to_use, primary_skill, modality)
+            generalists_to_check = balanced_generalists if not balanced_generalists.empty else generalists_to_use
 
             generalist_workers = generalists_to_check['PPL'].unique()
             generalist_ratios = {p: weighted_ratio(p) for p in generalist_workers}
