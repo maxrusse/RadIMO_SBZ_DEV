@@ -23,7 +23,7 @@ All admin pages require login with the admin password from `config.yaml`.
 ┌─────────────────────────────────────────────────────────────┐
 │  SKILL MATRIX (Permanent)        /skill-roster              │
 │  ├─ Multi-modality grid                                     │
-│  ├─ Edit skill values (-1, 0, 1)                            │
+│  ├─ Edit skill values (-1, 0, 1, w) + global modifier       │
 │  └─ Save directly to roster JSON                            │
 ├─────────────────────────────────────────────────────────────┤
 │  SCHEDULE EDIT                  /prep-next-day              │
@@ -46,10 +46,19 @@ All admin pages require login with the admin password from `config.yaml`.
 2. Select worker from the side list
 3. Edit skill values in the grid:
    - **1** = Active (Assigned) - 🟢 Green
+   - **w** = Weighted (Training/Assisted) - 🔵 Blue
    - **0** = Passive (Helper/Fallback) - 🟡 Yellow
    - **-1** = Excluded (Never) - 🔴 Red
-4. Click **"Save"** to persist changes.
-5. Use **"Import new workers"** to pull workers from current schedules who are missing from the roster.
+4. Set **Global Modifier** for weighted workers:
+   - `1.0` = normal workload (default)
+   - `0.5` = 50% workload (trainee - gets half the assignments)
+   - `0.75` = 75% workload (experienced but supervised)
+5. Click **"Save"** to persist changes.
+6. Use **"Import new workers"** to pull workers from current schedules who are missing from the roster.
+
+**Important:** Workers with `w` in roster are only included in a shift if the CSV mapping explicitly assigns them (`skill_overrides: 1`). Otherwise they become `-1` (excluded). This prevents trainees from appearing on teams they're not assigned to.
+
+See [CONFIGURATION.md](CONFIGURATION.md#skill-value-hierarchy--overwrite-logic) for detailed overwrite rules.
 
 ### Example: MSK Rotation
 To make "AM" an MSK specialist:
