@@ -134,6 +134,7 @@ RadIMO_Cortex/
 ├── scripts/                    # Development and utility scripts
 │   ├── ops_check.py            # Pre-deployment checks
 │   ├── prepare_config.py       # Config generator from CSV
+│   ├── exam_values.py          # Exam value export/import tool
 │   └── code_aggregator.py      # Documentation export tool
 ├── test_data/                  # Test CSV files and examples
 ├── templates/                  # HTML templates (Admin pages aligned to Prep)
