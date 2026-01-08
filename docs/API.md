@@ -12,13 +12,13 @@ Admin endpoints require session authentication via `/login`.
 
 ## Worker Assignment
 
-### Assign Worker (with fallback)
+### Assign Worker (with overflow)
 
 ```http
 GET /api/{modality}/{skill}
 ```
 
-Assigns a worker with automatic fallback if no direct match available.
+Assigns a worker with automatic overflow to generalists if specialists are overloaded.
 
 **Parameters:**
 | Name | Type | Description |
@@ -58,13 +58,13 @@ curl http://localhost:5000/api/ct/cardvask
 
 ---
 
-### Assign Worker (strict, no fallback)
+### Assign Worker (strict, no overflow)
 
 ```http
 GET /api/{modality}/{skill}/strict
 ```
 
-Assigns a worker without fallback. Returns error if no direct match.
+Assigns a worker without overflow. Returns error if no specialist available.
 
 **Example:**
 ```bash
