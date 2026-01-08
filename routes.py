@@ -33,7 +33,8 @@ from config import (
     selection_logger,
     SKILL_ROSTER_AUTO_IMPORT,
     normalize_modality,
-    normalize_skill
+    normalize_skill,
+    is_no_overflow
 )
 from lib import usage_logger
 from lib.utils import (
@@ -1077,6 +1078,17 @@ def add_staged_gap():
 def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
     try:
         now = get_local_now()
+
+        # Check if this skill×modality combo has overflow disabled
+        canonical_skill = normalize_skill(role)
+        if allow_fallback and is_no_overflow(canonical_skill, modality):
+            allow_fallback = False
+            selection_logger.info(
+                "No-overflow config active for %s_%s, forcing strict mode",
+                canonical_skill,
+                modality,
+            )
+
         selection_logger.info(
             "Assignment request: modality=%s, role=%s, strict=%s, time=%s",
             modality,

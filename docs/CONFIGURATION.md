@@ -216,6 +216,31 @@ skill_modality_overrides:
 
 ---
 
+## No Overflow (Strict Mode) Combinations
+
+Disable overflow to generalists for specific skill×modality combinations. When a combo is listed here, the normal dashboard button behaves like the [*] strict button - only specialists (skill=1 or 'w') will be assigned, never generalists (skill=0).
+
+```yaml
+no_overflow:
+  - CardThor_ct    # Cardiac CT - specialists only
+  - CardThor_mr    # Cardiac MR - specialists only
+  - Gyn_mr         # Gyn MR - specialists only
+```
+
+**Format:** `Skill_Modality` (same as `skill_overrides` in shift rules)
+
+**How it works:**
+1. When assignment is requested for a listed combo, `allow_fallback` is forced to `false`
+2. Only workers with skill=1 or 'w' are eligible
+3. The [*] button remains visible but becomes redundant (same behavior)
+
+**Use cases:**
+- Specialized procedures requiring trained specialists (cardiac imaging)
+- Subspecialties where generalists lack expertise
+- High-risk modalities where quality control is critical
+
+---
+
 ## Skill Value Colors
 
 How skill values appear in the prep page table.

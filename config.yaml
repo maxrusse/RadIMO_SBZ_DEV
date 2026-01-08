@@ -190,6 +190,19 @@ skill_modality_overrides:
     CardThor: 1.8    # Cardiac MR weighted higher due to complexity
 
 # =============================================================================
+# NO OVERFLOW (STRICT MODE) COMBINATIONS
+# =============================================================================
+# List of Skill_Modality combinations where overflow to generalists is disabled.
+# For these combos, the normal button acts like the [*] strict button - only
+# specialists (skill=1 or 'w') will be assigned, never generalists (skill=0).
+# Format: Skill_Modality (e.g., CardThor_ct, Gyn_mr)
+# =============================================================================
+
+no_overflow: []
+  # - CardThor_ct    # Example: Cardiac CT - specialists only
+  # - CardThor_mr    # Example: Cardiac MR - specialists only
+
+# =============================================================================
 # SKILL VALUE DISPLAY COLORS
 # =============================================================================
 # These define how skill assignment values are displayed in the prep page table.

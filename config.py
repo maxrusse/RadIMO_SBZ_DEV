@@ -248,6 +248,9 @@ modality_factors = {
 # Load skillxmodality weight overrides
 skill_modality_overrides = APP_CONFIG.get('skill_modality_overrides', {})
 
+# Load no_overflow combinations (strict mode - no fallback to generalists)
+_raw_no_overflow = APP_CONFIG.get('no_overflow', [])
+
 # Build skill metadata
 SKILL_COLUMNS, SKILL_SLUG_MAP, SKILL_TEMPLATES, skill_weights = _build_skill_metadata(SKILL_SETTINGS)
 
@@ -330,8 +333,48 @@ BALANCER_SETTINGS = APP_CONFIG.get('balancer', DEFAULT_BALANCER)
 raw_exclude_skills = BALANCER_SETTINGS.get('exclude_skills', {})
 EXCLUDE_SKILLS = _normalize_exclude_skills(raw_exclude_skills)
 
+
+def _normalize_no_overflow(raw_list: list) -> set:
+    """
+    Normalize no_overflow list to canonical Skill_Modality format.
+
+    Supports:
+    - Skill_Modality: CardThor_ct → CardThor_ct
+    - Modality_Skill: ct_CardThor → CardThor_ct
+
+    Returns: set of canonical 'Skill_modality' strings
+    """
+    result = set()
+
+    for item in raw_list:
+        if not isinstance(item, str) or '_' not in item:
+            continue
+
+        item_lower = item.lower().strip()
+        parts = item_lower.split('_', 1)
+        if len(parts) != 2:
+            continue
+
+        # Try Skill_Modality first
+        skill = _resolve_skill(parts[0])
+        mod = allowed_modalities_map.get(parts[1])
+
+        # Try Modality_Skill if first attempt failed
+        if not (skill and mod):
+            skill = _resolve_skill(parts[1])
+            mod = allowed_modalities_map.get(parts[0])
+
+        if skill and mod:
+            result.add(f"{skill}_{mod}")
+
+    return result
+
+
+# Normalize no_overflow list
+NO_OVERFLOW = _normalize_no_overflow(_raw_no_overflow)
+
 # -----------------------------------------------------------
-# Helper function
+# Helper functions
 # -----------------------------------------------------------
 def get_skill_modality_weight(skill: str, modality: str) -> float:
     """
@@ -357,4 +400,15 @@ def normalize_skill(skill_name: Optional[str]) -> str:
     if not skill_name:
         return SKILL_COLUMNS[0] if SKILL_COLUMNS else ''
     return skill_columns_map.get(skill_name.lower().strip(), skill_name.strip())
+
+
+def is_no_overflow(skill: str, modality: str) -> bool:
+    """
+    Check if a skill×modality combination has overflow disabled.
+
+    When True, the normal button acts like the [*] strict button -
+    only specialists will be assigned, never generalists.
+    """
+    key = f"{skill}_{modality}"
+    return key in NO_OVERFLOW
 
