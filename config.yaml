@@ -198,9 +198,10 @@ skill_modality_overrides:
 # Format: Skill_Modality (e.g., CardThor_ct, Gyn_mr)
 # =============================================================================
 
+# Examples:
+#   - CardThor_ct    # Cardiac CT - specialists only
+#   - CardThor_mr    # Cardiac MR - specialists only
 no_overflow: []
-  # - CardThor_ct    # Example: Cardiac CT - specialists only
-  # - CardThor_mr    # Example: Cardiac MR - specialists only
 
 # =============================================================================
 # SKILL VALUE DISPLAY COLORS
