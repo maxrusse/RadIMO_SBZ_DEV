@@ -34,8 +34,8 @@ import yaml
 
 
 DEFAULT_SKILLS = [
-    "Notfall", "Privat", "Gyn", "Päd", "MSK",
-    "Abdomen", "Chest", "Cardvask", "Uro"
+    "Notfall", "Privat", "Gyn", "Päd", "MSK-Haut",
+    "Abdomen", "CardThor", "Uro", "KopfHals"
 ]
 DEFAULT_MODALITIES = ["ct", "mr", "xray", "mammo"]
 TOLERANCE = 0.005

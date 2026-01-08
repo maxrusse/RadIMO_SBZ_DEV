@@ -53,11 +53,11 @@ def extract_skills(config: Dict) -> List[str]:
         "Privat",
         "Gyn",
         "Päd",
-        "MSK",
+        "MSK-Haut",
         "Abdomen",
-        "Chest",
-        "Cardvask",
+        "CardThor",
         "Uro",
+        "KopfHals",
     ]
 
 
