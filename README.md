@@ -114,13 +114,20 @@ Assignments are weighted by:
 RadIMO_Cortex/
 ├── app.py                      # Main entry point (Flask app)
 ├── routes.py                   # Route and API definitions
-├── data_manager.py             # Data handling and state management
 ├── balancer.py                 # Load balancing logic
 ├── config.py                   # Config loader and normalization
 ├── config.yaml                 # Configuration (mapping, skills, weights)
 ├── worker_skill_roster.json    # Worker skill roster (persistent)
 ├── requirements.txt            # Python dependencies
 ├── gunicorn_config.py          # Gunicorn server configuration
+├── data_manager/               # Data handling and state management
+│   ├── __init__.py              # Package exports
+│   ├── csv_parser.py            # CSV parsing utilities
+│   ├── file_ops.py              # File handling helpers
+│   ├── schedule_crud.py         # Schedule create/update/delete
+│   ├── scheduled_tasks.py       # Scheduled jobs and timers
+│   ├── state_persistence.py     # Save/load system state
+│   └── worker_management.py     # Worker roster management
 ├── lib/                        # Library modules
 │   ├── utils.py                # Utility functions and logging
 │   └── usage_logger.py         # Usage tracking
@@ -131,13 +138,14 @@ RadIMO_Cortex/
 ├── test_data/                  # Test CSV files and examples
 ├── templates/                  # HTML templates (Admin pages aligned to Prep)
 ├── static/                     # CSS, JS, assets
-├── uploads/                    # Master CSV and backups storage
+│   ├── EULA.txt                 # Licensing terms
+│   └── verfahrensverzeichniss.txt # GDPR documentation (German)
 └── docs/                       # Documentation
-    ├── WORKFLOW.md             # Master CSV workflow guide
-    ├── CONFIGURATION.md        # Config reference
-    ├── API.md                  # API endpoints
     ├── ADMIN_GUIDE.md          # Admin pages guide
-    └── USAGE_LOGGING.md        # Usage logging documentation
+    ├── API.md                  # API endpoints
+    ├── CONFIGURATION.md        # Config reference
+    ├── USAGE_LOGGING.md        # Usage logging documentation
+    └── WORKFLOW.md             # Master CSV workflow guide
 ```
 
 ---
