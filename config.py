@@ -42,7 +42,7 @@ DEFAULT_BALANCER = {
     'enabled': True,
     'min_assignments_per_skill': 3,
     'imbalance_threshold_pct': 30,
-    'allow_fallback_on_imbalance': True,
+    'allow_overflow_on_imbalance': True,
     'disable_overflow_at_shift_start_minutes': 0,  # 0 = disabled
     'disable_overflow_at_shift_end_minutes': 0,  # 0 = disabled
 }
@@ -248,7 +248,7 @@ modality_factors = {
 # Load skillxmodality weight overrides
 skill_modality_overrides = APP_CONFIG.get('skill_modality_overrides', {})
 
-# Load no_overflow combinations (strict mode - no fallback to generalists)
+# Load no_overflow combinations (strict mode - no overflow to generalists)
 _raw_no_overflow = APP_CONFIG.get('no_overflow', [])
 
 # Build skill metadata

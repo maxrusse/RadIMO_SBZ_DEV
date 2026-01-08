@@ -343,7 +343,7 @@ def _get_worker_exclusion_based(
     current_dt: datetime,
     role: str,
     modality: str,
-    allow_fallback: bool,
+    allow_overflow: bool,
 ):
     """
     Specialist-first assignment with pooled worker overflow.
@@ -353,7 +353,7 @@ def _get_worker_exclusion_based(
     2. Apply exclusion rules (e.g., notfall_ct team won't get mammo_gyn)
     3. Split into specialists (skill=1/'w') and generalists (skill=0)
     4. Try specialists first, overflow to generalists only if all specialists overloaded
-    5. Fallback: if exclusions filter out everyone, retry without exclusions
+    5. Retry: if exclusions filter out everyone, retry without exclusions (if overflow enabled)
     """
     role_lower = role.lower()
     if role_lower not in ROLE_MAP:
@@ -557,10 +557,10 @@ def _get_worker_exclusion_based(
     if result:
         return result
 
-    # Level 2: Fallback without exclusions if enabled
-    if not allow_fallback:
+    # Level 2: Retry without exclusions if overflow enabled
+    if not allow_overflow:
         selection_logger.info(
-            "No workers available with exclusions for skill %s, fallback disabled",
+            "No workers available with exclusions for skill %s, overflow disabled",
             primary_skill,
         )
         return None
@@ -584,6 +584,6 @@ def get_next_available_worker(
     current_dt: datetime,
     role='normal',
     modality=default_modality,
-    allow_fallback: bool = True,
+    allow_overflow: bool = True,
 ):
-    return _get_worker_exclusion_based(current_dt, role, modality, allow_fallback)
+    return _get_worker_exclusion_based(current_dt, role, modality, allow_overflow)

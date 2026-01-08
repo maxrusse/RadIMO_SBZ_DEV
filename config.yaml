@@ -276,7 +276,7 @@ balancer:
   enabled: true                              # Enable/disable load balancing
   min_assignments_per_skill: 3               # Minimum workers per skill before rebalancing
   imbalance_threshold_pct: 30                # Percentage threshold to trigger rebalancing
-  allow_fallback_on_imbalance: true          # Allow fallback workers when imbalanced
+  allow_overflow_on_imbalance: true          # Allow overflow to generalists when imbalanced
   disable_overflow_at_shift_start_minutes: 15  # Don't assign overflow in first X minutes
   disable_overflow_at_shift_end_minutes: 30    # Don't assign overflow in last X minutes
 

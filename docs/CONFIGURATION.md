@@ -230,7 +230,7 @@ no_overflow:
 **Format:** `Skill_Modality` (same as `skill_overrides` in shift rules)
 
 **How it works:**
-1. When assignment is requested for a listed combo, `allow_fallback` is forced to `false`
+1. When assignment is requested for a listed combo, `allow_overflow` is forced to `false`
 2. Only workers with skill=1 or 'w' are eligible
 3. The [*] button remains visible but becomes redundant (same behavior)
 
@@ -361,8 +361,8 @@ Control load balancing behavior and hours counting.
 balancer:
   enabled: true
   min_assignments_per_skill: 5    # Minimum weighted assignments
-  imbalance_threshold_pct: 30     # Trigger fallback at 30% imbalance
-  allow_fallback_on_imbalance: true
+  imbalance_threshold_pct: 30     # Trigger overflow at 30% imbalance
+  allow_overflow_on_imbalance: true
   disable_overflow_at_shift_end_minutes: 30  # Don't assign overflow in last X minutes
 
   # Hours counting for workload calculation
@@ -703,7 +703,7 @@ balancer:
   enabled: true
   min_assignments_per_skill: 3
   imbalance_threshold_pct: 30
-  allow_fallback_on_imbalance: true
+  allow_overflow_on_imbalance: true
   disable_overflow_at_shift_start_minutes: 15
   disable_overflow_at_shift_end_minutes: 30
   hours_counting:

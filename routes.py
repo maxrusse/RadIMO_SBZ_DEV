@@ -1075,14 +1075,14 @@ def add_staged_gap():
         return jsonify({'success': True, 'action': action})
     return jsonify({'error': error}), 400
 
-def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
+def _assign_worker(modality: str, role: str, allow_overflow: bool = True):
     try:
         now = get_local_now()
 
         # Check if this skill×modality combo has overflow disabled
         canonical_skill = normalize_skill(role)
-        if allow_fallback and is_no_overflow(canonical_skill, modality):
-            allow_fallback = False
+        if allow_overflow and is_no_overflow(canonical_skill, modality):
+            allow_overflow = False
             selection_logger.info(
                 "No-overflow config active for %s_%s, forcing strict mode",
                 canonical_skill,
@@ -1093,7 +1093,7 @@ def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
             "Assignment request: modality=%s, role=%s, strict=%s, time=%s",
             modality,
             role,
-            not allow_fallback,
+            not allow_overflow,
             now.strftime('%H:%M:%S'),
         )
 
@@ -1106,7 +1106,7 @@ def _assign_worker(modality: str, role: str, allow_fallback: bool = True):
                 now,
                 role=role,
                 modality=modality,
-                allow_fallback=allow_fallback,
+                allow_overflow=allow_overflow,
             )
             if result is not None:
                 candidate, used_column, source_modality = result
@@ -1184,7 +1184,7 @@ def assign_worker_strict_api(modality, role):
     modality = normalize_modality(modality)
     if modality not in modality_data:
         return jsonify({"error": "Invalid modality"}), 400
-    return _assign_worker(modality, role, allow_fallback=False)
+    return _assign_worker(modality, role, allow_overflow=False)
 
 # Usage Statistics API Endpoints
 
