@@ -460,6 +460,8 @@
     let timerInterval, lastClickTime, disableTimeout;
     let currentModality = "{{ modality }}";
     let lastSkillUsed = "";
+    // Track current and previous assignments for footer display
+    let currentAssignment = null;  // {person, skill, time}
 
     // Utility: Escape HTML to prevent XSS
     function escapeHtml(text) {
@@ -516,12 +518,23 @@
       const match = person.match(/\(([^)]+)\)/);
       if (match && match[1]) copyTextToClipboard(match[1]);
 
-      // Update last assignment footer (textContent is XSS-safe)
+      // Update last assignment footer - show PREVIOUS assignment, not current
       const now = new Date();
       const timeStr = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
       const lastEl = document.getElementById('lastAssignment');
-      lastEl.textContent = `Letzte Zuweisung: ${timeStr} · ${displayPerson} · ${skill || lastSkillUsed}`;
-      lastEl.classList.add('visible');
+
+      // Show previous assignment in footer (if exists)
+      if (currentAssignment) {
+        lastEl.textContent = `Vorherige Zuweisung: ${currentAssignment.time} · ${currentAssignment.person} · ${currentAssignment.skill}`;
+        lastEl.classList.add('visible');
+      }
+
+      // Store current assignment for next time (becomes "previous" on next click)
+      currentAssignment = {
+        person: displayPerson,
+        skill: skill || lastSkillUsed,
+        time: timeStr
+      };
     }
 
     function startTimer() {
