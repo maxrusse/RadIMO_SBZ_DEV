@@ -286,18 +286,23 @@
   {% set header_title = 'RadIMO Cortex | Timetable' %}
   {% set header_subtitle = 'Intelligent Radiology Orchestration' %}
   {% set header_mode = 'global' %}
-  {% set header_links = [
-    {'href': url_for('routes.index', modality=modality), 'label': 'Dashboard'},
-    {'href': url_for('routes.timetable', modality=modality), 'label': 'Timetable', 'active': True}
-  ] %}
   {% if is_admin %}
-    {% set header_links = header_links + [
+    {% set header_links = [
+      {'href': url_for('routes.upload_file', modality=modality), 'label': 'Admin', 'accent': True},
       {'href': url_for('routes.skill_roster_page'), 'label': 'Skill Matrix'},
       {'href': url_for('routes.prep_next_day'), 'label': 'Schedule Edit'},
-      {'href': url_for('routes.worker_load_monitor'), 'label': 'Worker Load'}
+      {'href': url_for('routes.worker_load_monitor'), 'label': 'Worker Load'},
+      {'href': url_for('routes.logout'), 'label': 'Logout'},
+      {'href': url_for('routes.timetable', modality=modality), 'label': 'Timetable', 'active': True},
+      {'href': url_for('routes.index', modality=modality), 'label': 'Dashboard'}
+    ] %}
+  {% else %}
+    {% set header_links = [
+      {'href': url_for('routes.upload_file', modality=modality), 'label': 'Admin', 'accent': True},
+      {'href': url_for('routes.timetable', modality=modality), 'label': 'Timetable', 'active': True},
+      {'href': url_for('routes.index', modality=modality), 'label': 'Dashboard'}
     ] %}
   {% endif %}
-  {% set header_links = header_links + [{'href': url_for('routes.upload_file', modality=modality), 'label': 'Admin', 'accent': True}] %}
   {% include 'partials/header.html' %}
 
   <!-- Modality Filter Bar -->

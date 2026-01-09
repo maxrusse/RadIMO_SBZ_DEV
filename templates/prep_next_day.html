@@ -1152,12 +1152,13 @@
   {% set header_subtitle = "Manage current schedule or prepare tomorrow's schedule" %}
   {% set header_mode = 'global' %}
   {% set header_links = [
-    {'href': url_for('routes.index'), 'label': 'Dashboard', 'pill': True},
-    {'href': url_for('routes.timetable'), 'label': 'Timetable', 'pill': True},
-    {'href': url_for('routes.skill_roster_page'), 'label': 'Skill Matrix', 'pill': True},
-    {'href': url_for('routes.upload_file'), 'label': 'Upload', 'pill': True},
-    {'href': url_for('routes.worker_load_monitor'), 'label': 'Worker Load', 'pill': True},
-    {'href': url_for('routes.logout'), 'label': 'Logout', 'pill': True}
+    {'href': url_for('routes.upload_file'), 'label': 'Admin', 'accent': True},
+    {'href': url_for('routes.skill_roster_page'), 'label': 'Skill Matrix'},
+    {'href': url_for('routes.prep_next_day'), 'label': 'Schedule Edit', 'active': True},
+    {'href': url_for('routes.worker_load_monitor'), 'label': 'Worker Load'},
+    {'href': url_for('routes.logout'), 'label': 'Logout'},
+    {'href': url_for('routes.timetable'), 'label': 'Timetable'},
+    {'href': url_for('routes.index'), 'label': 'Dashboard'}
   ] %}
   {% include 'partials/header.html' %}
 
