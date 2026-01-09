@@ -38,27 +38,6 @@ lastEl.textContent = `Letzte Zuweisung: ${timeStr} · ${displayPerson} · ${skil
 
 ---
 
-### 1.2 Button Tab Order (Remaining)
-**Feedback:** "buttons stable for tabing -> order from right to left?"
-
-**Problem:**
-Tab order of skill buttons may not be intuitive (should be right-to-left?)
-
-**Code Location:**
-- `templates/index.html:354-371` - Button grid generation
-
-**Current Behavior:**
-- Buttons are rendered in `display_order` from config
-
-**Implementation Plan:**
-1. **Tab Order:** Add `tabindex` attributes or CSS `flex-direction: row-reverse` for right-to-left flow
-
-**Priority:** Low - UX improvement
-
-**Note:** Admin button visibility part was completed - "Admin" link in header is now hidden for non-admin users on index.html, index_by_skill.html, and timetable.html.
-
----
-
 ## 2. SKILL ROSTER
 
 ### 2.1 Worker Names vs ID/Initials in Skill Roster
@@ -536,15 +515,14 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 7. 5.2 - Multi-shifts in timetable
 
 ### Low Priority (Polish & Cleanup)
-1. 1.2 - Button tab order (admin visibility done)
-2. 2.2 - Default w-weight
-3. 2.3 - Remove optional/special flags
-4. 3.9 - Filter highlighting
-5. 4.2 - Remove preload button
-6. 5.1 - Simplify timetable link
-7. 6.1 - Header color
-8. 6.2 - Table color consistency
-9. 7.1 - Rename Abdomen
+1. 2.2 - Default w-weight
+2. 2.3 - Remove optional/special flags
+3. 3.9 - Filter highlighting
+4. 4.2 - Remove preload button
+5. 5.1 - Simplify timetable link
+6. 6.1 - Header color
+7. 6.2 - Table color consistency
+8. 7.1 - Rename Abdomen
 
 ---
 
