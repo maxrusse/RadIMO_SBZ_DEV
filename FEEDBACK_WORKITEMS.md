@@ -12,29 +12,18 @@ This document contains detailed work items derived from user feedback. Each item
 
 ## 1. DASHBOARD / ASSIGNMENT
 
-### 1.1 Latest Assignment → Show Previous Assignment
+### 1.1 ~~Latest Assignment → Show Previous Assignment~~ ✅ COMPLETED
 **Feedback:** "latest assignment -> current assignment but should be the one before"
 
 **Problem:** The footer shows "Letzte Zuweisung" (last assignment) but seems to show the CURRENT assignment, not the PREVIOUS one. User wants to see the assignment before the current one (history of n-1).
 
-**Code Location:**
-- `templates/index.html:507-512` - `showResult()` function updates `lastAssignment` div
-- `templates/index.html:411` - `#lastAssignment` container
+**Solution Implemented:**
+- Added `currentAssignment` state variable to track assignment data
+- Modified `showResult()` to display the previous assignment in footer
+- Changed label from "Letzte Zuweisung" to "Vorherige Zuweisung" (Previous Assignment)
+- Footer only appears after second assignment (when there's a previous to show)
 
-**Current Behavior:**
-```javascript
-// templates/index.html:507-512
-const lastEl = document.getElementById('lastAssignment');
-lastEl.textContent = `Letzte Zuweisung: ${timeStr} · ${displayPerson} · ${skill || lastSkillUsed}`;
-```
-
-**Implementation Plan:**
-1. Add state variable to track previous assignment: `let previousAssignment = null;`
-2. Before updating `lastAssignment`, save current to previous
-3. Display the PREVIOUS assignment, not the current one
-4. Consider adding a small history array (last 3-5 assignments) for context
-
-**Priority:** Medium - UX improvement
+**Priority:** Medium - UX improvement ✅ DONE
 
 ---
 
@@ -486,7 +475,7 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 3. 2.1 - Worker names vs IDs in roster
 
 ### Medium Priority (UX Improvements)
-1. 1.1 - Latest assignment display
+1. ~~1.1 - Latest assignment display~~ ✅
 2. 3.2 - Names in add worker
 3. 3.3 - Separate Today/Tomorrow pages
 4. 3.5 - Add worker uses edit popup
