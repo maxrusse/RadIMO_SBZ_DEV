@@ -1385,12 +1385,12 @@ function renderTable(tab) {
         // Show gaps in edit mode too
         if (gaps.length > 0) {
           gaps.forEach(g => {
-            shiftEditor += `<div class="gap-indicator" style="margin-top:0.1rem;" title="${escapeHtml(g.activity || 'Gap')}">⏸ ${escapeHtml(g.start)}-${escapeHtml(g.end)}</div>`;
+            shiftEditor += `<div class="gap-indicator" style="margin-top:0.1rem;" title="${escapeHtml(g.activity || 'Gap')}">${escapeHtml(g.start)}-${escapeHtml(g.end)}</div>`;
           });
         } else if (isGapRow) {
           const gapStart = firstSeg.start || shift.start_time || '12:00';
           const gapEnd = lastSeg.end || shift.end_time || '13:00';
-          shiftEditor += `<div class="gap-indicator" style="margin-top:0.1rem;">⏸ ${escapeHtml(gapStart)}-${escapeHtml(gapEnd)}</div>`;
+          shiftEditor += `<div class="gap-indicator" style="margin-top:0.1rem;">${escapeHtml(gapStart)}-${escapeHtml(gapEnd)}</div>`;
         }
         tr.innerHTML += `<td class="grid-cell shift-col">${shiftEditor}</td>`;
       } else {
@@ -1400,7 +1400,7 @@ function renderTable(tab) {
         if (isGapRow) {
           const firstSeg = segments[0] || {};
           const lastSeg = segments[segments.length - 1] || firstSeg;
-          timelineHtml += `<span class="gap-indicator">⏸ ${escapeHtml(firstSeg.start || shift.start_time || '12:00')}-${escapeHtml(lastSeg.end || shift.end_time || '13:00')}</span>`;
+          timelineHtml += `<span class="gap-indicator">${escapeHtml(firstSeg.start || shift.start_time || '12:00')}-${escapeHtml(lastSeg.end || shift.end_time || '13:00')}</span>`;
         } else {
           // Build combined timeline: segments + gaps sorted by start time
           const timelineItems = [];
@@ -1417,7 +1417,7 @@ function renderTable(tab) {
             if (item.type === 'segment') {
               timelineHtml += `<span class="shift-segment">${escapeHtml(item.start)}-${escapeHtml(item.end)}</span>`;
             } else {
-              timelineHtml += `<span class="gap-indicator" title="${escapeHtml(item.activity || 'Gap')}">⏸ ${escapeHtml(item.start)}-${escapeHtml(item.end)}</span>`;
+              timelineHtml += `<span class="gap-indicator" title="${escapeHtml(item.activity || 'Gap')}">${escapeHtml(item.start)}-${escapeHtml(item.end)}</span>`;
             }
           });
         }
@@ -1702,7 +1702,7 @@ function renderEditModalContent() {
       if (item.type === 'segment') {
         timelineHtml += `<span class="shift-segment">${escapeHtml(item.start)}-${escapeHtml(item.end)}</span>`;
       } else {
-        timelineHtml += `<span class="gap-indicator" title="${escapeHtml(item.activity || 'Gap')}">⏸ ${escapeHtml(item.start)}-${escapeHtml(item.end)}</span>`;
+        timelineHtml += `<span class="gap-indicator" title="${escapeHtml(item.activity || 'Gap')}">${escapeHtml(item.start)}-${escapeHtml(item.end)}</span>`;
       }
     });
     timelineHtml += '</div>';

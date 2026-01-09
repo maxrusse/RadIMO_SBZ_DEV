@@ -226,26 +226,7 @@ Option B: Create separate routes/pages:
 
 **Priority:** Medium - UI consolidation
 
-### 3.6 Gap Display Bug in Connected Shifts
-**Feedback:** "falsche darstellung der gaps im coneected shifts 2* text? 07:00-11:13⏸ 11:13-11:43⏸ 11:13-11:4311:43-13:00"
-
-**Problem:** Gaps are rendering incorrectly - showing duplicate times or missing separators
-
-**Code Location:**
-- `static/js/prep_next_day.js:839-999` - `buildEntriesByWorker()` gap handling
-- `templates/prep_next_day.html:191-219` - Gap indicator CSS
-
-**Analysis:** The string "11:13-11:4311:43-13:00" shows missing space/separator between segments
-
-**Implementation Plan:**
-1. Debug `buildEntriesByWorker()` to find gap rendering bug
-2. Ensure proper separators between time segments
-3. Add validation to prevent overlapping gap times in display
-4. Test with various gap configurations
-
-**Priority:** High - Visual bug affecting usability
-
-### 3.7 Small X to Delete Shifts/Gaps in Quick Edit
+### 3.6 Small X to Delete Shifts/Gaps in Quick Edit
 **Feedback:** "in quickedit maybe small x to delete shifts/gaps?"
 
 **Code Location:**
@@ -259,7 +240,7 @@ Option B: Create separate routes/pages:
 
 **Priority:** Medium - Usability improvement
 
-### 3.8 Gaps Not Shown in Timetable
+### 3.7 Gaps Not Shown in Timetable
 **Feedback:** "gaps not shown in timetable?"
 
 **Problem:** Timetable view doesn't display gap periods
@@ -282,7 +263,7 @@ Option B: Create separate routes/pages:
 
 **Priority:** Medium - Data visibility improvement
 
-### 3.9 Filter Highlighting in Table
+### 3.8 Filter Highlighting in Table
 **Feedback:** "on filter do a small Highlighting on the table like a bit thicker line around the selected stuff like CT + Gyn = edges around the entries a bit thicker?"
 
 **Problem:** When filtering by modality/skill, the filtered items should have visual highlighting
@@ -501,23 +482,22 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 
 ### High Priority (Core Functionality)
 1. 3.4 - Popup edit missing shifts/gaps
-2. 3.6 - Gap display bug in connected shifts
-3. 4.1 - Load next day verification
-4. 2.1 - Worker names vs IDs in roster
+2. 4.1 - Load next day verification
+3. 2.1 - Worker names vs IDs in roster
 
 ### Medium Priority (UX Improvements)
 1. 1.1 - Latest assignment display
 2. 3.2 - Names in add worker
 3. 3.3 - Separate Today/Tomorrow pages
 4. 3.5 - Add worker uses edit popup
-5. 3.7 - Delete button in quick edit
-6. 3.8 - Gaps in timetable
+5. 3.6 - Delete button in quick edit
+6. 3.7 - Gaps in timetable
 7. 5.2 - Multi-shifts in timetable
 
 ### Low Priority (Polish & Cleanup)
 1. 2.2 - Default w-weight
 2. 2.3 - Remove optional/special flags
-3. 3.9 - Filter highlighting
+3. 3.8 - Filter highlighting
 4. 4.2 - Remove preload button
 5. 5.1 - Simplify timetable link
 6. 6.1 - Header color
