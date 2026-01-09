@@ -288,9 +288,11 @@
   {% set header_mode = 'global' %}
   {% set header_links = [
     {'href': url_for('routes.index', modality=modality), 'label': 'Dashboard'},
-    {'href': url_for('routes.timetable', modality=modality), 'label': 'Timetable', 'active': True},
-    {'href': url_for('routes.upload_file', modality=modality), 'label': 'Admin', 'accent': True}
+    {'href': url_for('routes.timetable', modality=modality), 'label': 'Timetable', 'active': True}
   ] %}
+  {% if is_admin %}
+    {% set header_links = header_links + [{'href': url_for('routes.upload_file', modality=modality), 'label': 'Admin', 'accent': True}] %}
+  {% endif %}
   {% include 'partials/header.html' %}
 
   <!-- Modality Filter Bar -->

@@ -215,9 +215,11 @@
   {% set header_mode = 'scoped' %}
   {% set header_links = [
     {'href': url_for('routes.index'), 'label': 'Dashboard', 'active': True},
-    {'href': url_for('routes.timetable'), 'label': 'Timetable'},
-    {'href': url_for('routes.upload_file'), 'label': 'Admin', 'accent': True}
+    {'href': url_for('routes.timetable'), 'label': 'Timetable'}
   ] %}
+  {% if is_admin %}
+    {% set header_links = header_links + [{'href': url_for('routes.upload_file'), 'label': 'Admin', 'accent': True}] %}
+  {% endif %}
   {% set view_toggle_label = 'View by:' %}
   {% set view_toggle_items = [
     {'href': url_for('routes.index'), 'label': 'Modality'},
