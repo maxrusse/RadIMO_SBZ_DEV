@@ -462,24 +462,26 @@ function handleSkillKeydown(event, el) {
   } else if (event.key === 'Tab') {
     // Allow normal tab behavior
   } else if (event.key === 'ArrowUp') {
-    // Cycle: -1 -> 0 -> 1 -> w -> -1
+    // Cycle up (towards 1): -1 -> w -> 0 -> 1 -> -1
+    // Order: 1, 0, w, -1
     const val = normalizeSkillValueJS(el.value);
     let next;
-    if (val === -1) next = 0;
+    if (val === -1) next = 'w';
+    else if (isWeightedSkill(val)) next = 0;
     else if (val === 0) next = 1;
-    else if (val === 1) next = 'w';
     else next = -1;
     el.value = displaySkillValue(next);
     validateAndSaveSkill(el);
     event.preventDefault();
   } else if (event.key === 'ArrowDown') {
-    // Cycle reverse: w -> 1 -> 0 -> -1 -> w
+    // Cycle down (towards -1): 1 -> 0 -> w -> -1 -> 1
+    // Order: 1, 0, w, -1
     const val = normalizeSkillValueJS(el.value);
     let next;
-    if (isWeightedSkill(val)) next = 1;
-    else if (val === 1) next = 0;
-    else if (val === 0) next = -1;
-    else next = 'w';
+    if (val === 1) next = 0;
+    else if (val === 0) next = 'w';
+    else if (isWeightedSkill(val)) next = -1;
+    else next = 1;
     el.value = displaySkillValue(next);
     validateAndSaveSkill(el);
     event.preventDefault();
