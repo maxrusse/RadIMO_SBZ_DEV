@@ -140,39 +140,7 @@ rosterData[workerId] = { modifier: 1.0 };  // Default is 1.0
 
 **Priority:** Low - Configuration refinement
 
-### 2.3 Skill Roster Value Order: 1, 0, w, -1
-**Feedback:** "order 1, 0, w, -1 in skill roaster w below 0 and not above"
-
-**Problem:** Dropdown order should be: 1, 0, w, -1 (not 1, w, 0, -1)
-
-**Code Location:**
-- `templates/skill_roster.html:516-527` - Dropdown options array
-
-**Current Behavior:**
-```javascript
-const options = [
-  { value: '1', label: '1' },
-  { value: 'w', label: 'w' },  // w is between 1 and 0
-  { value: '0', label: '0' },
-  { value: '-1', label: '-1' }
-];
-```
-
-**Implementation Plan:**
-1. Reorder options array:
-```javascript
-const options = [
-  { value: '1', label: '1' },
-  { value: '0', label: '0' },
-  { value: 'w', label: 'w' },  // Move w after 0
-  { value: '-1', label: '-1' }
-];
-```
-2. Also update `static/js/prep_next_day.js:469-486` - `handleSkillKeydown()` cycle order
-
-**Priority:** Low - UI refinement
-
-### 2.4 Remove Optional/Special Flags from Config
+### 2.3 Remove Optional/Special Flags from Config
 **Feedback:** "do we really still need these entries? optional: If true, skill can be toggled on/off by workers; special: If true, skill requires special handling"
 
 **Problem:** `optional` and `special` flags in skill config may no longer be used.
@@ -587,14 +555,13 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 
 ### Low Priority (Polish & Cleanup)
 1. 2.2 - Default w-weight
-2. 2.3 - Skill roster value order
-3. 2.4 - Remove optional/special flags
-4. 3.9 - Filter highlighting
-5. 4.2 - Remove preload button
-6. 5.1 - Simplify timetable link
-7. 6.1 - Header color
-8. 6.2 - Table color consistency
-9. 7.1 - Rename Abdomen
+2. 2.3 - Remove optional/special flags
+3. 3.9 - Filter highlighting
+4. 4.2 - Remove preload button
+5. 5.1 - Simplify timetable link
+6. 6.1 - Header color
+7. 6.2 - Table color consistency
+8. 7.1 - Rename Abdomen
 
 ---
 
