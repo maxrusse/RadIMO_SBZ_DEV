@@ -213,11 +213,23 @@
   {% set header_title = 'RadIMO Cortex | ' ~ skill_labels[skill] ~ ' Dashboard' %}
   {% set header_subtitle = 'Intelligent Radiology Orchestration' %}
   {% set header_mode = 'scoped' %}
-  {% set header_links = [
-    {'href': url_for('routes.index'), 'label': 'Dashboard', 'active': True},
-    {'href': url_for('routes.timetable'), 'label': 'Timetable'},
-    {'href': url_for('routes.upload_file'), 'label': 'Admin', 'accent': True}
-  ] %}
+  {% if is_admin %}
+    {% set header_links = [
+      {'href': url_for('routes.worker_load_monitor'), 'label': 'Worker Load'},
+      {'href': url_for('routes.skill_roster_page'), 'label': 'Skill Matrix'},
+      {'href': url_for('routes.prep_next_day'), 'label': 'Schedule Edit'},
+      {'href': url_for('routes.upload_file'), 'label': 'Upload'},
+      {'href': url_for('routes.logout'), 'label': 'Logout', 'accent': True},
+      {'href': url_for('routes.timetable'), 'label': 'Timetable'},
+      {'href': url_for('routes.index'), 'label': 'Dashboard', 'active': True}
+    ] %}
+  {% else %}
+    {% set header_links = [
+      {'href': url_for('routes.upload_file'), 'label': 'Admin', 'accent': True},
+      {'href': url_for('routes.timetable'), 'label': 'Timetable'},
+      {'href': url_for('routes.index'), 'label': 'Dashboard', 'active': True}
+    ] %}
+  {% endif %}
   {% set view_toggle_label = 'View by:' %}
   {% set view_toggle_items = [
     {'href': url_for('routes.index'), 'label': 'Modality'},

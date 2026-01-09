@@ -38,44 +38,6 @@ lastEl.textContent = `Letzte Zuweisung: ${timeStr} · ${displayPerson} · ${skil
 
 ---
 
-### 1.2 Button Tab Order & Admin Button Visibility
-**Feedback:** "buttons stable for tabing -> order from right to left? Hide Admin buttons for normal users, on Admin-> enable access?"
-
-**Problem:**
-1. Tab order of skill buttons may not be intuitive (should be right-to-left?)
-2. Admin buttons/pages visible to non-admin users
-
-**Code Location:**
-- `templates/index.html:354-371` - Button grid generation
-- `templates/base.html` - Header with navigation links
-- `templates/partials/header.html` - Header partials
-- `routes.py:77-84` - `@admin_required` decorator
-
-**Current Behavior:**
-- Buttons are rendered in `display_order` from config
-- All navigation links may be visible regardless of admin status
-
-**Implementation Plan:**
-1. **Tab Order:** Add `tabindex` attributes or CSS `flex-direction: row-reverse` for right-to-left flow
-2. **Admin Visibility:**
-   - Pass `is_admin` to all templates (already exists in some)
-   - Conditionally hide admin links in header templates:
-     ```jinja2
-     {% if is_admin %}
-     {'href': url_for('routes.upload_file'), 'label': 'Admin', 'pill': True},
-     {% endif %}
-     ```
-3. **Files to update:**
-   - `templates/partials/header.html`
-   - `templates/prep_next_day.html`
-   - `templates/skill_roster.html`
-   - `templates/upload.html`
-   - `templates/worker_load_monitor.html`
-
-**Priority:** Medium - Security/UX improvement
-
----
-
 ## 2. SKILL ROSTER
 
 ### 2.1 Worker Names vs ID/Initials in Skill Roster
@@ -545,13 +507,12 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 
 ### Medium Priority (UX Improvements)
 1. 1.1 - Latest assignment display
-2. 1.2 - Button tab order & admin visibility
-3. 3.2 - Names in add worker
-4. 3.3 - Separate Today/Tomorrow pages
-5. 3.5 - Add worker uses edit popup
-6. 3.7 - Delete button in quick edit
-7. 3.8 - Gaps in timetable
-8. 5.2 - Multi-shifts in timetable
+2. 3.2 - Names in add worker
+3. 3.3 - Separate Today/Tomorrow pages
+4. 3.5 - Add worker uses edit popup
+5. 3.7 - Delete button in quick edit
+6. 3.8 - Gaps in timetable
+7. 5.2 - Multi-shifts in timetable
 
 ### Low Priority (Polish & Cleanup)
 1. 2.2 - Default w-weight

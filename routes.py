@@ -255,7 +255,8 @@ def index_by_skill():
         'index_by_skill.html',
         skill=skill,
         visible_modalities=visible_modalities,
-        info_texts=info_texts
+        info_texts=info_texts,
+        is_admin=session.get('admin_logged_in', False)
     )
 
 @routes.route('/timetable')
@@ -289,7 +290,8 @@ def timetable():
         skill_columns=SKILL_COLUMNS,
         skill_slug_map=skill_slug_map,
         skill_color_map=skill_color_map,
-        modality_color_map=modality_color_map
+        modality_color_map=modality_color_map,
+        is_admin=session.get('admin_logged_in', False)
     )
 
 @routes.route('/skill-roster')
