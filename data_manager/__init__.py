@@ -77,6 +77,7 @@ from data_manager.worker_management import (
 # File operations
 from data_manager.file_ops import (
     _calculate_total_work_hours,
+    apply_roster_overrides_to_schedule,
     backup_dataframe,
     load_staged_dataframe,
     quarantine_file,
@@ -150,6 +151,7 @@ __all__ = [
 
     # File operations
     '_calculate_total_work_hours',
+    'apply_roster_overrides_to_schedule',
     'backup_dataframe',
     'load_staged_dataframe',
     'quarantine_file',
