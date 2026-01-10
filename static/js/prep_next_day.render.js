@@ -461,7 +461,7 @@ function renderEditModalContent() {
 
   // XSS-safe rendering
   const escapedWorker = escapeHtml(group.worker);
-  const shifts = group.shiftsArray || [];
+  const shifts = getModalShifts(group);
   const numShifts = shifts.length;
   const duplicateBadge = numShifts > 1 ? `<span class="duplicate-badge">${numShifts}x</span>` : '';
   const borderColor = tab === 'today' ? (UI_COLORS.today_tab || '#28a745') : (UI_COLORS.tomorrow_tab || '#ffc107');

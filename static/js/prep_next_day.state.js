@@ -92,6 +92,11 @@ function isWeightedSkill(value) {
   return value === 'w' || value === 'W' || value === 2;
 }
 
+function getModalShifts(group) {
+  if (!group) return [];
+  return group.modalShiftsArray || group.shiftsArray || [];
+}
+
 function displaySkillValue(value) {
   return isWeightedSkill(value) ? 'w' : value;
 }
