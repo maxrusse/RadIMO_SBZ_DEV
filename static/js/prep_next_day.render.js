@@ -1,3 +1,16 @@
+// Helper: Render a skill select element with standard options
+function renderSkillSelect(id, value, onchangeHandler) {
+  const val = normalizeSkillValueJS(value);
+  const idAttr = id ? ` id="${id}"` : '';
+  const changeAttr = onchangeHandler ? ` onchange="${onchangeHandler}"` : '';
+  return `<select${idAttr}${changeAttr}>
+    <option value="-1" ${val === -1 ? 'selected' : ''}>-1</option>
+    <option value="0" ${val === 0 ? 'selected' : ''}>0</option>
+    <option value="1" ${val === 1 ? 'selected' : ''}>1</option>
+    <option value="w" ${isWeightedSkill(val) ? 'selected' : ''}>w</option>
+  </select>`;
+}
+
 function shiftMatchesFilters(shift, filter) {
   if (!filter) return true;
   const { modality, skill, hideZero } = filter;
@@ -33,20 +46,19 @@ function shiftMatchesFilters(shift, filter) {
 }
 
 function applyEditModeUI(tab) {
-  // Update button
+  // Update edit mode toggle button
   const btn = document.getElementById(`edit-mode-btn-${tab}`);
   if (btn) {
     btn.textContent = editMode[tab] ? 'Exit Edit Mode' : 'Quick Edit';
     btn.className = editMode[tab] ? 'btn btn-warning' : 'btn btn-secondary';
   }
 
-  // Show/hide save button
+  // Show/hide and update save button
   const saveBtn = document.getElementById(`save-inline-btn-${tab}`);
   if (saveBtn) {
     saveBtn.style.display = editMode[tab] ? 'inline-block' : 'none';
-    const count = Object.keys(pendingChanges[tab] || {}).length;
-    saveBtn.textContent = count > 0 ? `Save ${count} change${count > 1 ? 's' : ''}` : 'Save Changes';
   }
+  updateSaveButtonCount(tab);
 }
 
 // Sort entries by column while keeping worker rows grouped
@@ -610,15 +622,9 @@ function renderEditModalContent() {
       </td>`;
 
       SKILLS.forEach(skill => {
-        const val = normalizeSkillValueJS(data.skills[skill] !== undefined ? data.skills[skill] : (isGapEntry ? -1 : 0));
-        html += `<td>
-        <select id="edit-shift-${shiftIdx}-${modKey}-skill-${skill}">
-          <option value="-1" ${val === -1 ? 'selected' : ''}>-1</option>
-          <option value="0" ${val === 0 ? 'selected' : ''}>0</option>
-          <option value="1" ${val === 1 ? 'selected' : ''}>1</option>
-          <option value="w" ${isWeightedSkill(val) ? 'selected' : ''}>w</option>
-        </select>
-      </td>`;
+        const val = data.skills[skill] !== undefined ? data.skills[skill] : (isGapEntry ? -1 : 0);
+        const selectId = `edit-shift-${shiftIdx}-${modKey}-skill-${skill}`;
+        html += `<td>${renderSkillSelect(selectId, val)}</td>`;
       });
 
       html += `</tr>`;
@@ -693,14 +699,8 @@ function renderEditModalContent() {
     html += `<tr>
       <td class="modality-header" style="color:${navColor}; font-weight:600;">${mod.toUpperCase()}</td>`;
     SKILLS.forEach(skill => {
-      html += `<td>
-        <select id="modal-add-${modKey}-skill-${skill}">
-          <option value="-1">-1</option>
-          <option value="0" selected>0</option>
-          <option value="1">1</option>
-          <option value="w">w</option>
-        </select>
-      </td>`;
+      const selectId = `modal-add-${modKey}-skill-${skill}`;
+      html += `<td>${renderSkillSelect(selectId, 0)}</td>`;
     });
     html += `</tr>`;
   });
@@ -811,15 +811,8 @@ function renderAddWorkerModalContent(containerId = addWorkerModalState.container
         <td class="modality-header" style="color:${navColor}; font-weight:600;">${mod.toUpperCase()}</td>`;
       SKILLS.forEach(skill => {
         const skillVal = modSkills[skill] !== undefined ? modSkills[skill] : 0;
-        const isWeighted = skillVal === 'w' || skillVal === 'W';
-        html += `<td>
-          <select onchange="updateAddWorkerSkill(${idx}, '${modKey}', '${skill}', this.value)">
-            <option value="-1" ${skillVal === -1 ? 'selected' : ''}>-1</option>
-            <option value="0" ${skillVal === 0 ? 'selected' : ''}>0</option>
-            <option value="1" ${skillVal === 1 ? 'selected' : ''}>1</option>
-            <option value="w" ${isWeighted ? 'selected' : ''}>w</option>
-          </select>
-        </td>`;
+        const onchangeHandler = `updateAddWorkerSkill(${idx}, '${modKey}', '${skill}', this.value)`;
+        html += `<td>${renderSkillSelect('', skillVal, onchangeHandler)}</td>`;
       });
       html += `</tr>`;
     });
