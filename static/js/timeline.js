@@ -144,6 +144,86 @@ const TimelineChart = (function() {
     return [merged];
   }
 
+  function mergeEntriesForSingleLane(entries, skillColumns) {
+    if (!entries || entries.length === 0) return [];
+
+    const sorted = [...entries].sort((a, b) => {
+      const startDiff = timeToMinutes(a.start_time) - timeToMinutes(b.start_time);
+      if (startDiff !== 0) return startDiff;
+      return timeToMinutes(a.end_time) - timeToMinutes(b.end_time);
+    });
+
+    const merged = [];
+
+    sorted.forEach(entry => {
+      const start = timeToMinutes(entry.start_time);
+      const end = timeToMinutes(entry.end_time);
+
+      const skillValues = {};
+      if (entry.skillValues) {
+        Object.keys(entry.skillValues).forEach(s => {
+          if (isSkillActive(entry.skillValues[s])) {
+            skillValues[s] = 1;
+          }
+        });
+      } else {
+        skillColumns.forEach(s => {
+          if (isSkillActive(entry[s])) {
+            skillValues[s] = 1;
+          }
+        });
+      }
+
+      const modalities = new Set();
+      if (entry.modalities && entry.modalities.size) {
+        entry.modalities.forEach(m => modalities.add(m));
+      }
+      if (entry._modality || entry.modality) {
+        modalities.add((entry._modality || entry.modality).toUpperCase());
+      }
+
+      const gaps = parseGapList(entry.gaps);
+
+      const last = merged[merged.length - 1];
+      if (!last) {
+        merged.push({
+          start_time: entry.start_time,
+          end_time: entry.end_time,
+          TIME: entry.TIME,
+          skillValues: { ...skillValues },
+          modalities,
+          gaps: [...gaps]
+        });
+        return;
+      }
+
+      const lastEnd = timeToMinutes(last.end_time);
+      if (start <= lastEnd) {
+        if (end > lastEnd) {
+          last.end_time = entry.end_time;
+        }
+        last.TIME = `${last.start_time}-${last.end_time}`;
+        Object.keys(skillValues).forEach(s => {
+          last.skillValues[s] = 1;
+        });
+        modalities.forEach(m => last.modalities.add(m));
+        gaps.forEach(gap => last.gaps.push(gap));
+        return;
+      }
+
+      merged.push({
+        start_time: entry.start_time,
+        end_time: entry.end_time,
+        TIME: entry.TIME,
+        skillValues: { ...skillValues },
+        modalities,
+        gaps: [...gaps]
+      });
+    });
+
+    return merged;
+  }
+
   // Build time header row
   function buildTimeHeader(headerEl) {
     headerEl.innerHTML = '';
@@ -279,21 +359,17 @@ const TimelineChart = (function() {
     sortedWorkers.forEach(([worker, entries]) => {
       // Merge entries if in ALL view mode
       const processedEntries = mergeModalities ? mergeEntriesByTime(entries, skillColumns) : entries;
+      const displayEntries = mergeEntriesForSingleLane(processedEntries, skillColumns);
 
       // Collect all skills this worker has
       const workerSkills = new Set();
-      processedEntries.forEach(entry => {
-        if (mergeModalities && entry.skillValues) {
-          Object.keys(entry.skillValues).forEach(s => {
-            workerSkills.add(skillSlugMap[s] || s.toLowerCase());
-          });
-        } else {
-          skillColumns.forEach(s => {
-            if (isSkillActive(entry[s])) {
-              workerSkills.add(skillSlugMap[s] || s.toLowerCase());
-            }
-          });
-        }
+      displayEntries.forEach(entry => {
+        const skills = entry.skillValues
+          ? Object.keys(entry.skillValues)
+          : skillColumns.filter(s => isSkillActive(entry[s]));
+        skills.forEach(s => {
+          workerSkills.add(skillSlugMap[s] || s.toLowerCase());
+        });
       });
 
       const row = document.createElement('div');
@@ -311,7 +387,7 @@ const TimelineChart = (function() {
       timelineCell.className = 'worker-timeline';
 
       // Create shift bars
-      processedEntries.forEach(entry => {
+      displayEntries.forEach(entry => {
         const left = timeToPercent(entry.start_time);
         const right = timeToPercent(entry.end_time);
         const width = right - left;
@@ -322,19 +398,19 @@ const TimelineChart = (function() {
         let tooltipMods = '';
         let gapTooltip = '';
 
-        if (mergeModalities && entry.skillValues) {
+        if (entry.skillValues) {
           activeSkills = Object.keys(entry.skillValues)
             .map(s => skillSlugMap[s] || s.toLowerCase());
-          if (entry.modalities && entry.modalities.size > 0) {
-            tooltipMods = `Modalities: ${Array.from(entry.modalities).join(', ')}\n`;
-          }
         } else {
           activeSkills = skillColumns
             .filter(s => isSkillActive(entry[s]))
             .map(s => skillSlugMap[s] || s.toLowerCase());
-          if (entry._modality || entry.modality) {
-            tooltipMods = `Modality: ${(entry._modality || entry.modality).toUpperCase()}\n`;
-          }
+        }
+
+        if (entry.modalities && entry.modalities.size > 0) {
+          tooltipMods = `Modalities: ${Array.from(entry.modalities).join(', ')}\n`;
+        } else if (entry._modality || entry.modality) {
+          tooltipMods = `Modality: ${(entry._modality || entry.modality).toUpperCase()}\n`;
         }
 
         const gaps = parseGapList(entry.gaps);
@@ -364,7 +440,6 @@ const TimelineChart = (function() {
         timelineCell.appendChild(bar);
 
         // Render gap bars for this entry
-        const gaps = parseGapList(entry.gaps);
         gaps.forEach(gap => {
           const gapStart = gap.start;
           const gapEnd = gap.end;

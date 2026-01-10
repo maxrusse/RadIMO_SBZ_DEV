@@ -131,26 +131,12 @@ Option B: Create separate routes/pages:
 
 ## 5. TIMETABLE
 
-### 5.1 Multi-Shifts and Gaps in Timetable - One Row
+### 5.1 ~~Multi-Shifts and Gaps in Timetable - One Row~~ ✓ RESOLVED
 **Feedback:** "Multishifts and gaps in timetable -> always one row (might have min overlaps -- Shift ending 15:00 next starting from 15:00) Filter timetable multi list scaling?"
 
-**Problem:**
-1. Workers with multiple shifts should be on one row
-2. Handle edge cases like shifts ending/starting at same time
-3. Filter scaling issues with multi-shift workers
-
-**Code Location:**
-- `static/js/timetable.js` - Timeline rendering
-- `static/js/timeline.js` - Shared timeline module
-
-**Implementation Plan:**
-1. Group all shifts by worker into single row
-2. Handle overlapping/adjacent shifts (15:00-15:00 boundary)
-3. Stack multiple shift bars vertically within single row height
-4. Adjust row height dynamically for workers with many shifts
-5. Test filter behavior with multi-shift workers
-
-**Priority:** Medium - Data visualization improvement
+**Resolution:**
+- Timeline now keeps all of a worker’s shifts on a single row, merging overlapping/adjacent segments for a continuous bar while still showing discrete gaps.
+- Adjacent (touching) shifts are treated as continuous so they render side by side without breaking the layout.
 
 ---
 
@@ -200,7 +186,7 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 ### Medium Priority (UX Improvements)
 1. 3.2 - Separate Today/Tomorrow pages
 2. 3.4 - Add worker uses edit popup
-3. 5.1 - Multi-shifts in timetable
+3. ~~5.1 - Multi-shifts in timetable~~ ✓ RESOLVED
 
 ### Low Priority (Polish & Cleanup)
 1. 2.1 - Default w-weight
