@@ -17,11 +17,18 @@ let TimetableConfig = {
 };
 
 // Initialize configuration from page
+/**
+ * @param {Object} config
+ * @returns {void}
+ */
 function initTimetableConfig(config) {
   TimetableConfig = { ...TimetableConfig, ...config };
 }
 
 // Inject dynamic styles based on modality and skills
+/**
+ * @returns {void}
+ */
 function injectDynamicStyles() {
   const { modalities, skillDefinitions, currentModality } = TimetableConfig;
 
@@ -34,28 +41,32 @@ function injectDynamicStyles() {
   }
 
   // Add styles for modality filter buttons
-  document.querySelectorAll('#modalityFilterBar a').forEach(a => {
-    const mod = a.getAttribute('data-modality');
+  document.querySelectorAll('#modalityFilterBar a').forEach(function(anchor) {
+    const mod = anchor.getAttribute('data-modality');
     if (modalities[mod] && mod === currentModality) {
-      a.style.background = modalities[mod].nav_color;
-      a.style.borderColor = modalities[mod].nav_color;
-      a.style.color = 'white';
+      anchor.style.background = modalities[mod].nav_color;
+      anchor.style.borderColor = modalities[mod].nav_color;
+      anchor.style.color = 'white';
     }
   });
 
   // Add styles for skill filter buttons
-  document.querySelectorAll('#skillFilterBar button').forEach(btn => {
-    const skillSlug = btn.getAttribute('data-skill');
-    const skillDef = skillDefinitions.find(s => s.slug === skillSlug);
+  document.querySelectorAll('#skillFilterBar button').forEach(function(button) {
+    const skillSlug = button.getAttribute('data-skill');
+    const skillDef = skillDefinitions.find(function(skill) {
+      return skill.slug === skillSlug;
+    });
     if (skillDef) {
-      btn.style.borderLeft = `4px solid ${skillDef.button_color}`;
+      button.style.borderLeft = `4px solid ${skillDef.button_color}`;
     }
   });
 
   // Add styles for legend boxes
-  document.querySelectorAll('.legend-box').forEach(box => {
+  document.querySelectorAll('.legend-box').forEach(function(box) {
     const skillSlug = box.getAttribute('data-skill');
-    const skillDef = skillDefinitions.find(s => s.slug === skillSlug);
+    const skillDef = skillDefinitions.find(function(skill) {
+      return skill.slug === skillSlug;
+    });
     if (skillDef) {
       box.style.background = skillDef.button_color;
     }
@@ -63,6 +74,30 @@ function injectDynamicStyles() {
 }
 
 // Build the timeline using shared module
+/**
+ * @param {Object} entry
+ * @param {string[]} skillColumns
+ * @returns {boolean}
+ */
+function isValidTimelineEntry(entry, skillColumns) {
+  if (!entry) {
+    return false;
+  }
+
+  if (entry.TIME === '00:00-00:00') {
+    return false;
+  }
+
+  if (!entry.start_time || !entry.end_time) {
+    return false;
+  }
+
+  return TimelineChart.hasAnyActiveSkill(entry, skillColumns);
+}
+
+/**
+ * @returns {void}
+ */
 function buildTimeline() {
   const grid = document.getElementById('timeline-grid');
   const header = document.getElementById('time-header');
@@ -83,11 +118,8 @@ function buildTimeline() {
   }
 
   // Filter out empty entries
-  const filteredData = data.filter(e => {
-    if (!e) return false;
-    if (e.TIME === '00:00-00:00') return false;
-    if (!e.start_time || !e.end_time) return false;
-    return TimelineChart.hasAnyActiveSkill(e, skillColumns);
+  const filteredData = data.filter(function(entry) {
+    return isValidTimelineEntry(entry, skillColumns);
   });
 
   if (filteredData.length === 0) {
@@ -109,12 +141,17 @@ function buildTimeline() {
   });
 
   // Set up time update interval
-  setInterval(() => {
+  setInterval(function() {
     TimelineChart.updateCurrentTimeLine(grid, 'current-time-line');
   }, 60000);
 }
 
 // Change modality while preserving skill filter
+/**
+ * @param {Event} event
+ * @param {string} modality
+ * @returns {void}
+ */
 function changeModality(event, modality) {
   event.preventDefault();
   const url = new URL(window.location);
@@ -132,13 +169,17 @@ function changeModality(event, modality) {
 }
 
 // Filter by skill using shared module
+/**
+ * @param {string} skillSlug
+ * @returns {void}
+ */
 function filterBySkill(skillSlug) {
   const grid = document.getElementById('timeline-grid');
   const buttons = document.querySelectorAll('.skill-filter-bar .filter-btn[data-skill]');
 
   // Update button states
-  buttons.forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.skill === skillSlug);
+  buttons.forEach(function(button) {
+    button.classList.toggle('active', button.dataset.skill === skillSlug);
   });
 
   // Update filter state
@@ -158,7 +199,10 @@ function filterBySkill(skillSlug) {
 }
 
 // Initialize on load
-document.addEventListener('DOMContentLoaded', function() {
+/**
+ * @returns {void}
+ */
+function handleDomReady() {
   injectDynamicStyles();
   buildTimeline();
 
@@ -166,4 +210,6 @@ document.addEventListener('DOMContentLoaded', function() {
   if (TimetableConfig.skillFilter && TimetableConfig.skillFilter !== 'all') {
     filterBySkill(TimetableConfig.skillFilter);
   }
-});
+}
+
+document.addEventListener('DOMContentLoaded', handleDomReady);
