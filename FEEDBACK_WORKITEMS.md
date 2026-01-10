@@ -135,16 +135,16 @@ No pending items in this category.
 **Feedback:** "Abdomen -> Abd/Onco rename -> also in config and example v2"
 
 **Resolution:**
-- Updated the Abdomen skill label to `Abd/Onco` in:
+- Updated the Abd/Onco skill label to `Abd/Onco` in:
   - `config.yaml`
   - `docs/CONFIGURATION.md`
   - `README.md`
 
 **Current Config:**
 ```yaml
-Abdomen:
+abd-onco:
   label: Abd/Onco
-  slug: abdomen
+  slug: abd-onco
 ```
 
 ---
@@ -175,7 +175,7 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 1. 2.1 - Default w-weight
 2. ~~2.2 - Remove optional/special flags~~ ✓ RESOLVED
 3. 4.2 - Remove preload button
-4. ~~7.1 - Rename Abdomen~~ ✓ RESOLVED
+4. ~~7.1 - Rename Abd/Onco~~ ✓ RESOLVED
 
 ---
 

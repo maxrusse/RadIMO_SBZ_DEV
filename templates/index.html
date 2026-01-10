@@ -369,12 +369,12 @@
       <div class="skill-button-wrapper" data-skill-slug="{{ skill.slug }}" data-skill-name="{{ skill.name }}" {% if not
         is_visible %}style="display: none" {% endif %}>
         <button id="skill-btn-{{ skill.slug }}" data-skill-name="{{ skill.name }}"
-          onclick="getNextAssignment('{{ skill.name }}')"
+          onclick="getNextAssignment('{{ skill.slug }}', '{{ skill.label }}')"
           class="btn assignment-btn skill-main-btn {% if skill.special %}special-btn{% endif %}">
           {{ skill.label }}
         </button>
         <button type="button" class="btn assignment-btn skill-strict-btn"
-          onclick="getNextAssignment('{{ skill.name }}', true)" aria-label="Nur diese Gruppe (kein Fallback)"
+          onclick="getNextAssignment('{{ skill.slug }}', '{{ skill.label }}', true)" aria-label="Nur diese Gruppe (kein Fallback)"
           title="Nur diese Gruppe">
           *
         </button>
@@ -474,13 +474,14 @@
     // Button visibility is now controlled by config only (always_visible + valid_skills)
     // No dynamic hiding based on worker availability
 
-    function getNextAssignment(skill, forcePrimary = false) {
+    function getNextAssignment(skillSlug, skillLabel, forcePrimary = false) {
       if (requestInProgress) return;
-      lastSkillUsed = skill;
+      lastSkillUsed = skillLabel || skillSlug;
       setButtonsDisabled(true);
+      const encodedSkill = encodeURIComponent(skillSlug);
       const endpoint = forcePrimary
-        ? `/api/${currentModality}/${skill}/strict`
-        : `/api/${currentModality}/${skill}`;
+        ? `/api/${currentModality}/${encodedSkill}/strict`
+        : `/api/${currentModality}/${encodedSkill}`;
       fetch(endpoint)
         .then(response => {
           if (!response.ok) {
@@ -492,11 +493,11 @@
           if (data.error) {
             throw new Error(data.error);
           }
-          showResult(data.selected_person || '', skill);
+          showResult(data.selected_person || '', skillLabel || skillSlug);
         })
         .catch(e => {
           console.error("API error:", e);
-          showResult('', skill);
+          showResult('', skillLabel || skillSlug);
           setButtonsDisabled(false);
         });
     }

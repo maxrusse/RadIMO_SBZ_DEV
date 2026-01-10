@@ -62,7 +62,7 @@ def _get_all_skill_modality_columns() -> List[str]:
     Get all possible skill-modality column names in a consistent order.
 
     Returns:
-        List of column names in format 'skill_modality' (e.g., 'Notfall_ct')
+        List of column names in format 'skill_modality' (e.g., 'notfall_ct')
     """
     columns = []
     for skill in SKILL_COLUMNS:

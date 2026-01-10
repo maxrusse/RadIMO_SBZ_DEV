@@ -76,7 +76,7 @@ modalities:
     # Visibility filters (both optional, can combine):
     # - valid_skills: positive filter - only show these skills
     # - hidden_skills: negative filter - hide these skills
-    valid_skills: [Notfall, Gyn]  # Only emergency and gyn for mammography
+    valid_skills: [notfall, gyn]  # Only emergency and gyn for mammography
 
 # =============================================================================
 # SKILLS
@@ -97,7 +97,7 @@ modalities:
 # =============================================================================
 
 skills:
-  Notfall:
+  notfall:
     label: Notfall
     button_color: '#dc3545'
     text_color: '#ffffff'
@@ -105,7 +105,7 @@ skills:
     special: false
     display_order: 0
     slug: notfall
-  Privat:
+  privat:
     label: Privat
     button_color: '#ffc107'
     text_color: '#333333'
@@ -114,7 +114,7 @@ skills:
     hidden_modalities: [mammo]  # Mammography has no private patients
     display_order: 1
     slug: privat
-  Gyn:
+  gyn:
     label: Gyn
     button_color: '#e91e63'
     text_color: '#ffffff'
@@ -122,7 +122,7 @@ skills:
     special: true             # Subspecialty team
     display_order: 2
     slug: gyn
-  Päd:
+  paed:
     label: Päd
     button_color: '#4caf50'
     text_color: '#ffffff'
@@ -130,46 +130,46 @@ skills:
     special: true             # Subspecialty team
     display_order: 3
     slug: paed
-  MSK-Haut:
-    label: MSK-Haut
+  msk-haut:
+    label: MSK/Haut
     button_color: '#9c27b0'
     text_color: '#ffffff'
     weight: 0.8
     special: true             # Musculoskeletal & skin subspecialty
     display_order: 4
     slug: msk-haut
-  Abdomen:
+  abd-onco:
     label: Abd/Onco
     button_color: '#00bcd4'
     text_color: '#ffffff'
     weight: 1.0
     special: true             # Abdominal imaging subspecialty
     display_order: 5
-    slug: abdomen
-  CardThor:
-    label: CardThor
+    slug: abd-onco
+  card-thor:
+    label: Card/Thor
     button_color: '#28a745'
     text_color: '#ffffff'
     weight: 1.2
     special: true             # Cardio-thoracic subspecialty
     display_order: 6
-    slug: cardthor
-  Uro:
+    slug: card-thor
+  uro:
     label: Uro
     button_color: '#795548'
     text_color: '#ffffff'
     weight: 1.0
-    special: true             # Urology subspecialty
+    special: true             # urology subspecialty
     display_order: 7
     slug: uro
-  KopfHals:
-    label: KopfHals
+  kopf-hals:
+    label: Kopf/Hals
     button_color: '#607d8b'
     text_color: '#ffffff'
     weight: 1.0
     special: true             # Head & neck subspecialty
     display_order: 8
-    slug: kopfhals
+    slug: kopf-hals
 
 # =============================================================================
 # SKILL×MODALITY WEIGHT OVERRIDES
@@ -181,7 +181,7 @@ skills:
 
 skill_modality_overrides:
   mr:
-    CardThor: 1.8    # Cardiac MR weighted higher due to complexity
+    card-thor: 1.8    # Cardiac MR weighted higher due to complexity
 
 # =============================================================================
 # NO OVERFLOW (STRICT MODE) COMBINATIONS
@@ -189,12 +189,12 @@ skill_modality_overrides:
 # List of Skill_Modality combinations where overflow to generalists is disabled.
 # For these combos, the normal button acts like the [*] strict button - only
 # specialists (skill=1 or 'w') will be assigned, never generalists (skill=0).
-# Format: Skill_Modality (e.g., CardThor_ct, Gyn_mr)
+# Format: Skill_Modality (e.g., card-thor_ct, gyn_mr)
 # =============================================================================
 
 # Examples:
-#   - CardThor_ct    # Cardiac CT - specialists only
-#   - CardThor_mr    # Cardiac MR - specialists only
+#   - card-thor_ct    # Cardiac CT - specialists only
+#   - card-thor_mr    # Cardiac MR - specialists only
 no_overflow: []
 
 # =============================================================================
@@ -301,10 +301,10 @@ balancer:
     gyn: []
     paed: []
     msk-haut: []
-    abdomen: []
-    cardthor: []
+    abd-onco: []
+    card-thor: []
     uro: []
-    kopfhals: []
+    kopf-hals: []
 
 # =============================================================================
 # MEDWEB CSV MAPPING CONFIGURATION
@@ -321,7 +321,7 @@ balancer:
 #       Montag: "08:00-16:00"          # Optional: Monday override
 #       Freitag: "07:00-13:00"         # Optional: Friday override
 #     skill_overrides:                 # REQUIRED: Defines skills & modalities
-#       Notfall_ct: 1                  # Skill_Modality: value (1, 0, -1, w)
+#       notfall_ct: 1                  # Skill_Modality: value (1, 0, -1, w)
 #     modifier: 1.0                    # OPTIONAL: Workload modifier (0.5-1.5)
 #     counts_for_hours: true           # OPTIONAL: Count in load balancing
 #
@@ -371,35 +371,35 @@ vendor_mappings:
         Freitag: "13:00-19:00"    # Friday: shorter shift
       skill_overrides:
         # CT modality - all skills active
-        Notfall_ct: 1
-        Privat_ct: 1
-        Gyn_ct: 1
-        Päd_ct: 1
-        MSK-Haut_ct: 1
-        Abdomen_ct: 1
-        CardThor_ct: 1
-        Uro_ct: 1
-        KopfHals_ct: 1
+        notfall_ct: 1
+        privat_ct: 1
+        gyn_ct: 1
+        paed_ct: 1
+        msk-haut_ct: 1
+        abd-onco_ct: 1
+        card-thor_ct: 1
+        uro_ct: 1
+        kopf-hals_ct: 1
         # MR modality - all skills active
-        Notfall_mr: 1
-        Privat_mr: 1
-        Gyn_mr: 1
-        Päd_mr: 1
-        MSK-Haut_mr: 1
-        Abdomen_mr: 1
-        CardThor_mr: 1
-        Uro_mr: 1
-        KopfHals_mr: 1
+        notfall_mr: 1
+        privat_mr: 1
+        gyn_mr: 1
+        paed_mr: 1
+        msk-haut_mr: 1
+        abd-onco_mr: 1
+        card-thor_mr: 1
+        uro_mr: 1
+        kopf-hals_mr: 1
         # X-ray modality - all skills active
-        Notfall_xray: 1
-        Privat_xray: 1
-        Gyn_xray: 1
-        Päd_xray: 1
-        MSK-Haut_xray: 1
-        Abdomen_xray: 1
-        CardThor_xray: 1
-        Uro_xray: 1
-        KopfHals_xray: 1
+        notfall_xray: 1
+        privat_xray: 1
+        gyn_xray: 1
+        paed_xray: 1
+        msk-haut_xray: 1
+        abd-onco_xray: 1
+        card-thor_xray: 1
+        uro_xray: 1
+        kopf-hals_xray: 1
 
     # =========================================================================
     # COMMENTED OUT: Individual CT/MR Früh/Spätdienst rules
@@ -415,15 +415,15 @@ vendor_mappings:
     #     default: "13:00-21:00"
     #     Freitag: "13:00-19:00"
     #   skill_overrides:
-    #     Notfall_ct: 1
-    #     Privat_ct: 1
-    #     MSK-Haut_ct: 0
-    #     Abdomen_ct: 0
-    #     CardThor_ct: 0
-    #     Uro_ct: 0
-    #     Gyn_ct: 0
-    #     Päd_ct: 0
-    #     KopfHals_ct: 0
+    #     notfall_ct: 1
+    #     privat_ct: 1
+    #     msk-haut_ct: 0
+    #     abd-onco_ct: 0
+    #     card-thor_ct: 0
+    #     uro_ct: 0
+    #     gyn_ct: 0
+    #     paed_ct: 0
+    #     kopf-hals_ct: 0
 
     # - match: "CT Assistent"
     #   type: "shift"
@@ -431,25 +431,25 @@ vendor_mappings:
     #     default: "07:00-15:00"
     #     Freitag: "07:00-13:00"
     #   skill_overrides:
-    #     Notfall_ct: 1
-    #     Privat_ct: 1
-    #     MSK-Haut_ct: 0
-    #     Abdomen_ct: 0
-    #     CardThor_ct: 0
-    #     Uro_ct: 0
-    #     Gyn_ct: 0
-    #     Päd_ct: 0
-    #     KopfHals_ct: 0
+    #     notfall_ct: 1
+    #     privat_ct: 1
+    #     msk-haut_ct: 0
+    #     abd-onco_ct: 0
+    #     card-thor_ct: 0
+    #     uro_ct: 0
+    #     gyn_ct: 0
+    #     paed_ct: 0
+    #     kopf-hals_ct: 0
 
-    # CT Private patients shift - specialized assignment
-    - match: "CT Privatpatienten"
+    # CT private patients shift - specialized assignment
+    - match: "CT privatpatienten"
       type: "shift"
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        Privat_ct: 1         # Primary: private patients
-        Notfall_ct: 0        # Fallback: can help with emergencies
+        privat_ct: 1         # Primary: private patients
+        notfall_ct: 0        # Fallback: can help with emergencies
 
     # # MR Shifts (INACTIVE)
     # - match: "MRT Spätdienst"
@@ -458,15 +458,15 @@ vendor_mappings:
     #     default: "13:00-21:00"
     #     Freitag: "13:00-19:00"
     #   skill_overrides:
-    #     Notfall_mr: 1
-    #     Privat_mr: 1
-    #     MSK-Haut_mr: 0
-    #     Abdomen_mr: 0
-    #     CardThor_mr: 0
-    #     Uro_mr: 0
-    #     Gyn_mr: 0
-    #     Päd_mr: 0
-    #     KopfHals_mr: 0
+    #     notfall_mr: 1
+    #     privat_mr: 1
+    #     msk-haut_mr: 0
+    #     abd-onco_mr: 0
+    #     card-thor_mr: 0
+    #     uro_mr: 0
+    #     gyn_mr: 0
+    #     paed_mr: 0
+    #     kopf-hals_mr: 0
 
     # - match: "MR Assistent 1. Monat"
     #   type: "shift"
@@ -475,8 +475,8 @@ vendor_mappings:
     #     Freitag: "07:00-13:00"
     #   modifier: 0.5  # Beginner: counts double toward their load
     #   skill_overrides:
-    #     Notfall_mr: w      # Weighted: supervised, receives less work
-    #     Privat_mr: 0       # Fallback only
+    #     notfall_mr: w      # Weighted: supervised, receives less work
+    #     privat_mr: 0       # Fallback only
 
     # - match: "MR Assistent"
     #   type: "shift"
@@ -484,15 +484,15 @@ vendor_mappings:
     #     default: "07:00-15:00"
     #     Freitag: "07:00-13:00"
     #   skill_overrides:
-    #     Notfall_mr: 1
-    #     Privat_mr: 1
-    #     MSK-Haut_mr: 0
-    #     Abdomen_mr: 0
-    #     CardThor_mr: 0
-    #     Uro_mr: 0
-    #     Gyn_mr: 0
-    #     Päd_mr: 0
-    #     KopfHals_mr: 0
+    #     notfall_mr: 1
+    #     privat_mr: 1
+    #     msk-haut_mr: 0
+    #     abd-onco_mr: 0
+    #     card-thor_mr: 0
+    #     uro_mr: 0
+    #     gyn_mr: 0
+    #     paed_mr: 0
+    #     kopf-hals_mr: 0
 
     # MR senior physician shift - full skill coverage
     - match: "MRT-OA"
@@ -501,15 +501,15 @@ vendor_mappings:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        Notfall_mr: 1
-        Privat_mr: 1
-        MSK-Haut_mr: 1
-        Abdomen_mr: 1
-        CardThor_mr: 1
-        Uro_mr: 1
-        Gyn_mr: 1
-        Päd_mr: 1
-        KopfHals_mr: 1
+        notfall_mr: 1
+        privat_mr: 1
+        msk-haut_mr: 1
+        abd-onco_mr: 1
+        card-thor_mr: 1
+        uro_mr: 1
+        gyn_mr: 1
+        paed_mr: 1
+        kopf-hals_mr: 1
 
     # =========================================================================
     # X-RAY SHIFTS
@@ -523,10 +523,10 @@ vendor_mappings:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        Notfall_xray: 1
-        Privat_xray: 1
-        MSK-Haut_xray: 0     # Fallback for MSK
-        Päd_xray: 0          # Fallback for pediatrics
+        notfall_xray: 1
+        privat_xray: 1
+        msk-haut_xray: 0     # Fallback for MSK
+        paed_xray: 0          # Fallback for pediatrics
 
     - match: "OA / FA Chir"
       type: "shift"
@@ -534,16 +534,16 @@ vendor_mappings:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        Notfall_xray: 1
-        Privat_xray: 1
-        MSK-Haut_xray: 1     # Full MSK coverage
-        Päd_xray: 1          # Full pediatric coverage
+        notfall_xray: 1
+        privat_xray: 1
+        msk-haut_xray: 1     # Full MSK coverage
+        paed_xray: 1          # Full pediatric coverage
 
     # =========================================================================
     # MAMMO SHIFTS
     # =========================================================================
     # Mammography - specialized breast imaging
-    # Only Notfall and Gyn skills apply (no private patients)
+    # Only notfall and gyn skills apply (no private patients)
     # =========================================================================
 
     - match: "Mammo Assistent"
@@ -552,8 +552,8 @@ vendor_mappings:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        Notfall_mammo: 1
-        Gyn_mammo: 0         # Fallback for gynecology cases
+        notfall_mammo: 1
+        gyn_mammo: 0         # Fallback for gynecology cases
 
     - match: "Mammo OA"
       type: "shift"
@@ -561,8 +561,8 @@ vendor_mappings:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        Notfall_mammo: 1
-        Gyn_mammo: 1         # Full gyn coverage
+        notfall_mammo: 1
+        gyn_mammo: 1         # Full gyn coverage
 
     # =========================================================================
     # TEAM SHIFTS - Subspecialty teams across multiple modalities
@@ -571,35 +571,35 @@ vendor_mappings:
     # Team members handle cases for their specialty across relevant modalities.
     # =========================================================================
 
-    # - match: "MSK-Haut Assistent"
+    # - match: "msk-haut Assistent"
     #   type: "shift"
     #   times:
     #     default: "07:00-15:00"
     #     Freitag: "07:00-13:00"
     #   skill_overrides:
-    #     MSK-Haut_ct: 1
-    #     MSK-Haut_mr: 1
-    #     MSK-Haut_xray: 1
+    #     msk-haut_ct: 1
+    #     msk-haut_mr: 1
+    #     msk-haut_xray: 1
 
-    - match: "MSK-Haut Team"
+    - match: "msk-haut Team"
       type: "shift"
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        MSK-Haut_ct: 1
-        MSK-Haut_mr: 1
-        MSK-Haut_xray: 1
+        msk-haut_ct: 1
+        msk-haut_mr: 1
+        msk-haut_xray: 1
 
-    # - match: "MSK-Haut Anfänger"
+    # - match: "msk-haut Anfänger"
     #   type: "shift"
     #   times:
     #     default: "07:00-15:00"
     #     Freitag: "07:00-13:00"
     #   modifier: 0.5          # Beginner: counts double toward their load
     #   skill_overrides:
-    #     MSK-Haut_ct: w       # Weighted: supervised
-    #     MSK-Haut_xray: w
+    #     msk-haut_ct: w       # Weighted: supervised
+    #     msk-haut_xray: w
 
     # - match: "CT Anfänger"
     #   type: "shift"
@@ -608,108 +608,108 @@ vendor_mappings:
     #     Freitag: "07:00-13:00"
     #   modifier: 0.5          # Beginner: counts double toward their load
     #   skill_overrides:
-    #     Notfall_ct: w        # Weighted: supervised, receives less work
+    #     notfall_ct: w        # Weighted: supervised, receives less work
 
-    - match: "CardThor Team"
+    - match: "card-thor Team"
       type: "shift"
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        CardThor_ct: 1       # Cardiac CT
-        CardThor_mr: 1       # Cardiac MR
+        card-thor_ct: 1       # Cardiac CT
+        card-thor_mr: 1       # Cardiac MR
 
-    - match: "Abdomen Team"
+    - match: "abd-onco Team"
       type: "shift"
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        Abdomen_ct: 1
-        Abdomen_mr: 1
+        abd-onco_ct: 1
+        abd-onco_mr: 1
 
-    - match: "Uro Team"
+    - match: "uro Team"
       type: "shift"
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        Uro_ct: 1
-        Uro_mr: 1
+        uro_ct: 1
+        uro_mr: 1
 
-    - match: "Gyn Team"
+    - match: "gyn Team"
       type: "shift"
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        Gyn_ct: 1
-        Gyn_mr: 1
-        Gyn_mammo: 1         # Mammography for Gyn cases
+        gyn_ct: 1
+        gyn_mr: 1
+        gyn_mammo: 1         # Mammography for gyn cases
 
-    - match: "Päd Team"
+    - match: "paed Team"
       type: "shift"
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        Päd_ct: 1
-        Päd_mr: 1
-        Päd_xray: 1
+        paed_ct: 1
+        paed_mr: 1
+        paed_xray: 1
 
-    - match: "KopfHals Team"
+    - match: "kopf-hals Team"
       type: "shift"
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        KopfHals_ct: 1
-        KopfHals_mr: 1
+        kopf-hals_ct: 1
+        kopf-hals_mr: 1
 
     # =========================================================================
     # NOTFALL TEAM - Emergency coverage across modalities
     # =========================================================================
-    - match: "Notfall Team"
+    - match: "notfall Team"
       type: "shift"
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        Notfall_ct: 1
-        Notfall_mr: 1
-        Notfall_xray: 1
+        notfall_ct: 1
+        notfall_mr: 1
+        notfall_xray: 1
 
     # =========================================================================
-    # PRIVAT SHIFTS - Separate Gyn from general private patients
+    # PRIVAT SHIFTS - Separate gyn from general private patients
     # =========================================================================
-    # Privat Allgemein: All private patients EXCEPT Gyn (ct, mr, xray)
-    - match: "Privat Allgemein"
+    # privat Allgemein: All private patients EXCEPT gyn (ct, mr, xray)
+    - match: "privat Allgemein"
       type: "shift"
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        Privat_ct: 1
-        Privat_mr: 1
-        Privat_xray: 1
+        privat_ct: 1
+        privat_mr: 1
+        privat_xray: 1
 
-    # Privat Gyn: Private Gyn patients only (ct, mr, mammo)
-    - match: "Privat Gyn"
+    # privat gyn: private gyn patients only (ct, mr, mammo)
+    - match: "privat gyn"
       type: "shift"
       times:
         default: "13:00-17:00"
         Freitag: "13:00-15:00"
       skill_overrides:
-        Gyn_ct: 1
-        Gyn_mr: 1
-        Gyn_mammo: 1
-        Privat_ct: 0        # Fallback for general private if needed
-        Privat_mr: 0
+        gyn_ct: 1
+        gyn_mr: 1
+        gyn_mammo: 1
+        privat_ct: 0        # Fallback for general private if needed
+        privat_mr: 0
 
     # =========================================================================
     # FACHARZT FOKUS - Senior physician covering all subspecialties
     # =========================================================================
-    # Facharzt can handle all skills EXCEPT Gyn and Notfall (focused work)
+    # Facharzt can handle all skills EXCEPT gyn and notfall (focused work)
     # Multimodality coverage across CT, MR, and xray where applicable
     - match: "Facharzt Fokus"
       type: "shift"
@@ -717,32 +717,32 @@ vendor_mappings:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        # Explicitly exclude Gyn and Notfall
-        Gyn_ct: -1
-        Gyn_mr: -1
-        Gyn_mammo: -1
-        Notfall_ct: -1
-        Notfall_mr: -1
-        Notfall_xray: -1
-        Notfall_mammo: -1
+        # Explicitly exclude gyn and notfall
+        gyn_ct: -1
+        gyn_mr: -1
+        gyn_mammo: -1
+        notfall_ct: -1
+        notfall_mr: -1
+        notfall_xray: -1
+        notfall_mammo: -1
         # All other skills active across modalities
-        Privat_ct: 1
-        Privat_mr: 1
-        Privat_xray: 1
-        Päd_ct: 1
-        Päd_mr: 1
-        Päd_xray: 1
-        MSK-Haut_ct: 1
-        MSK-Haut_mr: 1
-        MSK-Haut_xray: 1
-        Abdomen_ct: 1
-        Abdomen_mr: 1
-        CardThor_ct: 1
-        CardThor_mr: 1
-        Uro_ct: 1
-        Uro_mr: 1
-        KopfHals_ct: 1
-        KopfHals_mr: 1
+        privat_ct: 1
+        privat_mr: 1
+        privat_xray: 1
+        paed_ct: 1
+        paed_mr: 1
+        paed_xray: 1
+        msk-haut_ct: 1
+        msk-haut_mr: 1
+        msk-haut_xray: 1
+        abd-onco_ct: 1
+        abd-onco_mr: 1
+        card-thor_ct: 1
+        card-thor_mr: 1
+        uro_ct: 1
+        uro_mr: 1
+        kopf-hals_ct: 1
+        kopf-hals_mr: 1
 
     # =========================================================================
     # ADMINISTRATIVE SHIFTS
@@ -758,7 +758,7 @@ vendor_mappings:
     #   label: "Aufklärung"
     #   counts_for_hours: false  # Administrative task - doesn't count for load
     #   skill_overrides:
-    #     Notfall_ct: 0          # Minimal skill assignment for modality tracking
+    #     notfall_ct: 0          # Minimal skill assignment for modality tracking
 
     # =========================================================================
     # GAPS - Time exclusions (worker unavailable)
@@ -768,7 +768,7 @@ vendor_mappings:
     #
     # Shortcuts for skill_overrides:
     #   all: -1        → all skill_modality combos = -1
-    #   MSK-Haut: 1    → all MSK-Haut_* combos = 1
+    #   msk-haut: 1    → all msk-haut_* combos = 1
     #   ct: 1          → all *_ct combos = 1
     # =========================================================================
 

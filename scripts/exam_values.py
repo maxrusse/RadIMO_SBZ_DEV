@@ -33,11 +33,6 @@ from typing import Any, Dict, List
 import yaml
 
 
-DEFAULT_SKILLS = [
-    "Notfall", "Privat", "Gyn", "Päd", "MSK-Haut",
-    "Abdomen", "CardThor", "Uro", "KopfHals"
-]
-DEFAULT_MODALITIES = ["ct", "mr", "xray", "mammo"]
 TOLERANCE = 0.005
 
 
@@ -62,7 +57,7 @@ def get_skills(config: Dict[str, Any]) -> List[str]:
             key=lambda x: x[1].get("display_order", 999)
         )
         return [s[0] for s in sorted_skills]
-    return DEFAULT_SKILLS
+    raise SystemExit("No skills found in config.yaml. Define skills before exporting/importing.")
 
 
 def get_modalities(config: Dict[str, Any]) -> List[str]:
@@ -70,7 +65,7 @@ def get_modalities(config: Dict[str, Any]) -> List[str]:
     modalities_config = config.get("modalities", {})
     if modalities_config:
         return list(modalities_config.keys())
-    return DEFAULT_MODALITIES
+    raise SystemExit("No modalities found in config.yaml. Define modalities before exporting/importing.")
 
 
 def get_skill_weight(skill: str, config: Dict[str, Any]) -> float:

@@ -47,25 +47,14 @@ def extract_skills(config: Dict) -> List[str]:
     skills = list(config.get("skills", {}).keys())
     if skills:
         return skills
-    # Sensible defaults if config.yaml is missing
-    return [
-        "Notfall",
-        "Privat",
-        "Gyn",
-        "Päd",
-        "MSK-Haut",
-        "Abdomen",
-        "CardThor",
-        "Uro",
-        "KopfHals",
-    ]
+    raise SystemExit("No skills found in config.yaml. Define skills before generating mappings.")
 
 
 def extract_modalities(config: Dict) -> List[str]:
     modalities = list(config.get("modalities", {}).keys())
     if modalities:
         return modalities
-    return ["ct", "mr", "xray", "mammo"]
+    raise SystemExit("No modalities found in config.yaml. Define modalities before generating mappings.")
 
 
 def guess_times_from_activity(activity: str, day_part: str) -> Tuple[Dict[str, str], str]:
@@ -101,13 +90,13 @@ def guess_times_from_activity(activity: str, day_part: str) -> Tuple[Dict[str, s
     return DEFAULT_EARLY, "default"
 
 
-def build_skill_overrides(skills: List[str], modality: str, prefer: str = "Notfall") -> Dict[str, int]:
+def build_skill_overrides(skills: List[str], modality: str, prefer: str = "notfall") -> Dict[str, int]:
     """Build skill_overrides in Skill×Modality format.
 
     Args:
         skills: List of skill names
         modality: Modality key (ct, mr, xray, mammo)
-        prefer: Preferred skill to set to 1 (default: Notfall)
+        prefer: Preferred skill to set to 1 (default: notfall)
 
     Returns:
         Dict with Skill_modality keys
@@ -220,7 +209,7 @@ def main() -> None:
     parser.add_argument(
         "--config",
         default="config.yaml",
-        help="Optional existing config.yaml to seed skills and shift names",
+        help="Existing config.yaml to seed skills and shift names",
     )
 
     args = parser.parse_args()

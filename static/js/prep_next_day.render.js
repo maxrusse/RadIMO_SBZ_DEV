@@ -836,7 +836,9 @@ function buildSkillColorMap() {
   const colorMap = {};
   SKILLS.forEach(skill => {
     const settings = SKILL_SETTINGS[skill] || {};
-    colorMap[skill.toLowerCase()] = settings.button_color || '#6c757d';
+    const rawSlug = settings.slug || skill.toLowerCase();
+    const slug = rawSlug.replace(/[^a-z0-9-]/g, '-');
+    colorMap[slug] = settings.button_color || '#6c757d';
   });
   return colorMap;
 }
@@ -845,7 +847,9 @@ function buildSkillColorMap() {
 function buildSkillSlugMap() {
   const slugMap = {};
   SKILLS.forEach(skill => {
-    slugMap[skill] = skill.toLowerCase();
+    const settings = SKILL_SETTINGS[skill] || {};
+    const rawSlug = settings.slug || skill.toLowerCase();
+    slugMap[skill] = rawSlug.replace(/[^a-z0-9-]/g, '-');
   });
   return slugMap;
 }
