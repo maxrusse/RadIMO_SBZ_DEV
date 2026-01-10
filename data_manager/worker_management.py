@@ -9,7 +9,7 @@ This module provides functions for:
 """
 import copy
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Iterable, Mapping
 
 import pandas as pd
 
@@ -61,13 +61,11 @@ def invalidate_work_hours_cache(modality: str = None) -> None:
     _state.invalidate_work_hours_cache(modality)
 
 
-def get_all_workers_by_canonical_id():
+def get_all_workers_by_canonical_id() -> Dict[str, List[str]]:
     """Get mapping of canonical IDs to all name variations."""
-    canonical_to_variations = {}
+    canonical_to_variations: Dict[str, List[str]] = {}
     for name, canonical in global_worker_data['worker_ids'].items():
-        if canonical not in canonical_to_variations:
-            canonical_to_variations[canonical] = []
-        canonical_to_variations[canonical].append(name)
+        canonical_to_variations.setdefault(canonical, []).append(name)
     return canonical_to_variations
 
 
@@ -143,13 +141,10 @@ def save_worker_skill_json(roster_data: Dict[str, Any]) -> bool:
 
 def build_valid_skills_map() -> Dict[str, List[str]]:
     """Build map of valid skills per modality (for filtering in UI)."""
-    valid_skills_map: Dict[str, List[str]] = {}
-    for mod, settings in MODALITY_SETTINGS.items():
-        if 'valid_skills' in settings:
-            valid_skills_map[mod] = settings['valid_skills']
-        else:
-            valid_skills_map[mod] = SKILL_COLUMNS
-    return valid_skills_map
+    return {
+        mod: settings.get('valid_skills', SKILL_COLUMNS)
+        for mod, settings in MODALITY_SETTINGS.items()
+    }
 
 
 def normalize_skill_mod_key(key: str) -> str:
@@ -190,6 +185,14 @@ def normalize_skill_mod_key(key: str) -> str:
     return key
 
 
+def _build_skill_mod_map(
+    default_value: Any,
+    skills: Iterable[str] = SKILL_COLUMNS,
+    modalities: Iterable[str] = allowed_modalities,
+) -> Dict[str, Any]:
+    return {f"{skill}_{mod}": default_value for skill in skills for mod in modalities}
+
+
 def build_disabled_worker_entry() -> Dict[str, Any]:
     """
     Create a new worker entry with all Skill x Modality combinations disabled (-1).
@@ -197,12 +200,7 @@ def build_disabled_worker_entry() -> Dict[str, Any]:
     Format: {"skill_modality": -1, ...} (flat structure)
     Example: {"msk-haut_ct": -1, "msk-haut_mr": -1, "notfall_ct": -1, ...}
     """
-    entry: Dict[str, Any] = {}
-    for skill in SKILL_COLUMNS:
-        for mod in allowed_modalities:
-            key = f"{skill}_{mod}"
-            entry[key] = -1
-    return entry
+    return _build_skill_mod_map(-1)
 
 
 def get_roster_modifier(canonical_id: str) -> float:
@@ -310,7 +308,10 @@ def get_merged_worker_roster(config: Dict[str, Any]) -> Dict[str, Any]:
     return merged
 
 
-def get_worker_skill_mod_combinations(canonical_id: str, worker_roster: dict) -> dict:
+def get_worker_skill_mod_combinations(
+    canonical_id: str,
+    worker_roster: Mapping[str, Dict[str, Any]],
+) -> Dict[str, Any]:
     """
     Get worker's Skill x Modality combinations from roster.
 
@@ -320,19 +321,10 @@ def get_worker_skill_mod_combinations(canonical_id: str, worker_roster: dict) ->
     """
     if canonical_id not in worker_roster:
         # Worker not in roster -> all combinations = 0 (passive)
-        result = {}
-        for skill in SKILL_COLUMNS:
-            for mod in allowed_modalities:
-                result[f"{skill}_{mod}"] = 0
-        return result
+        return _build_skill_mod_map(0)
 
     worker_data = worker_roster[canonical_id]
-    result = {}
-
-    # Initialize all combinations to 0
-    for skill in SKILL_COLUMNS:
-        for mod in allowed_modalities:
-            result[f"{skill}_{mod}"] = 0
+    result = _build_skill_mod_map(0)
 
     # Apply roster values (normalize keys)
     for key, value in worker_data.items():
