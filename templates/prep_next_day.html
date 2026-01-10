@@ -53,38 +53,6 @@
       margin-bottom: 1rem;
     }
 
-    /* Tab Styles - colors generated dynamically from config */
-    .tab-container {
-      display: flex;
-      gap: 0;
-      margin-bottom: 0;
-    }
-
-    .tab-btn {
-      padding: 1rem 2rem;
-      border: none;
-      background: #e0e0e0;
-      color: #666;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      border-radius: 8px 8px 0 0;
-      transition: all 0.2s;
-    }
-
-    .tab-btn:hover {
-      background: #d0d0d0;
-    }
-
-    /* .tab-btn.active-today and .tab-btn.active-tomorrow generated from UI_COLORS */
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
     /* Today/Tomorrow Banners - colors generated dynamically from config */
     .today-banner,
     .tomorrow-banner {
@@ -1262,7 +1230,7 @@
         <label class="filter-toggle" style="margin-left: auto;">
           <input type="checkbox" id="filter-hide-zero-today" onchange="updateTableFilter('today')"> Hide 0/-1
         </label>
-        <button id="display-order-toggle" class="btn btn-secondary" onclick="toggleDisplayOrder()"
+        <button id="display-order-toggle-today" class="btn btn-secondary" onclick="toggleDisplayOrder()"
           title="Current: Modalities as groups, skills as sub-columns. Click to switch.">Mod → Skill</button>
       </div>
 
