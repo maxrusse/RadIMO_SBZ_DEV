@@ -141,7 +141,7 @@ skills:
     slug: msk
 
   Abdomen:
-    label: Abdomen
+    label: Abd/Onco
     button_color: '#00bcd4'
     text_color: '#ffffff'
     weight: 1.0
