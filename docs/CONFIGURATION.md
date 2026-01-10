@@ -132,7 +132,7 @@ skills:
     slug: paed
 
   MSK-Haut:
-    label: MSK-Haut
+    label: MSK/Haut
     button_color: '#9c27b0'
     text_color: '#ffffff'
     weight: 0.8
@@ -151,7 +151,7 @@ skills:
     slug: abdomen
 
   CardThor:
-    label: CardThor
+    label: Card/Thor
     button_color: '#28a745'
     text_color: '#ffffff'
     weight: 1.2
