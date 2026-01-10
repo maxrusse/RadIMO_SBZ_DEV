@@ -9,7 +9,7 @@ This module handles:
 """
 import json
 from datetime import datetime, time, date, timedelta
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, Iterable
 
 import pandas as pd
 
@@ -32,7 +32,62 @@ from data_manager.worker_management import (
 from data_manager.schedule_crud import resolve_overlapping_shifts
 
 
-def match_mapping_rule(activity_desc: str, rules: list) -> Optional[dict]:
+DEFAULT_SHIFT_RANGE = (time(7, 0), time(15, 0))
+
+
+def _default_shift_ranges() -> List[Tuple[time, time]]:
+    return [DEFAULT_SHIFT_RANGE]
+
+
+def _select_day_times(
+    times_config: Dict[str, Any],
+    weekday_name: str,
+    *,
+    friday_alias: bool = False,
+) -> Optional[Any]:
+    if weekday_name in times_config:
+        return times_config[weekday_name]
+    if friday_alias and weekday_name == 'Freitag' and 'friday' in times_config:
+        return times_config['friday']
+    if 'default' in times_config:
+        return times_config['default']
+    return None
+
+
+def _normalize_time_ranges_input(day_times: Any) -> Optional[List[str]]:
+    if isinstance(day_times, str):
+        return [day_times]
+    if isinstance(day_times, list):
+        return day_times
+    return None
+
+
+def _parse_time_ranges(
+    time_ranges: Iterable[Any],
+    *,
+    log_label: str,
+) -> List[Tuple[time, time]]:
+    parsed_ranges: List[Tuple[time, time]] = []
+    for time_range_str in time_ranges:
+        if not isinstance(time_range_str, str):
+            selection_logger.warning(
+                f"Could not parse {log_label} time range '{time_range_str}': expected string"
+            )
+            continue
+        try:
+            start_str, end_str = time_range_str.split('-')
+            start_time = datetime.strptime(start_str.strip(), TIME_FORMAT).time()
+            end_time = datetime.strptime(end_str.strip(), TIME_FORMAT).time()
+            parsed_ranges.append((start_time, end_time))
+        except ValueError as exc:
+            selection_logger.warning(
+                f"Could not parse {log_label} time range '{time_range_str}': {exc}"
+            )
+            continue
+    return parsed_ranges
+
+
+def match_mapping_rule(activity_desc: str, rules: List[dict]) -> Optional[dict]:
     """Match activity description against mapping rules."""
     if not activity_desc:
         return None
@@ -44,7 +99,12 @@ def match_mapping_rule(activity_desc: str, rules: list) -> Optional[dict]:
     return None
 
 
-def compute_time_ranges(row: pd.Series, rule: dict, target_date: datetime, config: dict) -> List[Tuple[time, time]]:
+def compute_time_ranges(
+    row: pd.Series,
+    rule: dict,
+    target_date: datetime,
+    config: dict,
+) -> List[Tuple[time, time]]:
     """
     Compute time ranges from rule's inline 'times' field.
 
@@ -61,43 +121,26 @@ def compute_time_ranges(row: pd.Series, rule: dict, target_date: datetime, confi
 
     if not times_config:
         # No times specified - use default
-        return [(time(7, 0), time(15, 0))]
+        return _default_shift_ranges()
 
     # Get German weekday name for day-specific lookup
     weekday_name = get_weekday_name_german(target_date)
 
     # Check for day-specific time first, then 'friday' alias, then default
-    if weekday_name in times_config:
-        day_times = times_config[weekday_name]
-    elif weekday_name == 'Freitag' and 'friday' in times_config:
-        day_times = times_config['friday']
-    elif 'default' in times_config:
-        day_times = times_config['default']
-    else:
-        return [(time(7, 0), time(15, 0))]
+    day_times = _select_day_times(times_config, weekday_name, friday_alias=True)
+    if day_times is None:
+        return _default_shift_ranges()
 
     # Handle both single string and array formats (aligned with parse_gap_times)
-    if isinstance(day_times, str):
-        time_ranges_str = [day_times]
-    elif isinstance(day_times, list):
-        time_ranges_str = day_times
-    else:
-        return [(time(7, 0), time(15, 0))]
+    time_ranges_str = _normalize_time_ranges_input(day_times)
+    if time_ranges_str is None:
+        return _default_shift_ranges()
 
-    time_ranges = []
-    for time_range_str in time_ranges_str:
-        try:
-            start_str, end_str = time_range_str.split('-')
-            start_time = datetime.strptime(start_str.strip(), TIME_FORMAT).time()
-            end_time = datetime.strptime(end_str.strip(), TIME_FORMAT).time()
-            time_ranges.append((start_time, end_time))
-        except Exception as e:
-            selection_logger.warning(f"Could not parse shift time range '{time_range_str}': {e}")
-            continue
+    time_ranges = _parse_time_ranges(time_ranges_str, log_label="shift")
 
     # Return default if no valid time ranges were parsed
     if not time_ranges:
-        return [(time(7, 0), time(15, 0))]
+        return _default_shift_ranges()
 
     return time_ranges
 
@@ -121,34 +164,15 @@ def parse_gap_times(times_config: dict, weekday_name: str) -> List[Tuple[time, t
         return []
 
     # Check for day-specific times first, then default
-    if weekday_name in times_config:
-        day_times = times_config[weekday_name]
-    elif 'default' in times_config:
-        day_times = times_config['default']
-    else:
+    day_times = _select_day_times(times_config, weekday_name)
+    if day_times is None:
         return []
 
-    gaps = []
-
-    # Handle both single string and array formats
-    if isinstance(day_times, str):
-        time_ranges = [day_times]
-    elif isinstance(day_times, list):
-        time_ranges = day_times
-    else:
+    time_ranges = _normalize_time_ranges_input(day_times)
+    if time_ranges is None:
         return []
 
-    for time_range_str in time_ranges:
-        try:
-            start_str, end_str = time_range_str.split('-')
-            start_time = datetime.strptime(start_str.strip(), TIME_FORMAT).time()
-            end_time = datetime.strptime(end_str.strip(), TIME_FORMAT).time()
-            gaps.append((start_time, end_time))
-        except Exception as e:
-            selection_logger.warning(f"Could not parse gap time range '{time_range_str}': {e}")
-            continue
-
-    return gaps
+    return _parse_time_ranges(time_ranges, log_label="gap")
 
 
 def build_ppl_from_row(row: pd.Series, cols: Optional[dict] = None) -> str:
@@ -260,7 +284,7 @@ def build_working_hours_from_medweb(
         except Exception as e:
             raise ValueError(f"Fehler beim Laden der CSV: {e}")
 
-    def parse_german_date(date_val):
+    def parse_german_date(date_val: Any) -> Optional[date]:
         if pd.isna(date_val):
             return None
         date_str = str(date_val).strip()
