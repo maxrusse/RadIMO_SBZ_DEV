@@ -145,12 +145,12 @@ def get_access_password():
 
 def is_access_protection_enabled():
     """Check if basic access protection is enabled."""
-    return APP_CONFIG.get("access_protection_enabled", False)
+    return APP_CONFIG.get("access_protection_enabled")
 
 
 def is_admin_protection_enabled():
     """Check if admin access protection is enabled."""
-    return APP_CONFIG.get("admin_access_protection_enabled", False)
+    return APP_CONFIG.get("admin_access_protection_enabled")
 
 
 def has_admin_access():
