@@ -70,6 +70,43 @@ def get_all_workers_by_canonical_id():
     return canonical_to_variations
 
 
+def build_worker_name_mapping(roster: Dict[str, Any]) -> Dict[str, str]:
+    """
+    Build a mapping from worker IDs to display names.
+
+    For each worker in the roster, returns the best available display name:
+    1. full_name field from roster if present
+    2. Longest name variation from global_worker_data (usually the full name)
+    3. The worker ID itself as fallback
+
+    Args:
+        roster: The skill roster dictionary
+
+    Returns:
+        Dict mapping worker_id -> display_name
+    """
+    name_mapping = {}
+    canonical_to_variations = get_all_workers_by_canonical_id()
+
+    for worker_id in roster.keys():
+        # First priority: full_name in roster entry
+        if isinstance(roster[worker_id], dict) and 'full_name' in roster[worker_id]:
+            name_mapping[worker_id] = roster[worker_id]['full_name']
+            continue
+
+        # Second priority: longest variation from global worker data
+        variations = canonical_to_variations.get(worker_id, [])
+        if variations:
+            # Prefer the longest name (usually "Dr. Name (ID)")
+            name_mapping[worker_id] = max(variations, key=len)
+            continue
+
+        # Fallback: use the ID itself
+        name_mapping[worker_id] = worker_id
+
+    return name_mapping
+
+
 def load_worker_skill_json() -> Dict[str, Any]:
     """Load worker skill roster from JSON file."""
     filename = 'worker_skill_roster.json'
@@ -197,15 +234,20 @@ def get_roster_modifier(canonical_id: str) -> float:
     return modifier
 
 
-def auto_populate_skill_roster(modality_dfs: Dict[str, pd.DataFrame]) -> int:
+def auto_populate_skill_roster(modality_dfs: Dict[str, pd.DataFrame]) -> tuple:
     """
     Auto-populate skill roster with new workers found in uploaded schedules.
 
     New workers are added with all skills disabled (-1) by default.
     Uses canonical_id (derived from PPL if not present) to ensure consistent worker IDs.
+    Stores full_name alongside the canonical ID for display purposes.
+
+    Returns:
+        Tuple of (added_count, list of added worker IDs)
     """
     roster = load_worker_skill_json()
     added_count = 0
+    added_workers = []
 
     for modality, df in modality_dfs.items():
         if df is None or df.empty:
@@ -218,22 +260,30 @@ def auto_populate_skill_roster(modality_dfs: Dict[str, pd.DataFrame]) -> int:
             if pd.isna(ppl_value) or not str(ppl_value).strip():
                 continue
 
+            full_name = str(ppl_value).strip()
             # Use get_canonical_worker_id to extract consistent ID (e.g., "ABC" from "Name (ABC)")
-            worker_id = get_canonical_worker_id(str(ppl_value))
+            worker_id = get_canonical_worker_id(full_name)
             if not worker_id or worker_id in roster:
+                # If worker exists, update full_name if not already set
+                if worker_id in roster and 'full_name' not in roster[worker_id]:
+                    roster[worker_id]['full_name'] = full_name
                 continue
 
-            roster[worker_id] = build_disabled_worker_entry()
+            entry = build_disabled_worker_entry()
+            entry['full_name'] = full_name
+            roster[worker_id] = entry
             added_count += 1
+            added_workers.append(worker_id)
             selection_logger.info(
-                "Auto-added worker %s to skill roster with all skills disabled",
+                "Auto-added worker %s (%s) to skill roster with all skills disabled",
                 worker_id,
+                full_name,
             )
 
     if added_count > 0:
         save_worker_skill_json(roster)
 
-    return added_count
+    return added_count, added_workers
 
 
 def get_merged_worker_roster(config: Dict[str, Any]) -> Dict[str, Any]:

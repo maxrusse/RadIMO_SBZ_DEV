@@ -283,7 +283,7 @@ def initialize_data(file_path: str, modality: str):
             d['info_texts'] = data.get('info_texts', [])
 
             if SKILL_ROSTER_AUTO_IMPORT:
-                auto_populate_skill_roster({modality: df})
+                auto_populate_skill_roster({modality: df})  # Returns tuple, ignore here
 
         except Exception as e:
             error_message = f"Fehler beim Laden der JSON-Datei für Modality '{modality}': {str(e)}"

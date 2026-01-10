@@ -56,6 +56,7 @@ from data_manager import (
     save_worker_skill_json,
     build_working_hours_from_medweb,
     build_valid_skills_map,
+    build_worker_name_mapping,
     auto_populate_skill_roster,
     load_staged_dataframe,
     backup_dataframe,
@@ -312,9 +313,11 @@ def skill_roster_api():
         return jsonify({'error': 'No roster data'}), 400
     
     roster = load_worker_skill_json()
+    worker_names = build_worker_name_mapping(roster)
     return jsonify({
         'success': True,
         'roster': roster,
+        'worker_names': worker_names,
         'skills': SKILL_COLUMNS,
         'modalities': allowed_modalities
     })
@@ -324,10 +327,11 @@ def skill_roster_api():
 def import_new_skill_roster_api():
     # Get current modality DFs
     current_dfs = {mod: modality_data[mod]['working_hours_df'] for mod in allowed_modalities}
-    added_count = auto_populate_skill_roster(current_dfs)
+    added_count, added_workers = auto_populate_skill_roster(current_dfs)
     return jsonify({
         'success': True,
-        'added_count': added_count
+        'added_count': added_count,
+        'added_workers': added_workers
     })
 
 @routes.route('/login', methods=['GET', 'POST'])
@@ -779,7 +783,7 @@ def load_today_from_master():
 
         workers_added = 0
         if SKILL_ROSTER_AUTO_IMPORT:
-            workers_added = auto_populate_skill_roster(modality_dfs)
+            workers_added, _ = auto_populate_skill_roster(modality_dfs)
 
         return jsonify({
             "success": True,

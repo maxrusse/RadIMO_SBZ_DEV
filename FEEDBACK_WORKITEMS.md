@@ -29,40 +29,20 @@ This document contains detailed work items derived from user feedback. Each item
 
 ## 2. SKILL ROSTER
 
-### 2.1 Worker Names vs ID/Initials in Skill Roster
+### 2.1 ~~Worker Names vs ID/Initials in Skill Roster~~ ✅ COMPLETED
 **Feedback:** "Names of Worker vs ID / initials akronym-like entry -> in skillroaster -> load from csv -> no names ??"
 
 **Problem:** Skill roster shows only IDs/initials, not full names. When loading from CSV, full names should be displayed.
 
-**Code Location:**
-- `templates/skill_roster.html:449-458` - `renderWorkerList()` displays worker IDs
-- `data_manager/worker_management.py:40-60` - `get_canonical_worker_id()` extracts abbreviation
-- `data_manager/csv_parser.py` - CSV parsing uses worker names from CSV
+**Solution Implemented:**
+- Added `full_name` field to worker roster entries
+- Modified `auto_populate_skill_roster()` to store full names from CSV
+- Added `build_worker_name_mapping()` helper function to build display names
+- Updated skill roster API to return `worker_names` mapping
+- Updated `skill_roster.html` to display full names with ID tooltips
+- Added support for "Name (ID)" format when manually adding workers
 
-**Current Behavior:**
-```javascript
-// skill_roster.html:452-456
-Object.keys(rosterData).sort().forEach(workerId => {
-  div.textContent = workerId;  // Only shows ID, not full name
-});
-```
-
-**Implementation Plan:**
-1. Store full name alongside ID in roster JSON:
-   ```json
-   {
-     "CT1": {
-       "full_name": "Dr. Mueller (CT1)",
-       "modifier": 1.0,
-       "Notfall_ct": 1
-     }
-   }
-   ```
-2. Update `renderWorkerList()` to show full name with ID as tooltip
-3. Update CSV parser to preserve full names when importing
-4. Update `auto_populate_skill_roster()` to include full names
-
-**Priority:** High - Data clarity improvement
+**Priority:** High - Data clarity improvement ✅ DONE
 
 ### 2.2 Default W-Weight for Skill = 0.5
 **Feedback:** "defaults w-weight in skill = 0.5 for w"
@@ -472,7 +452,7 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 ### High Priority (Core Functionality)
 1. 3.4 - Popup edit missing shifts/gaps
 2. 4.1 - Load next day verification
-3. 2.1 - Worker names vs IDs in roster
+3. ~~2.1 - Worker names vs IDs in roster~~ ✅
 
 ### Medium Priority (UX Improvements)
 1. ~~1.1 - Latest assignment display~~ ✅
