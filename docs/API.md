@@ -37,8 +37,8 @@ curl http://localhost:5000/api/ct/card-thor
   "Assigned Person": "Dr. Anna Müller (AM)",
   "Draw Time": "14:23:45",
   "Modality": "ct",
-  "Requested Skill": "Card/Thor",
-  "Used Skill": "Card/Thor",
+  "Requested Skill": "card-thor",
+  "Used Skill": "card-thor",
   "Fallback Used": false
 }
 ```
@@ -49,10 +49,10 @@ curl http://localhost:5000/api/ct/card-thor
   "Assigned Person": "Dr. Max Schmidt (MS)",
   "Draw Time": "14:24:12",
   "Modality": "ct",
-  "Requested Skill": "Card/Thor",
-  "Used Skill": "Notfall",
+  "Requested Skill": "card-thor",
+  "Used Skill": "notfall",
   "Fallback Used": true,
-  "Fallback Reason": "No active Card/Thor workers available"
+  "Fallback Reason": "No active card-thor workers available"
 }
 ```
 
@@ -74,7 +74,7 @@ curl http://localhost:5000/api/ct/card-thor/strict
 **Error response (no match):**
 ```json
 {
-  "error": "No available worker for Card/Thor in ct",
+  "error": "No available worker for card-thor in ct",
   "Fallback Used": false
 }
 ```
@@ -261,11 +261,11 @@ Get staged working_hours_df for all modalities.
       "Modifier": 1.0,
       "is_manual": false,
       "gap_id": "gap_AM_123456",
-      "Notfall": 1,
-      "Privat": 0,
-      "MSK/Haut": 0,
-      "Card/Thor": 0,
-      "Kopf/Hals": 0,
+      "notfall": 1,
+      "privat": 0,
+      "msk-haut": 0,
+      "card-thor": 0,
+      "kopf-hals": 0,
       "Uro": 0
     }
   ],
@@ -295,7 +295,7 @@ Update a single worker row in staged data.
     "start_time": "08:00",
     "end_time": "16:00",
     "Normal": 1,
-    "Notfall": 0
+    "notfall": 0
   }
 }
 ```
@@ -326,11 +326,11 @@ Add new worker to staged data.
     "PPL": "Neuer Worker (NW)",
     "start_time": "07:00",
     "end_time": "15:00",
-    "Notfall": 1,
-    "Privat": 0,
-    "MSK/Haut": 0,
-    "Card/Thor": 0,
-    "Kopf/Hals": 0,
+    "notfall": 1,
+    "privat": 0,
+    "msk-haut": 0,
+    "card-thor": 0,
+    "kopf-hals": 0,
     "Uro": 0,
     "Modifier": 1.0
   }
@@ -374,21 +374,21 @@ Get staged worker skill roster.
   "success": true,
   "roster": {
     "AM": {
-      "Notfall_ct": 1,
-      "Notfall_mr": 1,
-      "Notfall_xray": 1,
-      "Privat_ct": 0,
-      "Privat_mr": 1,
-      "Card/Thor_ct": 1,
-      "Card/Thor_mr": 1
+      "notfall_ct": 1,
+      "notfall_mr": 1,
+      "notfall_xray": 1,
+      "privat_ct": 0,
+      "privat_mr": 1,
+      "card-thor_ct": 1,
+      "card-thor_mr": 1
     }
   },
-  "skills": ["Notfall", "Privat", "Gyn", "Päd", "MSK/Haut", "Abd/Onco", "Card/Thor", "Uro", "Kopf/Hals"],
+  "skills": ["notfall", "privat", "gyn", "paed", "msk-haut", "abd-onco", "card-thor", "uro", "kopf-hals"],
   "modalities": ["ct", "mr", "xray"]
 }
 ```
 
-**Note:** Roster uses flat Skill×Modality combinations. Each key is `"skill_modality"` (e.g., `"Notfall_ct"`). Both `"skill_modality"` and `"modality_skill"` formats are accepted.
+**Note:** Roster uses flat Skill×Modality combinations. Each key is `"skill_modality"` (e.g., `"notfall_ct"`). Both `"skill_modality"` and `"modality_skill"` formats are accepted.
 
 ---
 
@@ -406,12 +406,12 @@ Save roster changes to staging.
 {
   "roster": {
     "AM": {
-      "Notfall_ct": 1,
-      "Notfall_mr": 1,
-      "Privat_ct": 0,
-      "Privat_mr": 1,
-      "Card/Thor_ct": 1,
-      "Card/Thor_mr": 1
+      "notfall_ct": 1,
+      "notfall_mr": 1,
+      "privat_ct": 0,
+      "privat_mr": 1,
+      "card-thor_ct": 1,
+      "card-thor_mr": 1
     }
   }
 }

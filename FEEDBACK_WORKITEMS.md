@@ -142,7 +142,7 @@ No pending items in this category.
 
 **Current Config:**
 ```yaml
-Abd/Onco:
+abd-onco:
   label: Abd/Onco
   slug: abd-onco
 ```

@@ -267,6 +267,10 @@ _raw_no_overflow = APP_CONFIG.get('no_overflow', [])
 
 # Build skill metadata
 SKILL_COLUMNS, SKILL_SLUG_MAP, SKILL_TEMPLATES, skill_weights = _build_skill_metadata(SKILL_SETTINGS)
+SKILL_LABEL_MAP = {
+    data.get('label', name).lower(): name
+    for name, data in SKILL_SETTINGS.items()
+}
 
 # Build case-insensitive lookup maps for skills
 # - ROLE_MAP: slug.lower() -> canonical name (for URL/API role lookups)
@@ -276,7 +280,7 @@ skill_columns_map = {s.lower(): s for s in SKILL_COLUMNS}
 
 def _resolve_skill(key_lower: str) -> Optional[str]:
     """Resolve a lowercase skill key to its canonical name via slug or direct match."""
-    return ROLE_MAP.get(key_lower) or skill_columns_map.get(key_lower)
+    return ROLE_MAP.get(key_lower) or SKILL_LABEL_MAP.get(key_lower) or skill_columns_map.get(key_lower)
 
 
 def _normalize_exclude_skills(raw_exclude_skills: Dict[str, List[str]]) -> Dict[str, List[str]]:
@@ -353,8 +357,8 @@ def _normalize_no_overflow(raw_list: list) -> set:
     Normalize no_overflow list to canonical Skill_Modality format.
 
     Supports:
-    - Skill_Modality: Card/Thor_ct → Card/Thor_ct
-    - Modality_Skill: ct_Card/Thor → Card/Thor_ct
+    - Skill_Modality: card-thor_ct → card-thor_ct
+    - Modality_Skill: ct_card-thor → card-thor_ct
 
     Returns: set of canonical 'Skill_modality' strings
     """

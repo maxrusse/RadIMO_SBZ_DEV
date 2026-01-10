@@ -90,13 +90,13 @@ def guess_times_from_activity(activity: str, day_part: str) -> Tuple[Dict[str, s
     return DEFAULT_EARLY, "default"
 
 
-def build_skill_overrides(skills: List[str], modality: str, prefer: str = "Notfall") -> Dict[str, int]:
+def build_skill_overrides(skills: List[str], modality: str, prefer: str = "notfall") -> Dict[str, int]:
     """Build skill_overrides in Skill×Modality format.
 
     Args:
         skills: List of skill names
         modality: Modality key (ct, mr, xray, mammo)
-        prefer: Preferred skill to set to 1 (default: Notfall)
+        prefer: Preferred skill to set to 1 (default: notfall)
 
     Returns:
         Dict with Skill_modality keys

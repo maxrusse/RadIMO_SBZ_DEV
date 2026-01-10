@@ -160,10 +160,10 @@ def normalize_skill_mod_key(key: str) -> str:
     Returns canonical "skill_modality" format with case-insensitive matching.
 
     Examples:
-        "MSK_ct" -> "MSK_ct"
-        "ct_MSK" -> "MSK_ct"
-        "msk_CT" -> "MSK_ct"  (case-insensitive)
-        "Notfall_mr" -> "Notfall_mr"
+        "msk-haut_ct" -> "msk-haut_ct"
+        "ct_msk-haut" -> "msk-haut_ct"
+        "MSK-HAUT_CT" -> "msk-haut_ct"  (case-insensitive)
+        "notfall_mr" -> "notfall_mr"
     """
     if '_' not in key:
         return key
@@ -195,7 +195,7 @@ def build_disabled_worker_entry() -> Dict[str, Any]:
     Create a new worker entry with all Skill x Modality combinations disabled (-1).
 
     Format: {"skill_modality": -1, ...} (flat structure)
-    Example: {"MSK_ct": -1, "MSK_mr": -1, "Notfall_ct": -1, ...}
+    Example: {"msk-haut_ct": -1, "msk-haut_mr": -1, "notfall_ct": -1, ...}
     """
     entry: Dict[str, Any] = {}
     for skill in SKILL_COLUMNS:
@@ -348,10 +348,10 @@ def expand_skill_overrides(rule_overrides: dict) -> dict:
     Expand skill_overrides shortcuts to full skill_modality combinations.
 
     Supports:
-        - Full keys: "MSK_ct": 1 -> {"MSK_ct": 1}
+        - Full keys: "msk-haut_ct": 1 -> {"msk-haut_ct": 1}
         - all shortcut: "all": -1 -> all skill_modality combos = -1
-        - Skill shortcut: "MSK": 1 -> MSK_ct, MSK_mr, MSK_xray, MSK_mammo = 1
-        - Modality shortcut: "ct": 1 -> Notfall_ct, MSK_ct, Privat_ct, etc. = 1
+        - Skill shortcut: "msk-haut": 1 -> msk-haut_ct, msk-haut_mr, msk-haut_xray, msk-haut_mammo = 1
+        - Modality shortcut: "ct": 1 -> notfall_ct, msk-haut_ct, privat_ct, etc. = 1
 
     Args:
         rule_overrides: Raw skill_overrides dict from config
@@ -371,7 +371,7 @@ def expand_skill_overrides(rule_overrides: dict) -> dict:
                     expanded[f"{skill}_{mod}"] = value
             continue
 
-        # Check if key is a skill shortcut (e.g., "MSK" or "msk")
+        # Check if key is a skill shortcut (e.g., "msk-haut")
         canonical_skill = skill_columns_map.get(key_lower)
         if canonical_skill:
             for mod in allowed_modalities:
@@ -409,7 +409,7 @@ def apply_skill_overrides(roster_combinations: dict, rule_overrides: dict) -> di
 
     Args:
         roster_combinations: Worker's baseline skill x modality combinations
-        rule_overrides: CSV rule overrides (e.g., {"MSK_ct": 1, "all": -1})
+        rule_overrides: CSV rule overrides (e.g., {"msk-haut_ct": 1, "all": -1})
 
     Returns:
         Final skill x modality combinations
@@ -460,9 +460,9 @@ def extract_modalities_from_skill_overrides(skill_overrides: dict) -> List[str]:
 
     Handles all key formats:
     - "all" → all modalities
-    - Skill shortcut (e.g., "MSK") → all modalities
+    - Skill shortcut (e.g., "msk-haut") → all modalities
     - Modality shortcut (e.g., "ct") → just that modality
-    - Full key (e.g., "MSK_ct") → extract modality from key
+    - Full key (e.g., "msk-haut_ct") → extract modality from key
 
     Returns list of unique canonical modalities found.
     """
@@ -475,7 +475,7 @@ def extract_modalities_from_skill_overrides(skill_overrides: dict) -> List[str]:
         if key_lower == 'all':
             return list(allowed_modalities)
 
-        # Skill-only shortcut (e.g., "MSK") → all modalities
+        # Skill-only shortcut (e.g., "msk-haut") → all modalities
         if skill_columns_map.get(key_lower):
             modalities.update(allowed_modalities)
             continue

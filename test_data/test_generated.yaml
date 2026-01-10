@@ -10,15 +10,15 @@ vendor_mappings:
       modality: ct
       shift: Fruehdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: keyword
         shift: default
@@ -29,34 +29,34 @@ vendor_mappings:
       modality: ct
       shift: Spaetdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: keyword
         shift: description
         day_part: ''
         occurrences: 3
-    - match: 'Cortex: CT Privatpatienten'
+    - match: 'Cortex: CT privatpatienten'
       type: shift
       modality: ct
       shift: Fruehdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: keyword
         shift: default
@@ -67,15 +67,15 @@ vendor_mappings:
       modality: mr
       shift: Fruehdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: keyword
         shift: default
@@ -86,15 +86,15 @@ vendor_mappings:
       modality: mr
       shift: Fruehdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: keyword
         shift: default
@@ -105,15 +105,15 @@ vendor_mappings:
       modality: mr
       shift: Spaetdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: keyword
         shift: description
@@ -124,15 +124,15 @@ vendor_mappings:
       modality: mr
       shift: Fruehdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: keyword
         shift: default
@@ -143,15 +143,15 @@ vendor_mappings:
       modality: xray
       shift: Fruehdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: heuristic
         shift: default
@@ -162,15 +162,15 @@ vendor_mappings:
       modality: xray
       shift: Fruehdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: heuristic
         shift: default
@@ -181,15 +181,15 @@ vendor_mappings:
       modality: mammo
       shift: Fruehdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: keyword
         shift: default
@@ -200,15 +200,15 @@ vendor_mappings:
       modality: mammo
       shift: Fruehdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: keyword
         shift: default
@@ -219,34 +219,34 @@ vendor_mappings:
       modality: mammo
       shift: Fruehdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: heuristic
         shift: default
         day_part: ''
         occurrences: 3
-    - match: MSK Team
+    - match: MSK/Haut Team
       type: shift
       modality: TODO_modality
       shift: Fruehdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: unknown
         shift: default
@@ -258,55 +258,15 @@ vendor_mappings:
       modality: TODO_modality
       shift: Fruehdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
-      guessed_from:
-        modality: unknown
-        shift: default
-        day_part: ''
-        occurrences: 3
-      notes: modality unclear
-    - match: Chest Team
-      type: shift
-      modality: TODO_modality
-      shift: Fruehdienst
-      base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
-      guessed_from:
-        modality: unknown
-        shift: default
-        day_part: ''
-        occurrences: 3
-      notes: modality unclear
-    - match: Cardvask Team
-      type: shift
-      modality: TODO_modality
-      shift: Fruehdienst
-      base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: unknown
         shift: default
@@ -318,15 +278,15 @@ vendor_mappings:
       modality: TODO_modality
       shift: Fruehdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: unknown
         shift: default
@@ -338,15 +298,15 @@ vendor_mappings:
       modality: TODO_modality
       shift: Fruehdienst
       base_skills:
-        Notfall: 1
-        Privat: 0
-        Gyn: 0
-        Päd: 0
-        MSK: 0
-        Abd/Onco: 0
-        Chest: 0
-        Cardvask: 0
-        Uro: 0
+        notfall: 1
+        privat: 0
+        gyn: 0
+        paed: 0
+        msk-haut: 0
+        abd-onco: 0
+        card-thor: 0
+        kopf-hals: 0
+        uro: 0
       guessed_from:
         modality: unknown
         shift: default

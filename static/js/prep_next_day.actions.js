@@ -982,7 +982,7 @@ function onEditShiftTaskChange(shiftIdx, taskName) {
       SKILLS.forEach(skill => {
         const skillSelect = document.getElementById(`edit-shift-${shiftIdx}-${modKey}-skill-${skill}`);
         if (skillSelect) {
-          // Check for skill_modality format (e.g., "Notfall_ct") first, then skill-only
+          // Check for skill_modality format (e.g., "notfall_ct") first, then skill-only
           const skillModKey = `${skill}_${modKey}`;
           let val = 0;  // Default to passive
           if (overrides[skillModKey] !== undefined) {
@@ -1144,7 +1144,7 @@ function onModalTaskChange() {
       if (isGap) {
         el.value = '-1';  // All skills excluded for gaps
       } else {
-        // Check for skill_modality format (e.g., "Notfall_ct") first, then skill-only
+        // Check for skill_modality format (e.g., "notfall_ct") first, then skill-only
         const skillModKey = `${skill}_${modKey}`;
         let val = 0;  // Default to passive
         if (overrides[skillModKey] !== undefined) {
@@ -1450,8 +1450,8 @@ function applyPresetToShift(shiftIdx, taskName) {
   if (!shift) return;
 
   // Apply skills to all modalities in this shift
-  // Config uses skill×modality format: { "Notfall_ct": 1, "Privat_mr": 0 }
-  // Also supports shortcuts: { "all": -1 }, { "MSK/Haut": 1 }
+  // Config uses skill×modality format: { "notfall_ct": 1, "privat_mr": 0 }
+  // Also supports shortcuts: { "all": -1 }, { "msk-haut": 1 }
   Object.keys(shift.modalities).forEach(modKey => {
     SKILLS.forEach(skill => {
       const el = document.getElementById(`edit-shift-${shiftIdx}-${modKey}-skill-${skill}`);
@@ -1658,7 +1658,7 @@ function addTaskToAddWorkerModal() {
     const modKey = mod.toLowerCase();
     skillsByModality[modKey] = {};
     SKILLS.forEach(skill => {
-      // Check for skill_modality format (e.g., "Notfall_ct") first, then skill-only
+      // Check for skill_modality format (e.g., "notfall_ct") first, then skill-only
       const skillModKey = `${skill}_${modKey}`;
       const overrides = defaultTask.skill_overrides || {};
       if (overrides[skillModKey] !== undefined) {
@@ -1747,7 +1747,7 @@ function updateAddWorkerTask(idx, field, value) {
           const modKey = mod.toLowerCase();
           if (!task.skillsByModality[modKey]) task.skillsByModality[modKey] = {};
           SKILLS.forEach(skill => {
-            // Check for skill_modality format (e.g., "Notfall_ct") first
+            // Check for skill_modality format (e.g., "notfall_ct") first
             const skillModKey = `${skill}_${modKey}`;
             if (overrides[skillModKey] !== undefined) {
               task.skillsByModality[modKey][skill] = overrides[skillModKey];

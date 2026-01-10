@@ -21,7 +21,7 @@ When a worker is assigned via the API endpoints:
 - `GET /api/<modality>/<role>/strict`
 
 The system automatically:
-1. Records the skill-modality combination used (e.g., `Notfall + ct`)
+1. Records the skill-modality combination used (e.g., `notfall + ct`)
 2. Increments the daily counter for that combination
 3. Checks if it's time for the daily export (7:30 AM)
 
@@ -35,9 +35,9 @@ The system tracks usage as a simple counter per skill-modality combination:
 
 Example:
 ```
-('Notfall', 'ct') → 15
-('Privat', 'ct') → 8
-('MSK/Haut', 'mr') → 12
+('notfall', 'ct') → 15
+('privat', 'ct') → 8
+('msk-haut', 'mr') → 12
 ```
 
 ### CSV Export Format
@@ -49,12 +49,12 @@ Usage statistics are exported to a single CSV file in **wide format** with one r
 **CSV Structure**:
 - **First Column**: `date` (YYYY-MM-DD format)
 - **Remaining Columns**: One column for each skill-modality combination in format `Skill_modality`
-  - Examples: `Notfall_ct`, `Privat_mr`, `MSK/Haut_xray`, `Card/Thor_ct`
+  - Examples: `notfall_ct`, `privat_mr`, `msk-haut_xray`, `card-thor_ct`
   - All columns are always present, with value 0 if not used that day
 
 **Example**:
 ```csv
-date,Notfall_ct,Notfall_mr,Privat_ct,Privat_mr,MSK/Haut_ct,MSK/Haut_mr,Card/Thor_ct,Card/Thor_mr,...
+date,notfall_ct,notfall_mr,privat_ct,privat_mr,msk-haut_ct,msk-haut_mr,card-thor_ct,card-thor_mr,...
 2025-12-22,15,8,5,2,3,12,5,1,...
 2025-12-23,18,6,7,3,2,10,4,0,...
 2025-12-24,12,10,6,4,5,15,3,2,...
@@ -94,12 +94,12 @@ Returns the current day's usage statistics in JSON format.
   "total_usages": 45,
   "stats": [
     {
-      "skill": "Notfall",
+      "skill": "notfall",
       "modality": "ct",
       "count": 15
     },
     {
-      "skill": "Privat",
+      "skill": "privat",
       "modality": "ct",
       "count": 8
     },
@@ -183,7 +183,7 @@ The wide format makes it easy to compare with your actual work entry data:
 
 **Example Analysis** (in Excel/Python/R):
 ```
-Date        | Notfall_ct (Tool) | Notfall_ct (Actual) | Ratio
+Date        | notfall_ct (Tool) | notfall_ct (Actual) | Ratio
 ------------|-------------------|---------------------|-------
 2025-12-22  | 15                | 20                  | 0.75
 2025-12-23  | 18                | 18                  | 1.00
@@ -212,9 +212,9 @@ import matplotlib.pyplot as plt
 # Load the CSV
 df = pd.read_csv('logs/usage_stats/usage_stats.csv', parse_dates=['date'])
 
-# Plot Notfall usage across all modalities over time
-df.plot(x='date', y=['Notfall_ct', 'Notfall_mr', 'Notfall_xray'], figsize=(12,6))
-plt.title('Notfall Usage Trends by Modality')
+# Plot notfall usage across all modalities over time
+df.plot(x='date', y=['notfall_ct', 'notfall_mr', 'notfall_xray'], figsize=(12,6))
+plt.title('notfall Usage Trends by Modality')
 plt.ylabel('Number of Assignments')
 plt.show()
 ```
