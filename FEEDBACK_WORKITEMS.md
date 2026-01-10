@@ -318,52 +318,30 @@ Option B: Create separate routes/pages:
 
 ## 6. WORKER LOAD MONITOR
 
-### 6.1 Header Color Not Good
+### 6.1 ~~Header Color Not Good~~ ✅ COMPLETED
 **Feedback:** "improve headers more -> worker load header color not good"
 
-**Code Location:**
-- `templates/worker_load_monitor.html:159-188` - Table styles
-- `templates/worker_load_monitor.html:36-42` - Header color CSS
+**Solution Implemented:**
+- Changed table header background from light gray (`#f8f9fa`) to brand blue (`#004892`)
+- Added white text color for better contrast
+- Updated hover state to darker blue (`#003670`)
+- Updated sortable indicators to be visible against blue background
+- Updated card h3 titles to use brand blue color
 
-**Current Behavior:**
-```css
-.load-table th {
-  background: #f8f9fa;  /* Light gray */
-}
-```
+**Priority:** Low - Visual polish ✅ DONE
 
-**Implementation Plan:**
-1. Use modality colors or brand primary color
-2. Consider matching prep page header styling
-3. Options:
-   ```css
-   .load-table th {
-     background: #004892;  /* Brand blue */
-     color: white;
-   }
-   ```
-
-**Priority:** Low - Visual polish
-
-### 6.2 Table Color Like Prep Page
+### 6.2 ~~Table Color Like Prep Page~~ ✅ COMPLETED
 **Feedback:** "worker load -> color of table like prep page"
 
-**Problem:** Worker load table styling doesn't match prep page styling
+**Solution Implemented:**
+- Reduced font size from `0.85rem` to `0.78rem` (matching prep page)
+- Reduced cell padding from `0.5rem 0.75rem` to `0.35rem 0.5rem`
+- Added alternating row colors (`#fafafa` on even rows)
+- Updated hover states to use brand blue tint (`rgba(0, 72, 146, 0.05)`)
+- Added `vertical-align: middle` and `white-space: nowrap` for cleaner display
+- Updated compact-grid sub-headers with brand blue color scheme (`#e8f0f7` bg, `#004892` text)
 
-**Code Location:**
-- `templates/worker_load_monitor.html` - Worker load styles
-- `templates/prep_next_day.html:100-170` - Prep page table styles
-
-**Implementation Plan:**
-1. Copy relevant table styles from prep_next_day.html
-2. Use consistent:
-   - Border colors
-   - Row hover colors
-   - Cell padding
-   - Font sizes
-3. Consider extracting shared table styles to `static/styles.css`
-
-**Priority:** Low - Visual consistency
+**Priority:** Low - Visual consistency ✅ DONE
 
 ---
 
@@ -432,8 +410,8 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 3. ~~3.8 - Filter highlighting~~ ✅
 4. 4.2 - Remove preload button
 5. ~~5.1 - Simplify timetable link~~ ✅
-6. 6.1 - Header color
-7. 6.2 - Table color consistency
+6. ~~6.1 - Header color~~ ✅
+7. ~~6.2 - Table color consistency~~ ✅
 8. 7.1 - Rename Abdomen
 
 ---
