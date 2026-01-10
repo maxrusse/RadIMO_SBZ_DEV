@@ -91,21 +91,12 @@ Option B: Create separate routes/pages:
 
 **Priority:** High - Core functionality gap
 
-### 3.4 Add Worker = Use Edit Popup in Empty State
+### 3.4 ~~Add Worker = Use Edit Popup in Empty State~~ ✓ RESOLVED
 **Feedback:** "Add Worker = use edit popup in 'empty' state?"
 
-**Problem:** User wants "Add Worker" to use the same popup as "Edit Worker" but in empty/new mode
-
-**Code Location:**
-- `static/js/prep_next_day.js` - `openAddWorkerModal()` function
-- `templates/prep_next_day.html:1367-1376` - Add worker modal
-
-**Implementation Plan:**
-1. Refactor to use single modal for both Add and Edit
-2. Pass mode flag: `openWorkerModal('add')` vs `openWorkerModal('edit', rowData)`
-3. Pre-populate fields when editing, leave blank when adding
-
-**Priority:** Medium - UI consolidation
+**Resolution:**
+- Consolidated Add Worker into the existing edit modal with mode-aware actions and titles.
+- Reused the add-worker content renderer to populate the edit modal in an empty state.
 
 ---
 

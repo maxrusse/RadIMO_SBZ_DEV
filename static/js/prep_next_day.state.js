@@ -10,11 +10,13 @@ let pendingChanges = { today: {}, tomorrow: {} };  // Track unsaved inline chang
 let tableFilters = { today: { modality: '', skill: '', hideZero: false }, tomorrow: { modality: '', skill: '', hideZero: false } };
 let displayOrder = 'modality-first';  // 'modality-first' or 'skill-first'
 let sortState = { today: { column: 'worker', direction: 'asc' }, tomorrow: { column: 'worker', direction: 'asc' } };
+let modalMode = 'edit';
 
 // Add Worker Modal state
 let addWorkerModalState = {
   tab: null,
-  tasks: []  // Array of { task, modality, start_time, end_time, modifier, skills }
+  tasks: [],  // Array of { task, modality, start_time, end_time, modifier, skills }
+  containerId: 'modal-content'
 };
 
 /**

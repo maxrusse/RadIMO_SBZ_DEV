@@ -715,8 +715,9 @@ function renderEditModalContent() {
   initializeModalAddForm();
 }
 
-function renderAddWorkerModalContent() {
-  const container = document.getElementById('add-worker-modal-content');
+function renderAddWorkerModalContent(containerId = addWorkerModalState.containerId || 'modal-content') {
+  const container = document.getElementById(containerId);
+  if (!container) return;
   const workerInput = document.getElementById('add-worker-name-input');
   const currentWorkerName = workerInput ? workerInput.value : '';
 
