@@ -1,7 +1,7 @@
 # Standard library imports
 import logging
 from datetime import datetime, time, timedelta, date
-from typing import Any, List, Optional, Tuple, Dict
+from typing import Any, List, Optional, Tuple, Union
 import pytz
 import pandas as pd
 
@@ -43,9 +43,7 @@ def _get_configured_timezone() -> str:
 def get_local_now() -> datetime:
     """Get current local time in configured timezone (defaults to Europe/Berlin)."""
     tz = pytz.timezone(_get_configured_timezone())
-    aware_now = datetime.now(tz)
-    naive_now = aware_now.replace(tzinfo=None)
-    return naive_now
+    return datetime.now(tz).replace(tzinfo=None)
 
 
 def parse_time_range(time_range: str) -> Tuple[time, time]:
@@ -55,7 +53,7 @@ def parse_time_range(time_range: str) -> Tuple[time, time]:
     """
     start_str, end_str = time_range.split('-')
     start_time = datetime.strptime(start_str.strip(), TIME_FORMAT).time()
-    end_time   = datetime.strptime(end_str.strip(), TIME_FORMAT).time()
+    end_time = datetime.strptime(end_str.strip(), TIME_FORMAT).time()
     return start_time, end_time
 
 def compute_shift_window(
@@ -92,7 +90,7 @@ def get_weekday_name_german(target_date: date) -> str:
     ]
     return weekday_names[target_date.weekday()]
 
-def get_next_workday(from_date: Optional[datetime] = None) -> datetime:
+def get_next_workday(from_date: Optional[Union[datetime, date]] = None) -> datetime:
     """
     Calculate next workday.
     - If Friday: return Monday
@@ -100,13 +98,9 @@ def get_next_workday(from_date: Optional[datetime] = None) -> datetime:
     - Skips weekends
     """
     if from_date is None:
-        from_date = get_local_now()
-
-    # If datetime, convert to date
-    if hasattr(from_date, 'date'):
-        current_date = from_date.date()
+        current_date = get_local_now().date()
     else:
-        current_date = from_date
+        current_date = from_date.date() if hasattr(from_date, 'date') else from_date
 
     # Calculate next day
     next_day = current_date + timedelta(days=1)
@@ -169,21 +163,31 @@ def normalize_skill_value(value: Any) -> str:
             return WEIGHTED_SKILL_MARKER
         if cleaned == '':
             return SKILL_VALUE_PASSIVE
-        try:
-            parsed = int(float(cleaned))
-        except ValueError:
-            return SKILL_VALUE_PASSIVE
+        parsed = _parse_skill_int(cleaned)
     else:
-        try:
-            parsed = int(value)
-        except (TypeError, ValueError):
-            return SKILL_VALUE_PASSIVE
+        parsed = _parse_skill_int(value)
+
+    if parsed is None:
+        return SKILL_VALUE_PASSIVE
 
     if parsed <= -1:
         return SKILL_VALUE_EXCLUDED
     if parsed == 0:
         return SKILL_VALUE_PASSIVE
     return SKILL_VALUE_ACTIVE
+
+
+def _parse_skill_int(value: Any) -> Optional[int]:
+    """Parse a skill value into an integer, returning None on failure."""
+    if isinstance(value, str):
+        try:
+            return int(float(value))
+        except ValueError:
+            return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def skill_value_to_display(value: Any) -> str:
