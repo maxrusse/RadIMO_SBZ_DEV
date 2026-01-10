@@ -49,6 +49,7 @@ def extract_skills(config: Dict) -> List[str]:
         return skills
     # Sensible defaults if config.yaml is missing
     return [
+        # Use canonical skill keys from config.yaml (labels may differ, e.g. Abdomen -> Abd/Onco)
         "Notfall",
         "Privat",
         "Gyn",

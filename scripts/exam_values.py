@@ -34,6 +34,7 @@ import yaml
 
 
 DEFAULT_SKILLS = [
+    # Use canonical skill keys from config.yaml (labels may differ, e.g. Abdomen -> Abd/Onco)
     "Notfall", "Privat", "Gyn", "Päd", "MSK-Haut",
     "Abdomen", "CardThor", "Uro", "KopfHals"
 ]
