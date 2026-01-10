@@ -1390,6 +1390,11 @@ function renderTable(tab) {
         tr.classList.add('row-manual');
       }
 
+      // Add highlight class when modality or skill filter is active
+      if (filter.modality || filter.skill) {
+        tr.classList.add('filtered-highlight');
+      }
+
       if (shiftIdx === 0) {
         tr.classList.add('worker-group-first');
         let workerHtml = `<span class="worker-name ${isDuplicate ? 'duplicate' : ''}">${escapedWorker}</span>${duplicateBadge}`;

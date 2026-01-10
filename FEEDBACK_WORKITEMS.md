@@ -213,27 +213,18 @@ Option B: Create separate routes/pages:
 
 **Priority:** Medium - Data visibility improvement ✅ DONE
 
-### 3.8 Filter Highlighting in Table
+### 3.8 ~~Filter Highlighting in Table~~ ✅ COMPLETED
 **Feedback:** "on filter do a small Highlighting on the table like a bit thicker line around the selected stuff like CT + Gyn = edges around the entries a bit thicker?"
 
 **Problem:** When filtering by modality/skill, the filtered items should have visual highlighting
 
-**Code Location:**
-- `static/js/prep_next_day.js:276-329` - `filterByModality()`, `filterBySkill()`
-- `templates/prep_next_day.html` - Table styles
+**Solution Implemented:**
+- Added `.filtered-highlight` CSS class in `prep_next_day.html` with outline and subtle background
+- Modified `renderTable()` in `prep_next_day.js` to add the class when modality or skill filter is active
+- Rows matching the filter now show a 2px blue outline and light blue background tint
+- Worker group first rows have slightly thicker outline (2.5px) for better visibility
 
-**Implementation Plan:**
-1. Add CSS class for filtered/highlighted rows:
-   ```css
-   .filtered-highlight {
-     outline: 2px solid #004892;
-     outline-offset: -2px;
-   }
-   ```
-2. Apply class to matching rows when filter is active
-3. Consider subtle background color in addition to border
-
-**Priority:** Low - Visual enhancement
+**Priority:** Low - Visual enhancement ✅ DONE
 
 ---
 
@@ -447,7 +438,7 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 ### Low Priority (Polish & Cleanup)
 1. 2.2 - Default w-weight
 2. 2.3 - Remove optional/special flags
-3. 3.8 - Filter highlighting
+3. ~~3.8 - Filter highlighting~~ ✅
 4. 4.2 - Remove preload button
 5. 5.1 - Simplify timetable link
 6. 6.1 - Header color
