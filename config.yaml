@@ -273,6 +273,7 @@ balancer:
   allow_overflow_on_imbalance: true          # Allow overflow to generalists when imbalanced
   disable_overflow_at_shift_start_minutes: 15  # Don't assign overflow in first X minutes
   disable_overflow_at_shift_end_minutes: 30    # Don't assign overflow in last X minutes
+  default_w_modifier: 0.5                   # Default modifier for weighted ('w') skills
 
   # Hours counting for load balancing
   # Controls which entries count towards a worker's total hours in workload calculations

@@ -362,8 +362,8 @@
         </div>
         <div class="modifier-row">
           <label for="workerModifier">Global Modifier:</label>
-          <input type="number" id="workerModifier" class="modifier-input" step="0.1" min="0.1" max="2.0" value="1.0" onchange="updateModifier(this.value)">
-          <span class="modifier-help">(Used for 'w' assignments. 1.0 = normal, 0.5 = training/50% load)</span>
+          <input type="number" id="workerModifier" class="modifier-input" step="0.1" min="0.1" max="2.0" value="{{ default_w_modifier }}" onchange="updateModifier(this.value)">
+          <span class="modifier-help">(Used for 'w' assignments. Default {{ default_w_modifier }} = training/50% load)</span>
         </div>
         <div style="overflow-x: auto;">
           <table class="matrix-table">
@@ -387,6 +387,7 @@
     let selectedWorker = null;
     let isDirty = false;  // Track unsaved changes
     const validSkillsMap = JSON.parse('{{ valid_skills_map|tojson|safe }}');
+    const defaultWModifier = {{ default_w_modifier|tojson|safe }};
 
     function isValidCombination(modality, skill) {
       if (!validSkillsMap[modality]) return true;
@@ -569,7 +570,7 @@
 
       // Update modifier input
       const modifierInput = document.getElementById('workerModifier');
-      const modifier = workerData.modifier !== undefined ? workerData.modifier : 1.0;
+      const modifier = workerData.modifier !== undefined ? workerData.modifier : defaultWModifier;
       modifierInput.value = modifier;
     }
 
@@ -624,7 +625,7 @@
       }
 
       // Create new worker with flat Skill×Modality combinations (all set to 0)
-      rosterData[workerId] = { modifier: 1.0 };
+      rosterData[workerId] = { modifier: defaultWModifier };
       if (fullName) {
         rosterData[workerId].full_name = fullName;
         workerNames[workerId] = fullName;  // Update display cache

@@ -302,20 +302,20 @@ Manual edits in the prep page can change any value:
 When a worker has skill=`w`, the system uses their personal modifier to reduce their workload:
 
 ```
-Priority: Shift Modifier > Roster Modifier > Default (1.0)
+Priority: Shift Modifier > Roster Modifier > Default (balancer.default_w_modifier)
 ```
 
 | Source | When Used |
 |--------|-----------|
 | **Shift Modifier** | If shift explicitly sets `Modifier ≠ 1.0` |
 | **Roster Modifier** | If shift modifier is default (1.0), use roster's `modifier` field |
-| **Default** | If neither is set, use `1.0` |
+| **Default** | If neither is set, use `balancer.default_w_modifier` |
 
 **Roster modifier setup:**
 
 In the Skill Roster page, each worker has a global `modifier` field:
-- `1.0` = normal workload (default)
-- `0.5` = 50% workload (trainee)
+- `1.0` = normal workload
+- `0.5` = 50% workload (trainee, default)
 - `0.75` = 75% workload (experienced but supported)
 
 The modifier affects weighted (`w`) assignments by adjusting the workload calculation:
