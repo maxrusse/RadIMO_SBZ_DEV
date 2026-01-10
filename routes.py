@@ -805,6 +805,7 @@ def prep_next_day():
     if roster is None:
         roster = {}
     worker_list = list(roster.keys())
+    worker_names = build_worker_name_mapping(roster)
 
     medweb_rules = APP_CONFIG.get('medweb_mapping', {}).get('rules', [])
     task_roles = []
@@ -877,6 +878,7 @@ def prep_next_day():
         modalities=list(MODALITY_SETTINGS.keys()),
         modality_settings=MODALITY_SETTINGS,
         worker_list=worker_list,
+        worker_names=worker_names,
         worker_skills=worker_skills,
         task_roles=task_roles,
         skill_value_colors=APP_CONFIG.get('skill_value_colors', {}),

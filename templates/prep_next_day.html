@@ -1377,10 +1377,15 @@
     </div>
   </div>
 
-  <!-- Worker list datalist for autocomplete -->
+  <!-- Worker list datalist for autocomplete (shows "Full Name (ID)" format) -->
   <datalist id="worker-list-datalist">
     {% for worker in worker_list %}
-    <option value="{{ worker }}"></option>
+    {% set display_name = worker_names.get(worker, worker) if worker_names else worker %}
+    {% if display_name != worker and '(' ~ worker ~ ')' not in display_name %}
+    <option value="{{ display_name }} ({{ worker }})"></option>
+    {% else %}
+    <option value="{{ display_name }}"></option>
+    {% endif %}
     {% endfor %}
   </datalist>
 
@@ -1391,6 +1396,7 @@
       "modality_settings": {{ modality_settings|default ({}) | tojson }},
       "skill_settings": {{ skill_settings|default ({}) | tojson }},
       "worker_skills": {{ worker_skills|default ({}) | tojson }},
+      "worker_names": {{ worker_names|default ({}) | tojson }},
       "task_roles": {{ task_roles|default ([]) | tojson }},
       "skill_value_colors": {{ skill_value_colors|default ({}) | tojson }},
       "ui_colors": {{ ui_colors|default ({}) | tojson }},

@@ -108,30 +108,20 @@ skills:
 
 **This is a meta-issue encompassing several sub-issues below**
 
-### 3.2 Names in Adding, Not Only Acronyms
+### 3.2 ~~Names in Adding, Not Only Acronyms~~ ✅ COMPLETED
 **Feedback:** "Names in adding not only akromyns"
 
 **Problem:** When adding a worker, only acronyms/IDs are shown, not full names
 
-**Code Location:**
-- `templates/prep_next_day.html:1379-1383` - Worker datalist
-- `static/js/prep_next_day.js:583-627` - Add worker modal logic
+**Solution Implemented:**
+- Added `worker_names` mapping to `prep_next_day` route (using `build_worker_name_mapping`)
+- Updated datalist in template to show "Full Name (ID)" format
+- Added `parseWorkerInput()` JS function to extract worker ID from display format
+- Added `getWorkerDisplayName()` JS helper for consistent name display
+- Updated `onAddWorkerNameChange()` and `saveAddWorkerModal()` to use parsed worker IDs
+- Worker skill roster lookups now work correctly with "Full Name (ID)" input
 
-**Current Behavior:**
-```html
-<datalist id="worker-list-datalist">
-  {% for worker in worker_list %}
-  <option value="{{ worker }}"></option>
-  {% endfor %}
-</datalist>
-```
-
-**Implementation Plan:**
-1. Pass full worker names to template (not just IDs)
-2. Update datalist to show "Full Name (ID)" format
-3. Parse selection to extract ID for backend
-
-**Priority:** Medium - Usability improvement
+**Priority:** Medium - Usability improvement ✅ DONE
 
 ### 3.3 Separate Prep Today from Prep Tomorrow as Separate Pages
 **Feedback:** "Seperate Prep today from pre tomorrow as separate Tags on high level like own page as upload page"
@@ -456,7 +446,7 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 
 ### Medium Priority (UX Improvements)
 1. ~~1.1 - Latest assignment display~~ ✅
-2. 3.2 - Names in add worker
+2. ~~3.2 - Names in add worker~~ ✅
 3. 3.3 - Separate Today/Tomorrow pages
 4. 3.5 - Add worker uses edit popup
 5. 3.6 - Delete button in quick edit
