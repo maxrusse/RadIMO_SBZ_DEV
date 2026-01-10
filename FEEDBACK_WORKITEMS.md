@@ -185,19 +185,19 @@ Option B: Create separate routes/pages:
 
 **Priority:** Medium - UI consolidation
 
-### 3.6 Small X to Delete Shifts/Gaps in Quick Edit
+### 3.6 ~~Small X to Delete Shifts/Gaps in Quick Edit~~ ✅ COMPLETED
 **Feedback:** "in quickedit maybe small x to delete shifts/gaps?"
 
-**Code Location:**
-- `static/js/prep_next_day.js` - Quick edit mode rendering
-- `routes.py` - Delete endpoints exist but may not be used in quick edit
+**Problem:** Users had no way to delete shifts/gaps directly in quick edit mode
 
-**Implementation Plan:**
-1. Add small delete button (×) to each shift/gap row in quick edit mode
-2. Wire up to existing delete API endpoint
-3. Confirm deletion before executing
+**Solution Implemented:**
+- Added `.btn-inline-delete` CSS styling in `prep_next_day.html` for small red delete button
+- Modified shift editor in quick edit mode to include × delete button after time inputs
+- Added `deleteShiftInline(tab, gIdx, shiftIdx)` function in `prep_next_day.js`
+- Delete button confirms before executing and removes all modality entries for the shift
+- Uses existing `/api/prep-next-day/delete-worker` and `/api/live-schedule/delete-worker` endpoints
 
-**Priority:** Medium - Usability improvement
+**Priority:** Medium - Usability improvement ✅ DONE
 
 ### 3.7 ~~Gaps Not Shown in Timetable~~ ✅ COMPLETED
 **Feedback:** "gaps not shown in timetable?"
@@ -431,7 +431,7 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 2. ~~3.2 - Names in add worker~~ ✅
 3. 3.3 - Separate Today/Tomorrow pages
 4. 3.5 - Add worker uses edit popup
-5. 3.6 - Delete button in quick edit
+5. ~~3.6 - Delete button in quick edit~~ ✅
 6. ~~3.7 - Gaps in timetable~~ ✅
 7. 5.2 - Multi-shifts in timetable
 

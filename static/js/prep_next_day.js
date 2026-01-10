@@ -1419,6 +1419,7 @@ function renderTable(tab) {
             <input type="time" value="${firstSeg.start || '07:00'}" onchange="onInlineTimeChange('${tab}', ${gIdx}, ${shiftIdx}, 'start', this.value)" style="padding: 0.1rem; font-size: 0.7rem; width: 65px;">
             -
             <input type="time" value="${lastSeg.end || '15:00'}" onchange="onInlineTimeChange('${tab}', ${gIdx}, ${shiftIdx}, 'end', this.value)" style="padding: 0.1rem; font-size: 0.7rem; width: 65px;">
+            <button type="button" class="btn-inline-delete" onclick="deleteShiftInline('${tab}', ${gIdx}, ${shiftIdx})" title="Delete this shift">×</button>
           </div>`;
         // Show gaps in edit mode too
         if (gaps.length > 0) {
@@ -2064,6 +2065,37 @@ async function deleteShiftFromModal(shiftIdx) {
     }
     showMessage('success', 'Shift deleted');
     closeModal();
+    await loadData();
+  } catch (error) {
+    showMessage('error', error.message);
+  }
+}
+
+// Delete shift inline from quick edit mode
+async function deleteShiftInline(tab, groupIdx, shiftIdx) {
+  const group = entriesData[tab]?.[groupIdx];
+  if (!group) return;
+
+  const shifts = group.shiftsArray || [];
+  const shift = shifts[shiftIdx];
+  if (!shift) return;
+
+  if (!confirm(`Delete this shift (${shift.start_time}-${shift.end_time})?`)) return;
+
+  const endpoint = tab === 'today' ? '/api/live-schedule/delete-worker' : '/api/prep-next-day/delete-worker';
+
+  try {
+    // Delete all modality entries for this shift
+    for (const [modKey, modData] of Object.entries(shift.modalities)) {
+      if (modData.row_index !== undefined && modData.row_index >= 0) {
+        await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ modality: modKey, row_index: modData.row_index, verify_ppl: group.worker })
+        });
+      }
+    }
+    showMessage('success', 'Shift deleted');
     await loadData();
   } catch (error) {
     showMessage('error', error.message);
