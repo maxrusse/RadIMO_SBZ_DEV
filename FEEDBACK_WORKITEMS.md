@@ -148,28 +148,12 @@ Option B: Create separate routes/pages:
 
 **Priority:** High - Core functionality verification
 
-### 4.2 Remove Preload Tomorrow from Upload Page
+### 4.2 ~~Remove Preload Tomorrow from Upload Page~~ ✓ RESOLVED
 **Feedback:** "remove preload tomorrow? from upload page as it is lasy loaded anyways"
 
-**Problem:** "Preload Tomorrow" button on upload page may be redundant since data is lazy-loaded
-
-**Code Location:**
-- `templates/upload.html:338-346` - Preload button
-- `routes.py` - `/preload-from-master` endpoint
-- `data_manager/scheduled_tasks.py` - Auto-preload logic
-
-**Current Behavior:**
-- Manual preload button exists
-- Auto-preload happens at configured time
-- Prep page lazy-loads data
-
-**Implementation Plan:**
-1. Evaluate if manual preload is ever needed
-2. If not, remove button from upload.html
-3. Keep API endpoint for programmatic/scheduled use
-4. Alternatively, show button only when auto-preload hasn't run
-
-**Priority:** Low - UI simplification
+**Resolution:**
+- Removed the "Preload Tomorrow" button and its client-side handler from `templates/upload.html`.
+- Kept `/preload-from-master` endpoint and scheduled auto-preload behavior intact.
 
 ---
 
