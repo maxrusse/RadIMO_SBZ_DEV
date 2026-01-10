@@ -118,6 +118,9 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .worker-item:hover {
@@ -342,7 +345,7 @@
       <h3>Workers</h3>
       <div id="workerListContainer"></div>
       <div class="add-worker">
-        <input type="text" id="newWorkerId" placeholder="New Worker ID">
+        <input type="text" id="newWorkerId" placeholder="ID or Name (ID)">
         <button class="btn btn-primary" onclick="addWorker()">Add Worker</button>
       </div>
     </div>
@@ -378,6 +381,7 @@
 
   <script>
     let rosterData = {};
+    let workerNames = {};  // Mapping from worker ID to display name
     let skills = [];
     let modalities = [];
     let selectedWorker = null;
@@ -432,6 +436,7 @@
         const data = await response.json();
         if (data.success) {
           rosterData = data.roster;
+          workerNames = data.worker_names || {};
           skills = data.skills;
           modalities = data.modalities;
           renderWorkerList();
@@ -447,13 +452,28 @@
       }
     }
 
+    function getWorkerDisplayName(workerId) {
+      // Returns display name with ID if available, otherwise just the ID
+      const fullName = workerNames[workerId];
+      if (fullName && fullName !== workerId) {
+        // If full name already contains the ID in parentheses, use it as-is
+        if (fullName.includes('(' + workerId + ')')) {
+          return fullName;
+        }
+        // Otherwise, append ID in parentheses
+        return fullName + ' (' + workerId + ')';
+      }
+      return workerId;
+    }
+
     function renderWorkerList() {
       const container = document.getElementById('workerListContainer');
       container.innerHTML = '';
       Object.keys(rosterData).sort().forEach(workerId => {
         const div = document.createElement('div');
         div.className = 'worker-item' + (selectedWorker === workerId ? ' active' : '');
-        div.textContent = workerId;
+        div.textContent = getWorkerDisplayName(workerId);
+        div.title = workerId;  // Tooltip shows the ID
         div.onclick = () => selectWorker(workerId);
         container.appendChild(div);
       });
@@ -465,7 +485,7 @@
       renderWorkerMatrix();
       document.getElementById('noWorkerSelected').style.display = 'none';
       document.getElementById('workerDetailContent').style.display = 'block';
-      document.getElementById('selectedWorkerTitle').textContent = 'Worker: ' + workerId;
+      document.getElementById('selectedWorkerTitle').textContent = 'Worker: ' + getWorkerDisplayName(workerId);
     }
 
     function renderWorkerMatrix() {
@@ -579,13 +599,25 @@
       rosterData[selectedWorker][key] = value;
     }
 
+    function parseWorkerInput(inputValue) {
+      // Parse input like "Dr. Name (ID)" or just "ID"
+      // Returns { id, fullName }
+      const match = inputValue.match(/^(.+?)\s*\(([^)]+)\)$/);
+      if (match) {
+        return { id: match[2].trim(), fullName: inputValue };
+      }
+      return { id: inputValue, fullName: null };
+    }
+
     function addWorker() {
       const input = document.getElementById('newWorkerId');
-      const workerId = input.value.trim();
-      if (!workerId) {
-        showStatus('Please enter a worker ID', 'error');
+      const inputValue = input.value.trim();
+      if (!inputValue) {
+        showStatus('Please enter a worker ID or "Name (ID)"', 'error');
         return;
       }
+
+      const { id: workerId, fullName } = parseWorkerInput(inputValue);
       if (rosterData[workerId]) {
         showStatus('Worker already exists', 'error');
         return;
@@ -593,6 +625,10 @@
 
       // Create new worker with flat Skill×Modality combinations (all set to 0)
       rosterData[workerId] = { modifier: 1.0 };
+      if (fullName) {
+        rosterData[workerId].full_name = fullName;
+        workerNames[workerId] = fullName;  // Update display cache
+      }
       skills.forEach(skill => {
         modalities.forEach(mod => {
           if (isValidCombination(mod, skill)) {
@@ -611,7 +647,7 @@
 
     function deleteWorker() {
       if (!selectedWorker) return;
-      if (!confirm('Delete worker ' + selectedWorker + '?')) return;
+      if (!confirm('Delete worker ' + getWorkerDisplayName(selectedWorker) + '?')) return;
 
       delete rosterData[selectedWorker];
       selectedWorker = null;
