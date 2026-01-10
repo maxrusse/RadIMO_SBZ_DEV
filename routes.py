@@ -67,6 +67,7 @@ from data_manager import (
     preload_next_workday,
     _calculate_total_work_hours,
     apply_roster_overrides_to_schedule,
+    extract_modalities_from_skill_overrides,
 )
 from balancer import (
     get_next_available_worker,
@@ -839,33 +840,9 @@ def _render_prep_page(initial_tab):
         else:
             counts_for_hours = hours_counting_config.get('shift_default', True)
 
-        # Extract modalities from skill_overrides (REQUIRED for shifts)
+        # Extract modalities from skill_overrides using shared helper
         skill_overrides = rule.get('skill_overrides', {})
-        derived_modalities = set()
-        for key in skill_overrides.keys():
-            # Skip shortcut keys (all, skill names, modality names)
-            if key.lower() == 'all':
-                # "all" shortcut means all modalities
-                derived_modalities.update(allowed_modalities)
-                continue
-            if normalize_skill(key) in SKILL_COLUMNS:
-                # Skill shortcut (e.g., "MSK" or "msk") means all modalities
-                derived_modalities.update(allowed_modalities)
-                continue
-            # Check if key is a modality shortcut (case-insensitive)
-            canonical_mod = allowed_modalities_map.get(key.lower())
-            if canonical_mod:
-                derived_modalities.add(canonical_mod)
-                continue
-            # Full key like "MSK_ct"
-            if '_' in key:
-                parts = key.split('_', 1)
-                if len(parts) == 2:
-                    mod = allowed_modalities_map.get(parts[1].lower())
-                    if mod:
-                        derived_modalities.add(mod)
-
-        modalities_list = list(derived_modalities)
+        modalities_list = extract_modalities_from_skill_overrides(skill_overrides)
 
         task_role = {
             'name': rule.get('match', ''),
