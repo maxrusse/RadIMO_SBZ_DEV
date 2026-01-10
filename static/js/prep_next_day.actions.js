@@ -5,7 +5,7 @@ function toggleDisplayOrder() {
     ? 'Current: Modalities as groups, skills as sub-columns. Click to switch.'
     : 'Current: Skills as groups, modalities as sub-columns. Click to switch.';
   // Update both buttons (today and tomorrow tabs)
-  ['display-order-toggle', 'display-order-toggle-tomorrow'].forEach(id => {
+  ['display-order-toggle-today', 'display-order-toggle-tomorrow'].forEach(id => {
     const btn = document.getElementById(id);
     if (btn) {
       btn.textContent = newText;
@@ -2118,6 +2118,5 @@ function showMessage(type, message) {
 }
 
 // Initialize edit mode UI and load current tab (lazy loading)
-applyEditModeUI('today');
-applyEditModeUI('tomorrow');
+applyEditModeUI(currentTab);
 loadTabData(currentTab);
