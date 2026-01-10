@@ -914,6 +914,7 @@ function openEditModal(tab, groupIdx) {
   if (!group) return;
 
   currentEditEntry = { tab, groupIdx };
+  setModalMode('edit');
   renderEditModalContent();
   document.getElementById('edit-modal').classList.add('show');
 }
@@ -1592,6 +1593,31 @@ async function saveModalChanges() {
 function closeModal() {
   document.getElementById('edit-modal').classList.remove('show');
   currentEditEntry = null;
+  if (modalMode === 'add-worker') {
+    resetAddWorkerModalState();
+  }
+  setModalMode('edit');
+}
+
+function setModalMode(mode) {
+  modalMode = mode;
+  const saveButton = document.getElementById('modal-save-button');
+  if (!saveButton) return;
+  if (mode === 'add-worker') {
+    saveButton.textContent = 'Add Worker';
+    saveButton.className = 'btn btn-success';
+  } else {
+    saveButton.textContent = 'Save';
+    saveButton.className = 'btn btn-primary';
+  }
+}
+
+function saveModalAction() {
+  if (modalMode === 'add-worker') {
+    saveAddWorkerModal();
+    return;
+  }
+  saveModalChanges();
 }
 
 // =============================================
@@ -1601,17 +1627,19 @@ function closeModal() {
 function openAddWorkerModal(tab) {
   addWorkerModalState.tab = tab;
   addWorkerModalState.tasks = [];
+  addWorkerModalState.containerId = 'modal-content';
   // Start with one empty task
   addTaskToAddWorkerModal();
   renderAddWorkerModalContent();
-  document.getElementById('add-worker-modal').classList.add('show');
-  document.getElementById('add-worker-modal-title').textContent = tab === 'today' ? 'Add Worker (Today)' : 'Add Worker (Tomorrow)';
+  setModalMode('add-worker');
+  document.getElementById('modal-title').textContent = tab === 'today' ? 'Add Worker (Today)' : 'Add Worker (Tomorrow)';
+  document.getElementById('edit-modal').classList.add('show');
 }
 
-function closeAddWorkerModal() {
-  document.getElementById('add-worker-modal').classList.remove('show');
+function resetAddWorkerModalState() {
   addWorkerModalState.tab = null;
   addWorkerModalState.tasks = [];
+  addWorkerModalState.containerId = 'modal-content';
 }
 
 function addTaskToAddWorkerModal() {
@@ -1939,7 +1967,7 @@ async function saveAddWorkerModal() {
       }
     }
 
-    closeAddWorkerModal();
+    closeModal();
     showMessage('success', `${getWorkerDisplayName(workerId)} added/updated`);
     await loadData();
   } catch (error) {

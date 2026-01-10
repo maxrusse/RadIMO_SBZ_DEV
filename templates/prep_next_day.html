@@ -1396,19 +1396,7 @@
       <div id="modal-content"></div>
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveModalChanges()">Save</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Add Worker Modal -->
-  <div class="modal-overlay" id="add-worker-modal">
-    <div class="modal" style="max-width: 1100px;">
-      <h3 id="add-worker-modal-title">Add Worker</h3>
-      <div id="add-worker-modal-content"></div>
-      <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="closeAddWorkerModal()">Cancel</button>
-        <button class="btn btn-success" onclick="saveAddWorkerModal()">Add Worker</button>
+        <button class="btn btn-primary" id="modal-save-button" onclick="saveModalAction()">Save</button>
       </div>
     </div>
   </div>
