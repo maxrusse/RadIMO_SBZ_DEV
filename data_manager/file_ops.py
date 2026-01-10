@@ -48,10 +48,26 @@ modality_data = _state.modality_data
 staged_modality_data = _state.staged_modality_data
 
 
+def _format_time_value(value: object) -> str:
+    if pd.isna(value):
+        return ''
+    if hasattr(value, 'strftime'):
+        return value.strftime(TIME_FORMAT)
+    return str(value)
+
+
 def apply_roster_overrides_to_schedule(df: pd.DataFrame, modality: str) -> pd.DataFrame:
     """Reapply roster skill constraints to a schedule DataFrame."""
     if df is None or df.empty or 'PPL' not in df.columns:
         return df
+
+    def _get_override_value(normalized: str) -> int:
+        if normalized == 'w':
+            return 1
+        try:
+            return int(normalized)
+        except (TypeError, ValueError):
+            return 0
 
     worker_roster = get_merged_worker_roster(APP_CONFIG)
 
@@ -64,13 +80,7 @@ def apply_roster_overrides_to_schedule(df: pd.DataFrame, modality: str) -> pd.Da
             if skill not in df.columns:
                 continue
             normalized = normalize_skill_value(row.get(skill))
-            if normalized == 'w':
-                override_value = 1
-            else:
-                try:
-                    override_value = int(normalized)
-                except (TypeError, ValueError):
-                    override_value = 0
+            override_value = _get_override_value(normalized)
             overrides[f"{skill}_{modality}"] = override_value
 
         final_combinations = apply_skill_overrides(roster_combinations, overrides)
@@ -103,7 +113,7 @@ def _calculate_total_work_hours(df: pd.DataFrame) -> dict:
     return hours_df.groupby('PPL')['shift_duration'].sum().to_dict()
 
 
-def backup_dataframe(modality: str, use_staged: bool = False):
+def backup_dataframe(modality: str, use_staged: bool = False) -> None:
     """Backup DataFrame to JSON file."""
     d = staged_modality_data[modality] if use_staged else modality_data[modality]
     if d['working_hours_df'] is not None:
@@ -115,15 +125,10 @@ def backup_dataframe(modality: str, use_staged: bool = False):
             df_backup = d['working_hours_df'].copy()
 
             if 'TIME' not in df_backup.columns and {'start_time', 'end_time'}.issubset(df_backup.columns):
-                def _fmt_time(value):
-                    if pd.isna(value):
-                        return ''
-                    return value.strftime(TIME_FORMAT) if hasattr(value, 'strftime') else str(value)
-
                 df_backup['TIME'] = (
-                    df_backup['start_time'].apply(_fmt_time) +
+                    df_backup['start_time'].apply(_format_time_value) +
                     '-' +
-                    df_backup['end_time'].apply(_fmt_time)
+                    df_backup['end_time'].apply(_format_time_value)
                 )
 
             cols_to_backup = [
@@ -248,7 +253,7 @@ def quarantine_file(file_path: str, reason: str) -> Optional[str]:
         return None
 
 
-def initialize_data(file_path: str, modality: str):
+def initialize_data(file_path: str, modality: str) -> None:
     """Initialize modality data from JSON file."""
     # Import here to avoid circular imports
     from data_manager.worker_management import (
