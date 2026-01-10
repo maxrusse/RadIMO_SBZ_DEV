@@ -190,33 +190,21 @@ No pending items in this category.
 
 ## 7. CONFIG / SKILLS
 
-### 7.1 Rename Abdomen to Abd/Onco
+### 7.1 ~~Rename Abdomen to Abd/Onco~~ ✓ RESOLVED
 **Feedback:** "Abdomen -> Abd/Onco rename -> also in config and example v2"
 
-**Code Location:**
-- `config.yaml:143-151` - Abdomen skill definition
-- `test_data/test_generated.yaml` - Test data references
-- All templates showing skill labels
+**Resolution:**
+- Updated the Abdomen skill label to `Abd/Onco` in:
+  - `config.yaml`
+  - `docs/CONFIGURATION.md`
+  - `README.md`
 
 **Current Config:**
 ```yaml
 Abdomen:
-  label: Abdomen
+  label: Abd/Onco
   slug: abdomen
 ```
-
-**Implementation Plan:**
-1. Update `config.yaml`:
-   ```yaml
-   Abdomen:
-     label: Abd/Onco  # Changed label
-     slug: abdomen    # Keep slug for URL compatibility
-   ```
-2. Update test data files
-3. Run tests to verify no breakage
-4. Consider if slug should also change (may break existing data)
-
-**Priority:** Low - Label change
 
 ---
 
@@ -246,7 +234,7 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 1. 2.1 - Default w-weight
 2. ~~2.2 - Remove optional/special flags~~ ✓ RESOLVED
 3. 4.2 - Remove preload button
-4. 7.1 - Rename Abdomen
+4. ~~7.1 - Rename Abdomen~~ ✓ RESOLVED
 
 ---
 
