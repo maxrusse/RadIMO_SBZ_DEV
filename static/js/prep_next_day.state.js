@@ -250,6 +250,15 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Update the save button text to reflect pending change count
+function updateSaveButtonCount(tab) {
+  const count = Object.keys(pendingChanges[tab] || {}).length;
+  const saveBtn = document.getElementById(`save-inline-btn-${tab}`);
+  if (saveBtn) {
+    saveBtn.textContent = count > 0 ? `Save ${count} change${count !== 1 ? 's' : ''}` : 'Save Changes';
+  }
+}
+
 // Helper functions for modality colors (from config)
 function getModalityColor(modKey) {
   const settings = MODALITY_SETTINGS[modKey];

@@ -52,7 +52,7 @@ const TimelineChart = (function() {
     return div.innerHTML;
   }
 
-  // Parse gap list from various formats
+  // Parse gap list from various formats (array, JSON string, or object)
   function parseGapList(rawGaps) {
     if (!rawGaps) return [];
     if (Array.isArray(rawGaps)) return rawGaps;
@@ -61,13 +61,9 @@ const TimelineChart = (function() {
       try {
         const parsed = JSON.parse(rawGaps);
         return Array.isArray(parsed) ? parsed : [];
-      } catch (e) {
+      } catch (_) {
         return [];
       }
-    }
-
-    if (typeof rawGaps === 'object') {
-      return Array.isArray(rawGaps) ? rawGaps : [];
     }
 
     return [];

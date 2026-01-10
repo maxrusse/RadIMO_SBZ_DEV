@@ -113,12 +113,7 @@ function onInlineSkillChange(tab, modKey, rowIndex, skill, value, groupIdx, shif
     el.nextElementSibling.style.display = isWeightedSkill(normalizedVal) ? '' : 'none';
   }
 
-  // Update save button count
-  const count = Object.keys(pendingChanges[tab]).length;
-  const saveBtn = document.getElementById(`save-inline-btn-${tab}`);
-  if (saveBtn) {
-    saveBtn.textContent = `Save ${count} change${count > 1 ? 's' : ''}`;
-  }
+  updateSaveButtonCount(tab);
 }
 
 // Track inline modifier change per modality
@@ -140,12 +135,7 @@ function onInlineModifierChange(tab, modKey, rowIndex, value, groupIdx, shiftIdx
     pendingChanges[tab][key].updates['Modifier'] = parsed;
   }
 
-  // Update save button count
-  const count = Object.keys(pendingChanges[tab]).length;
-  const saveBtn = document.getElementById(`save-inline-btn-${tab}`);
-  if (saveBtn) {
-    saveBtn.textContent = `Save ${count} change${count > 1 ? 's' : ''}`;
-  }
+  updateSaveButtonCount(tab);
 }
 
 // Valid skill values for quick edit validation
@@ -254,12 +244,7 @@ function validateAndSaveShiftModifier(el) {
   const { tab, gidx, sidx } = el.dataset;
   onInlineShiftModifierChange(tab, parseInt(gidx), parseInt(sidx), parsed);
 
-  // Update save button count
-  const count = Object.keys(pendingChanges[tab]).length;
-  const saveBtn = document.getElementById(`save-inline-btn-${tab}`);
-  if (saveBtn) {
-    saveBtn.textContent = `Save ${count} change${count > 1 ? 's' : ''}`;
-  }
+  updateSaveButtonCount(tab);
 }
 
 // Handle keyboard for modifier input
