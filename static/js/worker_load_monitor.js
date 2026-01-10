@@ -42,7 +42,7 @@ let sortState = {
 })();
 
 // Color calculation based on weight thresholds
-function getLoadColor(weight) {
+function getLoadThresholds() {
   const thresholds = LOAD_MONITOR_CONFIG.color_thresholds || {};
   let lowThreshold, highThreshold;
 
@@ -55,6 +55,12 @@ function getLoadColor(weight) {
     lowThreshold = absConfig.low;
     highThreshold = absConfig.high;
   }
+
+  return { lowThreshold, highThreshold };
+}
+
+function getLoadColor(weight) {
+  const { lowThreshold, highThreshold } = getLoadThresholds();
 
   if (weight <= 0) return { bg: '#e9ecef', text: 'text-muted' };
   if (weight < lowThreshold) return { bg: 'var(--load-green)', text: 'text-green' };
@@ -63,18 +69,7 @@ function getLoadColor(weight) {
 }
 
 function getLoadColorClass(weight) {
-  const thresholds = LOAD_MONITOR_CONFIG.color_thresholds || {};
-  let lowThreshold, highThreshold;
-
-  if (colorMode === 'relative' && maxWeight > 0) {
-    const relConfig = thresholds.relative || { low_pct: 33, high_pct: 66 };
-    lowThreshold = maxWeight * (relConfig.low_pct / 100);
-    highThreshold = maxWeight * (relConfig.high_pct / 100);
-  } else {
-    const absConfig = thresholds.absolute || { low: 3.0, high: 7.0 };
-    lowThreshold = absConfig.low;
-    highThreshold = absConfig.high;
-  }
+  const { lowThreshold, highThreshold } = getLoadThresholds();
 
   if (weight <= 0) return '';
   if (weight < lowThreshold) return 'load-green';
@@ -88,7 +83,7 @@ function setMode(mode) {
   document.body.classList.remove('mode-simple', 'mode-advanced');
   document.body.classList.add(`mode-${mode}`);
 
-  document.querySelectorAll('.mode-btn').forEach(btn => {
+  document.querySelectorAll('.mode-btn').forEach(function(btn) {
     btn.classList.toggle('active', btn.dataset.mode === mode);
   });
 
@@ -98,7 +93,7 @@ function setMode(mode) {
 // Color mode switching
 function setColorMode(mode) {
   colorMode = mode;
-  document.querySelectorAll('.color-btn').forEach(btn => {
+  document.querySelectorAll('.color-btn').forEach(function(btn) {
     btn.classList.toggle('active', btn.dataset.color === mode);
   });
   renderAllTables();
@@ -107,7 +102,7 @@ function setColorMode(mode) {
 // Filtering (Advanced mode)
 function filterByModality(mod) {
   filters.modality = mod;
-  document.querySelectorAll('[data-modality]').forEach(btn => {
+  document.querySelectorAll('[data-modality]').forEach(function(btn) {
     btn.classList.toggle('active', btn.dataset.modality === mod);
   });
   renderAllTables();
@@ -115,7 +110,7 @@ function filterByModality(mod) {
 
 function filterBySkill(skill) {
   filters.skill = skill;
-  document.querySelectorAll('[data-skill]').forEach(btn => {
+  document.querySelectorAll('[data-skill]').forEach(function(btn) {
     btn.classList.toggle('active', btn.dataset.skill === skill);
   });
   renderAllTables();
@@ -138,7 +133,7 @@ function sortTable(tableType, column) {
 
   // Update header classes
   const tableId = `table-${tableType}`;
-  document.querySelectorAll(`#${tableId} th`).forEach(th => {
+  document.querySelectorAll(`#${tableId} th`).forEach(function(th) {
     th.classList.remove('sort-asc', 'sort-desc');
     if (th.dataset.sort === column) {
       th.classList.add(state.direction === 'asc' ? 'sort-asc' : 'sort-desc');
@@ -152,7 +147,7 @@ function sortWorkers(workers, tableType) {
   const state = sortState[tableType];
   const sorted = [...workers];
 
-  sorted.sort((a, b) => {
+  sorted.sort(function(a, b) {
     let valA, valB;
 
     if (state.column === 'name') {
@@ -183,7 +178,7 @@ function sortWorkers(workers, tableType) {
 
 // Filter workers based on current filters
 function filterWorkers(workers) {
-  return workers.filter(worker => {
+  return workers.filter(function(worker) {
     // Hide zero filter
     if (filters.hideZero && worker.global_weight <= 0) {
       return false;
@@ -219,7 +214,7 @@ function renderGlobalTable() {
   const maxBarWeight = Math.max(maxWeight, 1);
   let html = '';
 
-  sorted.forEach(worker => {
+  sorted.forEach(function(worker) {
     const weight = worker.global_weight || 0;
     const color = getLoadColor(weight);
     const colorClass = getLoadColorClass(weight);
@@ -255,11 +250,11 @@ function renderModalityTable() {
 
   let html = '';
 
-  sorted.forEach(worker => {
+  sorted.forEach(function(worker) {
     let total = 0;
     let modCells = '';
 
-    MODALITIES.forEach(mod => {
+    MODALITIES.forEach(function(mod) {
       const modData = worker.modalities[mod];
       const weight = modData?.weighted_count || 0;
       total += weight;
@@ -296,11 +291,11 @@ function renderSkillTable() {
 
   let html = '';
 
-  sorted.forEach(worker => {
+  sorted.forEach(function(worker) {
     let total = 0;
     let skillCells = '';
 
-    SKILLS.forEach(skill => {
+    SKILLS.forEach(function(skill) {
       const count = worker.skills[skill] || 0;
       total += count;
       const color = getLoadColor(count);
@@ -337,13 +332,13 @@ function renderAdvancedTable() {
   let headerTop = '<tr class="header-top"><th rowspan="2" class="sortable worker-col" data-sort="name" onclick="sortTable(\'advanced\', \'name\')">Worker</th>';
   let headerSub = '<tr class="header-sub">';
 
-  showModalities.forEach(mod => {
+  showModalities.forEach(function(mod) {
     const modSettings = MODALITY_SETTINGS[mod] || {};
     const label = modSettings.label || mod.toUpperCase();
     const colSpan = showSkills.length;
     headerTop += `<th colspan="${colSpan}" class="mod-header-${mod}">${label}</th>`;
 
-    showSkills.forEach(skill => {
+    showSkills.forEach(function(skill) {
       const skillSettings = SKILL_SETTINGS[skill] || {};
       const skillLabel = skillSettings.label || skill;
       const skillClass = `skill-header-${skill.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
@@ -365,14 +360,14 @@ function renderAdvancedTable() {
 
   let html = '';
 
-  sorted.forEach(worker => {
+  sorted.forEach(function(worker) {
     html += '<tr>';
     html += `<td class="worker-col">${escapeHtml(worker.name)}</td>`;
 
-    showModalities.forEach(mod => {
+    showModalities.forEach(function(mod) {
       const modData = worker.modalities[mod];
 
-      showSkills.forEach(skill => {
+      showSkills.forEach(function(skill) {
         const count = modData?.skill_counts?.[skill] || 0;
         const color = getLoadColor(count);
 
@@ -423,28 +418,30 @@ function toggleAutoRefresh() {
 }
 
 // Load data from API
-async function loadData() {
-  try {
-    const response = await fetch('/api/worker-load/data');
-    const data = await response.json();
+function loadData() {
+  return fetch('/api/worker-load/data')
+    .then(function(response) {
+      return response.json();
+    })
+    .then(function(data) {
+      if (data.success) {
+        workersData = data.workers || [];
+        maxWeight = data.max_weight || 0;
 
-    if (data.success) {
-      workersData = data.workers || [];
-      maxWeight = data.max_weight || 0;
+        // Update last update time
+        const lastUpdate = document.getElementById('last-update');
+        if (lastUpdate) {
+          lastUpdate.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+        }
 
-      // Update last update time
-      const lastUpdate = document.getElementById('last-update');
-      if (lastUpdate) {
-        lastUpdate.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+        renderAllTables();
+      } else {
+        console.error('Failed to load worker data:', data.error);
       }
-
-      renderAllTables();
-    } else {
-      console.error('Failed to load worker data:', data.error);
-    }
-  } catch (error) {
-    console.error('Error loading worker data:', error);
-  }
+    })
+    .catch(function(error) {
+      console.error('Error loading worker data:', error);
+    });
 }
 
 // Escape HTML
@@ -455,7 +452,7 @@ function escapeHtml(text) {
 }
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function() {
   setMode(currentMode);
   loadData();
 });
