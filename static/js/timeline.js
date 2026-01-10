@@ -362,6 +362,31 @@ const TimelineChart = (function() {
         bar.title = `${worker}\n${tooltipMods}${gapTooltip}Zeit: ${timeDisplay}\nSkills: ${activeSkills.join(', ')}`;
 
         timelineCell.appendChild(bar);
+
+        // Render gap bars for this entry
+        const gaps = parseGapList(entry.gaps);
+        gaps.forEach(gap => {
+          const gapStart = gap.start;
+          const gapEnd = gap.end;
+          if (!gapStart || !gapEnd) return;
+
+          const gapLeft = timeToPercent(gapStart);
+          const gapRight = timeToPercent(gapEnd);
+          const gapWidth = gapRight - gapLeft;
+
+          if (gapWidth <= 0) return;
+
+          const gapBar = document.createElement('div');
+          gapBar.className = 'gap-bar';
+          gapBar.style.left = `${gapLeft}%`;
+          gapBar.style.width = `${gapWidth}%`;
+
+          // Gap tooltip
+          const activity = gap.activity || 'Gap';
+          gapBar.title = `${worker}\n${activity}: ${gapStart}-${gapEnd}`;
+
+          timelineCell.appendChild(gapBar);
+        });
       });
 
       row.appendChild(nameCell);

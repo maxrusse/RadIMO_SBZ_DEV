@@ -199,28 +199,19 @@ Option B: Create separate routes/pages:
 
 **Priority:** Medium - Usability improvement
 
-### 3.7 Gaps Not Shown in Timetable
+### 3.7 ~~Gaps Not Shown in Timetable~~ ✅ COMPLETED
 **Feedback:** "gaps not shown in timetable?"
 
 **Problem:** Timetable view doesn't display gap periods
 
-**Code Location:**
-- `templates/timetable.html` - Timetable template
-- `static/js/timetable.js` - Timeline rendering
-- `static/js/timeline.js` - Shared timeline module
-- `routes.py:261-293` - Timetable route
+**Solution Implemented:**
+- Added `.gap-bar` CSS styling with diagonal stripe pattern and dashed border
+- Modified `TimelineChart.render()` in `timeline.js` to render gap bars visually
+- Gap bars appear on the timeline with a distinct gray striped pattern
+- Added "Pause/Gap" legend item with matching styling
+- Gap tooltips show worker name, activity type, and time range
 
-**Current Behavior:**
-- Shifts are shown as colored bars
-- Gaps (breaks, meetings) are not visually indicated
-
-**Implementation Plan:**
-1. Pass gap data to timetable template/JS
-2. Render gaps as different styled bars (dashed, gray, or with pattern)
-3. Add gaps to legend
-4. Handle overlapping display if shifts span across gaps
-
-**Priority:** Medium - Data visibility improvement
+**Priority:** Medium - Data visibility improvement ✅ DONE
 
 ### 3.8 Filter Highlighting in Table
 **Feedback:** "on filter do a small Highlighting on the table like a bit thicker line around the selected stuff like CT + Gyn = edges around the entries a bit thicker?"
@@ -450,7 +441,7 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 3. 3.3 - Separate Today/Tomorrow pages
 4. 3.5 - Add worker uses edit popup
 5. 3.6 - Delete button in quick edit
-6. 3.7 - Gaps in timetable
+6. ~~3.7 - Gaps in timetable~~ ✅
 7. 5.2 - Multi-shifts in timetable
 
 ### Low Priority (Polish & Cleanup)
