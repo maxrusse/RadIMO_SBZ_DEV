@@ -45,27 +45,12 @@ No pending items in this category.
 
 **This is a meta-issue encompassing several sub-issues below**
 
-### 3.2 Separate Prep Today from Prep Tomorrow as Separate Pages
+### 3.2 ~~Separate Prep Today from Prep Tomorrow as Separate Pages~~ ✓ RESOLVED
 **Feedback:** "Seperate Prep today from pre tomorrow as separate Tags on high level like own page as upload page"
 
-**Problem:** User wants separate pages/tabs for Today vs Tomorrow prep, similar to Upload page structure
-
-**Code Location:**
-- `templates/prep_next_day.html` - Single page with tabs
-- `routes.py:793-1077` - API endpoints for prep
-
-**Current Behavior:**
-- Single page with `today` and `tomorrow` tabs
-- Lazy loading of tab content
-
-**Implementation Plan:**
-Option A: Keep current tabs but improve visual separation
-Option B: Create separate routes/pages:
-1. `/prep-today` - Live schedule editing
-2. `/prep-tomorrow` - Staging for tomorrow
-3. Update navigation to show both as top-level links
-
-**Priority:** Medium - UX restructuring (needs user clarification)
+**Resolution:**
+- Added dedicated routes `/prep-today` and `/prep-tomorrow` with per-view titles and default tab selection.
+- Updated navigation to expose both "Change Today" and "Prep Tomorrow" as top-level links with dedicated routes.
 
 ### 3.3 ~~Popup Edit: Missing Shifts/Gaps~~ ✓ RESOLVED
 **Feedback:** "Popup edit: added gaps also shifts? missing in popup edit mode should be all shifts/gaps in there? (from csv 2 shifts are working!)? - no shift/gap removal possible at the moment?"

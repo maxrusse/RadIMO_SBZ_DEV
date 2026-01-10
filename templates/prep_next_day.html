@@ -1,6 +1,15 @@
 {% extends 'base.html' %}
 
-{% block title %}RadIMO Cortex | Change Today / Prep Tomorrow{% endblock %}
+{% set page_mode = initial_tab|default('today') %}
+{% if page_mode == 'today' %}
+  {% set page_title = 'RadIMO Cortex | Change Today' %}
+{% elif page_mode == 'tomorrow' %}
+  {% set page_title = 'RadIMO Cortex | Prep Tomorrow' %}
+{% else %}
+  {% set page_title = 'RadIMO Cortex | Change Today / Prep Tomorrow' %}
+{% endif %}
+
+{% block title %}{{ page_title }}{% endblock %}
 
 {% block styles %}
     :root {
@@ -1185,13 +1194,22 @@
 {% endblock %}
 
 {% block content %}
-  {% set header_title = 'RadIMO Cortex | Change Today / Prep Tomorrow' %}
-  {% set header_subtitle = "Manage current schedule or prepare tomorrow's schedule" %}
+  {% if page_mode == 'today' %}
+    {% set header_title = 'RadIMO Cortex | Change Today' %}
+    {% set header_subtitle = "Manage today's schedule (live edits)" %}
+  {% elif page_mode == 'tomorrow' %}
+    {% set header_title = 'RadIMO Cortex | Prep Tomorrow' %}
+    {% set header_subtitle = "Prepare tomorrow's schedule (staged edits)" %}
+  {% else %}
+    {% set header_title = 'RadIMO Cortex | Change Today / Prep Tomorrow' %}
+    {% set header_subtitle = "Manage current schedule or prepare tomorrow's schedule" %}
+  {% endif %}
   {% set header_mode = 'global' %}
   {% set header_links = [
     {'href': url_for('routes.worker_load_monitor'), 'label': 'Worker Load'},
     {'href': url_for('routes.skill_roster_page'), 'label': 'Skill Matrix'},
-    {'href': url_for('routes.prep_next_day'), 'label': 'Schedule Edit', 'active': True},
+    {'href': url_for('routes.prep_today'), 'label': 'Change Today', 'active': page_mode == 'today'},
+    {'href': url_for('routes.prep_tomorrow'), 'label': 'Prep Tomorrow', 'active': page_mode == 'tomorrow'},
     {'href': url_for('routes.upload_file'), 'label': 'Upload'},
     {'href': url_for('routes.logout'), 'label': 'Logout', 'accent': True},
     {'href': url_for('routes.timetable', modality='all'), 'label': 'Timetable'},
@@ -1201,13 +1219,7 @@
 
   <div id="message-container"></div>
 
-  <!-- Tab Navigation -->
-  <div class="tab-container">
-    <button class="tab-btn active-today" onclick="switchTab('today')" id="tab-today">Change Today</button>
-    <button class="tab-btn" onclick="switchTab('tomorrow')" id="tab-tomorrow">Prep Tomorrow</button>
-  </div>
-
-  <!-- TODAY TAB -->
+  {% if page_mode == 'today' %}
   <div id="content-today" class="tab-content active">
     <div class="today-banner">
       <h2>LIVE CHANGES - Immediate Effect</h2>
@@ -1296,9 +1308,8 @@
       <div class="timeline-legend" id="timeline-legend-today"></div>
     </div>
   </div>
-
-  <!-- TOMORROW TAB -->
-  <div id="content-tomorrow" class="tab-content">
+  {% elif page_mode == 'tomorrow' %}
+  <div id="content-tomorrow" class="tab-content active">
     <div class="tomorrow-banner">
       <h2>STAGING MODE - Prep for Tomorrow</h2>
       <p>Changes are saved to STAGED area for tomorrow. <strong>Counter reset happens on CSV import.</strong></p>
@@ -1388,6 +1399,7 @@
       <div class="timeline-legend" id="timeline-legend-tomorrow"></div>
     </div>
   </div>
+  {% endif %}
 
   <!-- Edit Modal -->
   <div class="modal-overlay" id="edit-modal">
@@ -1424,7 +1436,8 @@
       "task_roles": {{ task_roles|default ([]) | tojson }},
       "skill_value_colors": {{ skill_value_colors|default ({}) | tojson }},
       "ui_colors": {{ ui_colors|default ({}) | tojson }},
-      "quick_break": {{ quick_break|default ({"duration_minutes": 30, "gap_type": "Break", "mode": "split_shift"}) | tojson }}
+      "quick_break": {{ quick_break|default ({"duration_minutes": 30, "gap_type": "Break", "mode": "split_shift"}) | tojson }},
+      "initial_tab": {{ page_mode | tojson }}
     }
   </script>
 

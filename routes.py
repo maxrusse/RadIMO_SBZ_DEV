@@ -815,9 +815,7 @@ def load_today_from_master():
     except Exception as e:
         return jsonify({"error": f"Fehler: {str(e)}"}), 500
 
-@routes.route('/prep-next-day')
-@admin_required
-def prep_next_day():
+def _render_prep_page(initial_tab):
     next_day = get_next_workday()
 
     roster = load_worker_skill_json()
@@ -892,6 +890,7 @@ def prep_next_day():
         target_date=next_day.strftime('%Y-%m-%d'),
         target_date_german=next_day.strftime('%d.%m.%Y'),
         is_next_day=True,
+        initial_tab=initial_tab,
         skills=SKILL_COLUMNS,
         skill_settings=SKILL_SETTINGS,
         modalities=list(MODALITY_SETTINGS.keys()),
@@ -904,6 +903,18 @@ def prep_next_day():
         ui_colors=APP_CONFIG.get('ui_colors', {}),
         quick_break=quick_break
     )
+
+
+@routes.route('/prep-today')
+@admin_required
+def prep_today():
+    return _render_prep_page('today')
+
+
+@routes.route('/prep-tomorrow')
+@admin_required
+def prep_tomorrow():
+    return _render_prep_page('tomorrow')
 
 @routes.route('/api/prep-next-day/data', methods=['GET'])
 @admin_required
