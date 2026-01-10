@@ -18,32 +18,13 @@ No pending items in this category.
 
 ## 2. SKILL ROSTER
 
-### 2.1 Default W-Weight for Skill = 0.5
+### 2.1 ~~Default W-Weight for Skill = 0.5~~ ✓ RESOLVED
 **Feedback:** "defaults w-weight in skill = 0.5 for w"
 
-**Problem:** When a skill value is set to 'w' (weighted), the default weight should be 0.5
-
-**Code Location:**
-- `templates/skill_roster.html:594-603` - New worker creation sets `modifier: 1.0`
-- `balancer.py:107-114` - Weight calculation
-- `config.yaml:291-294` - Quick break settings mention modifiers
-
-**Current Behavior:**
-```javascript
-// skill_roster.html:594
-rosterData[workerId] = { modifier: 1.0 };  // Default is 1.0
-```
-
-**Implementation Plan:**
-1. Add configuration option for default w-weight:
-   ```yaml
-   balancer:
-     default_w_modifier: 0.5
-   ```
-2. Update skill roster UI to default new 'w' values to 0.5
-3. Update balancer to use configured default
-
-**Priority:** Low - Configuration refinement
+**Resolution:**
+- Added `balancer.default_w_modifier` (default `0.5`) in config defaults and `config.yaml`.
+- Skill roster UI now uses the configured default for new workers and modifier display.
+- Balancer uses the configured default when roster data omits a modifier.
 
 ### 2.2 ~~Remove Optional/Special Flags from Config~~ ✓ RESOLVED
 **Feedback:** "do we really still need these entries? optional: If true, skill can be toggled on/off by workers; special: If true, skill requires special handling"

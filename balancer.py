@@ -109,7 +109,7 @@ def update_global_assignment(person: str, role: str, modality: str, is_weighted:
     # Only apply personal modifier for weighted ('w') assignments
     # skill=1 (regular specialist) and skill=0 (generalist) use modifier=1.0
     if is_weighted:
-        # Priority: shift modifier (if != 1.0) > roster modifier > default 1.0
+        # Priority: shift modifier (if != 1.0) > roster modifier > default_w_modifier
         # Shift modifier of 1.0 is treated as "not explicitly set"
         shift_modifier = modality_data[modality]['worker_modifiers'].get(person, 1.0)
         shift_modifier = coerce_float(shift_modifier, 1.0)

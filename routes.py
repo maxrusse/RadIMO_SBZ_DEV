@@ -311,7 +311,12 @@ def timetable():
 @admin_required
 def skill_roster_page():
     valid_skills_map = build_valid_skills_map()
-    return render_template('skill_roster.html', valid_skills_map=valid_skills_map)
+    default_w_modifier = BALANCER_SETTINGS.get('default_w_modifier', 1.0)
+    return render_template(
+        'skill_roster.html',
+        valid_skills_map=valid_skills_map,
+        default_w_modifier=default_w_modifier
+    )
 
 @routes.route('/api/admin/skill_roster', methods=['GET', 'POST'])
 @admin_required

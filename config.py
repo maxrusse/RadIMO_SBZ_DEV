@@ -47,6 +47,7 @@ DEFAULT_BALANCER = {
     'allow_overflow_on_imbalance': True,
     'disable_overflow_at_shift_start_minutes': 0,  # 0 = disabled
     'disable_overflow_at_shift_end_minutes': 0,  # 0 = disabled
+    'default_w_modifier': 0.5,
 }
 
 # -----------------------------------------------------------

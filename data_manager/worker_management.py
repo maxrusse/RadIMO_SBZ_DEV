@@ -20,6 +20,7 @@ from config import (
     allowed_modalities_map,
     skill_columns_map,
     SKILL_ROSTER_AUTO_IMPORT,
+    BALANCER_SETTINGS,
     selection_logger,
 )
 from lib.utils import is_weighted_skill
@@ -215,21 +216,22 @@ def get_roster_modifier(canonical_id: str) -> float:
         canonical_id: Worker's canonical ID
 
     Returns:
-        Modifier value (float), defaults to 1.0
+        Modifier value (float), defaults to balancer default
     """
     # Ensure roster is loaded
     if not worker_skill_json_roster:
         load_worker_skill_json()
 
     worker_data = worker_skill_json_roster.get(canonical_id, {})
-    modifier = worker_data.get('modifier', 1.0)
+    default_modifier = BALANCER_SETTINGS.get('default_w_modifier', 1.0)
+    modifier = worker_data.get('modifier', default_modifier)
 
     try:
         modifier = float(modifier)
         if modifier <= 0:
-            modifier = 1.0
+            modifier = default_modifier
     except (TypeError, ValueError):
-        modifier = 1.0
+        modifier = default_modifier
 
     return modifier
 
