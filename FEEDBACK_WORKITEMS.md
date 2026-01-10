@@ -127,39 +127,31 @@ abd-onco:
 
 ---
 
-## 8. UNCLEAR / NEEDS CLARIFICATION
-
-### 8.1 W-Weight Default Value
-The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify if this means:
-- Default modifier when skill=w (currently 1.0, should be 0.5?)
-- Or default skill value for new workers (currently 0)?
-
-**Action:** Ask user for clarification
-
----
-
 ## Implementation Priority Summary
 
-### High Priority (Core Functionality)
-1. 3.3 - Popup edit missing shifts/gaps
-2. 4.1 - Load next day verification
+**STATUS: ALL ITEMS RESOLVED ✓**
 
-### Medium Priority (UX Improvements)
-1. 3.2 - Separate Today/Tomorrow pages
-2. 3.4 - Add worker uses edit popup
-3. ~~5.1 - Multi-shifts in timetable~~ ✓ RESOLVED
+All feedback work items have been successfully implemented and deployed:
 
-### Low Priority (Polish & Cleanup)
-1. 2.1 - Default w-weight
-2. ~~2.2 - Remove optional/special flags~~ ✓ RESOLVED
-3. 4.2 - Remove preload button
-4. ~~7.1 - Rename Abd/Onco~~ ✓ RESOLVED
+### Core Functionality ✓
+- ~~3.3 - Popup edit missing shifts/gaps~~ ✓ RESOLVED
+- ~~4.1 - Load next day verification~~ ✓ RESOLVED
+
+### UX Improvements ✓
+- ~~3.2 - Separate Today/Tomorrow pages~~ ✓ RESOLVED
+- ~~3.4 - Add worker uses edit popup~~ ✓ RESOLVED
+- ~~5.1 - Multi-shifts in timetable~~ ✓ RESOLVED
+
+### Polish & Cleanup ✓
+- ~~2.1 - Default w-weight~~ ✓ RESOLVED
+- ~~2.2 - Remove optional/special flags~~ ✓ RESOLVED
+- ~~4.2 - Remove preload button~~ ✓ RESOLVED
+- ~~7.1 - Rename Abd/Onco~~ ✓ RESOLVED
 
 ---
 
 ## Next Steps
 
-1. Review this document with stakeholder
-2. Clarify any unclear items
-3. Create implementation tickets for high priority items
-4. Begin implementation in priority order
+1. Monitor production usage for any new feedback
+2. Document any new feature requests in this file
+3. Continue iterating based on user needs
