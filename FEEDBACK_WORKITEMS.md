@@ -67,29 +67,12 @@ Option B: Create separate routes/pages:
 
 **Priority:** Medium - UX restructuring (needs user clarification)
 
-### 3.3 Popup Edit: Missing Shifts/Gaps
+### 3.3 ~~Popup Edit: Missing Shifts/Gaps~~ ✓ RESOLVED
 **Feedback:** "Popup edit: added gaps also shifts? missing in popup edit mode should be all shifts/gaps in there? (from csv 2 shifts are working!)? - no shift/gap removal possible at the moment?"
 
-**Problem:**
-1. Popup edit modal doesn't show all shifts/gaps
-2. Cannot remove shifts/gaps from popup
-3. Multiple shifts from CSV work but aren't editable
-
-**Code Location:**
-- `static/js/prep_next_day.js` - Modal rendering (needs search for `showEditModal` or similar)
-- `static/js/prep_next_day.js:839-999` - `buildEntriesByWorker()` groups data
-
-**Current Behavior:**
-- Edit modal shows single entry
-- No delete button for individual shifts/gaps within a worker's schedule
-
-**Implementation Plan:**
-1. Extend edit modal to show ALL shifts for a worker
-2. Add per-shift delete button (small X)
-3. Add ability to edit individual time segments
-4. Implement `/api/prep-next-day/delete-shift` endpoint
-
-**Priority:** High - Core functionality gap
+**Resolution:**
+- Edit modal now renders from the unmerged shift list so each shift/gap entry is visible and editable.
+- Modal actions (save/delete/presets) are aligned to that unmerged list so per-shift removal/editing works reliably.
 
 ### 3.4 ~~Add Worker = Use Edit Popup in Empty State~~ ✓ RESOLVED
 **Feedback:** "Add Worker = use edit popup in 'empty' state?"

@@ -719,6 +719,8 @@ function buildEntriesByWorker(data, tab = 'today') {
       .map(([key, shift]) => ({ ...shift, shiftKey: key }))
       .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
 
+    group.modalShiftsArray = shiftsArr;
+
     // Collect all gaps for this worker
     const workerGaps = group.allGaps || [];
 
@@ -1022,7 +1024,7 @@ async function deleteShiftFromModal(shiftIdx) {
   const group = entriesData[tab]?.[groupIdx];
   if (!group) return;
 
-  const shifts = group.shiftsArray || [];
+  const shifts = getModalShifts(group);
   const shift = shifts[shiftIdx];
   if (!shift) return;
 
@@ -1444,7 +1446,7 @@ function applyPresetToShift(shiftIdx, taskName) {
   const group = entriesData[tab]?.[groupIdx];
   if (!group) return;
 
-  const shift = group.shiftsArray?.[shiftIdx];
+  const shift = getModalShifts(group)[shiftIdx];
   if (!shift) return;
 
   // Apply skills to all modalities in this shift
@@ -1499,7 +1501,7 @@ function applyWorkerRosterToShift(shiftIdx) {
     return;
   }
 
-  const shift = group.shiftsArray?.[shiftIdx];
+  const shift = getModalShifts(group)[shiftIdx];
   if (!shift) return;
 
   // Apply skills to all modalities in this shift
@@ -1526,7 +1528,7 @@ async function saveModalChanges() {
   if (!group) return;
 
   const updateEndpoint = tab === 'today' ? '/api/live-schedule/update-row' : '/api/prep-next-day/update-row';
-  const shifts = group.shiftsArray || [];
+  const shifts = getModalShifts(group);
 
   try {
     for (let shiftIdx = 0; shiftIdx < shifts.length; shiftIdx++) {
