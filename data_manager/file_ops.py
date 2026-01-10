@@ -69,6 +69,10 @@ def apply_roster_overrides_to_schedule(df: pd.DataFrame, modality: str) -> pd.Da
         except (TypeError, ValueError):
             return 0
 
+    skill_columns = [skill for skill in SKILL_COLUMNS if skill in df.columns]
+    if not skill_columns:
+        return df
+
     worker_roster = get_merged_worker_roster(APP_CONFIG)
 
     for idx, row in df.iterrows():
@@ -76,24 +80,22 @@ def apply_roster_overrides_to_schedule(df: pd.DataFrame, modality: str) -> pd.Da
         roster_combinations = get_worker_skill_mod_combinations(canonical_id, worker_roster)
         overrides = {}
 
-        for skill in SKILL_COLUMNS:
-            if skill not in df.columns:
-                continue
+        for skill in skill_columns:
             normalized = normalize_skill_value(row.get(skill))
             override_value = _get_override_value(normalized)
             overrides[f"{skill}_{modality}"] = override_value
 
         final_combinations = apply_skill_overrides(roster_combinations, overrides)
 
-        for skill in SKILL_COLUMNS:
+        for skill in skill_columns:
             key = f"{skill}_{modality}"
-            if skill in df.columns and key in final_combinations:
+            if key in final_combinations:
                 df.at[idx, skill] = final_combinations[key]
 
     return df
 
 
-def _calculate_total_work_hours(df: pd.DataFrame) -> dict:
+def _calculate_total_work_hours(df: pd.DataFrame) -> dict[str, float]:
     """Calculate total work hours per worker from DataFrame."""
     if df is None or df.empty:
         return {}
