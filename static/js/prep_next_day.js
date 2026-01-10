@@ -6,6 +6,7 @@ const MODALITIES = CONFIG.modalities;
 const MODALITY_SETTINGS = CONFIG.modality_settings;
 const SKILL_SETTINGS = CONFIG.skill_settings;
 const WORKER_SKILLS = CONFIG.worker_skills;
+const WORKER_NAMES = CONFIG.worker_names || {};
 const TASK_ROLES = CONFIG.task_roles;
 const SKILL_VALUE_COLORS = CONFIG.skill_value_colors;
 const UI_COLORS = CONFIG.ui_colors;
@@ -77,6 +78,38 @@ let addWorkerModalState = {
   tab: null,
   tasks: []  // Array of { task, modality, start_time, end_time, modifier, skills }
 };
+
+/**
+ * Parse worker input like "Dr. Name (ID)" or just "ID".
+ * Returns { id, fullName } where id is the canonical worker ID.
+ */
+function parseWorkerInput(inputValue) {
+  const trimmed = (inputValue || '').trim();
+  // Match pattern: "anything (ID)" where ID is inside parentheses
+  const match = trimmed.match(/^(.+?)\s*\(([^)]+)\)$/);
+  if (match) {
+    return { id: match[2].trim(), fullName: trimmed };
+  }
+  // No parentheses - treat as plain ID
+  return { id: trimmed, fullName: null };
+}
+
+/**
+ * Get display name for a worker ID.
+ * Returns "Full Name (ID)" format if name is known, otherwise just the ID.
+ */
+function getWorkerDisplayName(workerId) {
+  const fullName = WORKER_NAMES[workerId];
+  if (fullName && fullName !== workerId) {
+    // If full name already contains the ID in parentheses, use it as-is
+    if (fullName.includes('(' + workerId + ')')) {
+      return fullName;
+    }
+    // Otherwise, append ID in parentheses
+    return fullName + ' (' + workerId + ')';
+  }
+  return workerId;
+}
 
 /**
  * Get shift times from task config.
@@ -2701,9 +2734,10 @@ function updateAddWorkerTask(idx, field, value) {
 
         // Apply worker roster exclusions (-1) - roster -1 always wins
         const workerInput = document.getElementById('add-worker-name-input');
-        const workerName = workerInput ? workerInput.value.trim() : '';
-        if (workerName && WORKER_SKILLS[workerName]) {
-          applyRosterToSkillsByModality(task.skillsByModality, workerName);
+        const inputValue = workerInput ? workerInput.value.trim() : '';
+        const { id: workerId } = parseWorkerInput(inputValue);
+        if (workerId && WORKER_SKILLS[workerId]) {
+          applyRosterToSkillsByModality(task.skillsByModality, workerId);
         }
       }
 
@@ -2741,13 +2775,16 @@ function applyRosterToSkillsByModality(skillsByModality, workerName) {
 
 function onAddWorkerNameChange() {
   const workerInput = document.getElementById('add-worker-name-input');
-  const workerName = workerInput ? workerInput.value.trim() : '';
+  const inputValue = workerInput ? workerInput.value.trim() : '';
 
-  if (workerName && WORKER_SKILLS[workerName]) {
+  // Parse "Full Name (ID)" format to extract the worker ID
+  const { id: workerId } = parseWorkerInput(inputValue);
+
+  if (workerId && WORKER_SKILLS[workerId]) {
     // Apply roster -1 values to all modalities in all tasks
     addWorkerModalState.tasks.forEach(task => {
       if (task.skillsByModality) {
-        applyRosterToSkillsByModality(task.skillsByModality, workerName);
+        applyRosterToSkillsByModality(task.skillsByModality, workerId);
       }
     });
     renderAddWorkerModalContent();
@@ -2871,12 +2908,15 @@ function renderAddWorkerModalContent() {
 
 async function saveAddWorkerModal() {
   const workerInput = document.getElementById('add-worker-name-input');
-  const workerName = workerInput ? workerInput.value.trim() : '';
+  const inputValue = workerInput ? workerInput.value.trim() : '';
 
-  if (!workerName) {
+  if (!inputValue) {
     showMessage('error', 'Please enter a worker name');
     return;
   }
+
+  // Parse "Full Name (ID)" format to extract the worker ID
+  const { id: workerId } = parseWorkerInput(inputValue);
 
   if (addWorkerModalState.tasks.length === 0) {
     showMessage('error', 'Please add at least one task');
@@ -2921,7 +2961,7 @@ async function saveAddWorkerModal() {
           body: JSON.stringify({
             modality: modKey,
             worker_data: {
-              PPL: workerName,
+              PPL: workerId,
               start_time: task.start_time,
               end_time: task.end_time,
               Modifier: task.modifier,
@@ -2952,7 +2992,7 @@ async function saveAddWorkerModal() {
     // 2. Process Gap Tasks (check for overlaps)
     // For gaps, we need to check against all modalities
     const groups = entriesData[tab] || [];
-    const existingGroup = groups.find(g => g.worker === workerName);
+    const existingGroup = groups.find(g => g.worker === workerId);
 
     for (const gap of gapTasks) {
       const gapStart = gap.start_time;
@@ -2994,7 +3034,7 @@ async function saveAddWorkerModal() {
             body: JSON.stringify({
               modality: modKey,
               worker_data: {
-                PPL: workerName,
+                PPL: workerId,
                 start_time: gapStart,
                 end_time: gapEnd,
                 Modifier: gap.modifier,
@@ -3014,7 +3054,7 @@ async function saveAddWorkerModal() {
     }
 
     closeAddWorkerModal();
-    showMessage('success', `${workerName} added/updated`);
+    showMessage('success', `${getWorkerDisplayName(workerId)} added/updated`);
     await loadData();
   } catch (error) {
     showMessage('error', error.message);
