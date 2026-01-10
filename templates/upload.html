@@ -337,13 +337,6 @@
           Load Today
         </button>
       </div>
-      <div class="action-card">
-        <h3>Preload Next Workday</h3>
-        <p>Lädt nächsten Arbeitstag aus Master-CSV in Staging</p>
-        <button class="btn btn-primary" id="preload-btn" onclick="preloadNextDay()">
-          Preload Tomorrow
-        </button>
-      </div>
     </div>
   </div>
 
@@ -479,35 +472,5 @@
       btn.textContent = 'Load Today';
     }
 
-    // Preload Next Day
-    async function preloadNextDay() {
-      const btn = document.getElementById('preload-btn');
-      const msgContainer = document.getElementById('message-container');
-
-      btn.disabled = true;
-      btn.textContent = 'Preloading...';
-
-      try {
-        const response = await fetch('/preload-from-master', { method: 'POST' });
-        const result = await response.json();
-
-        if (response.ok && result.success) {
-          msgContainer.innerHTML = `
-            <div class="message success">
-              ${result.message}<br>
-              <strong>Date:</strong> ${result.target_date}<br>
-              <strong>Workers:</strong> ${result.total_workers}
-            </div>
-          `;
-        } else {
-          msgContainer.innerHTML = `<div class="message error">${result.error || result.message}</div>`;
-        }
-      } catch (error) {
-        msgContainer.innerHTML = `<div class="message error">Error: ${error.message}</div>`;
-      }
-
-      btn.disabled = false;
-      btn.textContent = 'Preload Tomorrow';
-    }
   </script>
 {% endblock %}
