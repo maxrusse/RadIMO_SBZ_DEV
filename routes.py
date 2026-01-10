@@ -1,9 +1,10 @@
 # Standard library imports
-import os
 import json
+import os
 import shutil
 from datetime import datetime
 from functools import wraps
+from typing import Any, Callable
 
 # Flask imports
 from flask import (
@@ -84,85 +85,97 @@ routes = Blueprint('routes', __name__)
 # -----------------------------------------------------------
 # Helpers for Routes
 # -----------------------------------------------------------
-def _df_to_api_response(df: pd.DataFrame) -> list:
+
+def _format_time(value: Any) -> str:
+    if pd.notnull(value):
+        return value.strftime(TIME_FORMAT)
+    return ''
+
+
+def _parse_tasks(value: Any) -> list:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str) and value:
+        return [task.strip() for task in value.split(',') if task.strip()]
+    return []
+
+
+def _get_counts_for_hours(row: pd.Series, columns: pd.Index) -> bool:
+    if 'counts_for_hours' not in columns:
+        return True
+    value = row.get('counts_for_hours', True)
+    if pd.isna(value):
+        return True
+    return bool(value)
+
+
+def _df_to_api_response(df: pd.DataFrame) -> list[dict[str, Any]]:
     if df is None or df.empty:
         return []
 
-    data = []
+    data: list[dict[str, Any]] = []
+    columns = df.columns
     for idx in df.index:
         row = df.loc[idx]
         worker_data = {
             'row_index': int(idx),
             'PPL': row['PPL'],
-            'start_time': row['start_time'].strftime(TIME_FORMAT) if pd.notnull(row.get('start_time')) else '',
-            'end_time': row['end_time'].strftime(TIME_FORMAT) if pd.notnull(row.get('end_time')) else '',
+            'start_time': _format_time(row.get('start_time')),
+            'end_time': _format_time(row.get('end_time')),
             'Modifier': float(row.get('Modifier', 1.0)) if pd.notnull(row.get('Modifier')) else 1.0,
         }
 
-        if 'gaps' in df.columns:
+        if 'gaps' in columns:
             worker_data['gaps'] = row.get('gaps', None)
 
         for skill in SKILL_COLUMNS:
-            value = row.get(skill, None)
-            worker_data[skill] = skill_value_to_display(value)
+            worker_data[skill] = skill_value_to_display(row.get(skill, None))
 
-        tasks_val = row.get('tasks', '')
-        if isinstance(tasks_val, list):
-            worker_data['tasks'] = tasks_val
-        elif isinstance(tasks_val, str) and tasks_val:
-            worker_data['tasks'] = [t.strip() for t in tasks_val.split(',') if t.strip()]
-        else:
-            worker_data['tasks'] = []
+        worker_data['tasks'] = _parse_tasks(row.get('tasks', ''))
+        worker_data['counts_for_hours'] = _get_counts_for_hours(row, columns)
 
-        if 'counts_for_hours' in df.columns:
-            val = row.get('counts_for_hours', True)
-            if pd.isna(val):
-                worker_data['counts_for_hours'] = True
-            else:
-                worker_data['counts_for_hours'] = bool(val)
-        else:
-            worker_data['counts_for_hours'] = True
-
-        if 'is_manual' in df.columns:
+        if 'is_manual' in columns:
             worker_data['is_manual'] = bool(row.get('is_manual', False))
-        if 'gap_id' in df.columns:
+        if 'gap_id' in columns:
             worker_data['gap_id'] = row.get('gap_id')
 
         data.append(worker_data)
 
     return data
 
+
 def resolve_modality_from_request() -> str:
     return normalize_modality(request.values.get('modality'))
 
-def get_admin_password():
+
+def get_admin_password() -> str:
     """Get the admin password from config."""
     return APP_CONFIG.get("admin_password", "")
 
 
-def get_access_password():
+def get_access_password() -> str:
     """Get the basic access password from config."""
     return APP_CONFIG.get("access_password", "change_easy_pw")
 
 
-def is_access_protection_enabled():
+def is_access_protection_enabled() -> bool:
     """Check if basic access protection is enabled."""
     return APP_CONFIG.get("access_protection_enabled")
 
 
-def is_admin_protection_enabled():
+def is_admin_protection_enabled() -> bool:
     """Check if admin access protection is enabled."""
     return APP_CONFIG.get("admin_access_protection_enabled")
 
 
-def has_admin_access():
+def has_admin_access() -> bool:
     """Determine if the current session has admin access."""
     if not is_admin_protection_enabled():
         return True
     return session.get('admin_logged_in', False)
 
 
-def access_required(f):
+def access_required(f: Callable) -> Callable:
     """Decorator that requires basic access authentication for non-admin pages.
 
     Uses a long-lived session cookie so users don't need to re-login frequently.
@@ -181,7 +194,7 @@ def access_required(f):
     return decorated
 
 
-def admin_required(f):
+def admin_required(f: Callable) -> Callable:
     @wraps(f)
     def decorated(*args, **kwargs):
         if not has_admin_access():
