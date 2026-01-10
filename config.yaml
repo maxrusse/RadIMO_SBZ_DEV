@@ -163,7 +163,7 @@ skills:
     display_order: 7
     slug: uro
   KopfHals:
-    label: KopfHals
+    label: Kopf/Hals
     button_color: '#607d8b'
     text_color: '#ffffff'
     weight: 1.0

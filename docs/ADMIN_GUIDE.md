@@ -60,10 +60,10 @@ All admin pages require login with the admin password from `config.yaml`.
 
 See [CONFIGURATION.md](CONFIGURATION.md#skill-value-hierarchy--overwrite-logic) for detailed overwrite rules.
 
-### Example: MSK-Haut Rotation
-To make "AM" an MSK-Haut specialist:
+### Example: MSK/Haut Rotation
+To make "AM" an MSK/Haut specialist (key: `MSK-Haut`):
 1. Select "AM"
-2. Change MSK-Haut column in MR/CT to `1`
+2. Change MSK/Haut column in MR/CT to `1`
 3. Click "Save"
 
 ---

@@ -169,7 +169,7 @@ skills:
     slug: uro
 
   KopfHals:
-    label: KopfHals
+    label: Kopf/Hals
     button_color: '#607d8b'
     text_color: '#ffffff'
     weight: 1.0
@@ -677,7 +677,7 @@ skills:
     weight: 1.2
     display_order: 1
   CardThor:
-    label: CardThor
+    label: Card/Thor
     weight: 1.2
     special: true
     display_order: 7
