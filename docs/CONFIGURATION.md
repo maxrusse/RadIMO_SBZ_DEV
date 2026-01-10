@@ -76,7 +76,7 @@ modalities:
     background_color: '#fce4ec'
     factor: 0.5            # Mammography counts half
     valid_skills: [Notfall, Privat, Gyn]  # Optional whitelist
-    # hidden_skills: [MSK, Chest]         # Optional blacklist
+    # hidden_skills: [MSK-Haut, CardThor] # Optional blacklist
 ```
 
 **Factor**: Higher factor = work counts more toward weighted total. Use to balance effort across modalities.
@@ -131,14 +131,14 @@ skills:
     display_order: 3
     slug: paed
 
-  MSK:
-    label: MSK
+  MSK-Haut:
+    label: MSK-Haut
     button_color: '#9c27b0'
     text_color: '#ffffff'
     weight: 0.8
     special: true
     display_order: 4
-    slug: msk
+    slug: msk-haut
 
   Abdomen:
     label: Abd/Onco
@@ -150,23 +150,14 @@ skills:
     display_order: 5
     slug: abdomen
 
-  Chest:
-    label: Chest
-    button_color: '#ff9800'
-    text_color: '#ffffff'
-    weight: 0.8
-    special: true
-    display_order: 6
-    slug: chest
-
-  Cardvask:
-    label: Cardvask
+  CardThor:
+    label: CardThor
     button_color: '#28a745'
     text_color: '#ffffff'
     weight: 1.2
     special: true
-    display_order: 7
-    slug: cardvask
+    display_order: 6
+    slug: cardthor
 
   Uro:
     label: Uro
@@ -174,8 +165,17 @@ skills:
     text_color: '#ffffff'
     weight: 1.0
     special: true
-    display_order: 8
+    display_order: 7
     slug: uro
+
+  KopfHals:
+    label: KopfHals
+    button_color: '#607d8b'
+    text_color: '#ffffff'
+    weight: 1.0
+    special: true
+    display_order: 8
+    slug: kopfhals
 ```
 
 **Special flag:**
@@ -190,9 +190,9 @@ Override the default `skill_weight × modality_factor` calculation for specific 
 ```yaml
 skill_modality_overrides:
   mr:
-    Cardvask: 1.8    # MR×Cardvask override
+    CardThor: 1.8    # MR×CardThor override
   # ct:
-  #   Chest: 1.0     # Example override
+  #   KopfHals: 1.0  # Example override
 ```
 
 **How it works:**
@@ -200,8 +200,8 @@ skill_modality_overrides:
 2. If not found, calculate: `skill_weight × modality_factor`
 
 **Use cases:**
-- Cardiac MR is more demanding → increase MR×Cardvask weight
-- XRAY MSK is simpler → decrease XRAY×MSK weight
+- Cardiac MR is more demanding → increase MR×CardThor weight
+- XRAY MSK-Haut is simpler → decrease XRAY×MSK-Haut weight
 - Fine-tune fairness for specialty combinations
 
 ---
@@ -367,18 +367,18 @@ balancer:
   #   skill: []                    # No exclusions
   #   skill: [skill1]              # Exclude workers with skill1=1 (all modalities)
   #   skill: [skill1, skill2]      # Exclude workers with skill1=1 OR skill2=1
-  #   skill_mod: [skill1_mod]      # Exclude specific combo (e.g., cardvask_ct: [msk_ct])
+  #   skill_mod: [skill1_mod]      # Exclude specific combo (e.g., cardthor_ct: [msk-haut_ct])
   #   mod: [skill1]                # Modality-wide (all *_mod skills exclude skill1)
   exclude_skills:
     notfall: []      # No exclusions
     privat: []
     gyn: []
     paed: []
-    msk: []
+    msk-haut: []
     abdomen: []
-    chest: []
-    cardvask: []     # Example: cardvask: [msk] means cardvask work excludes MSK specialists
+    cardthor: []     # Example: cardthor: [msk-haut] means CardThor work excludes MSK-Haut specialists
     uro: []
+    kopfhals: []
 ```
 
 ### Specialist-First Assignment with Pooled Worker Overflow
@@ -419,7 +419,7 @@ balancer:
   disable_overflow_at_shift_start_minutes: 15  # Don't assign overflow in first 15min of shift
   disable_overflow_at_shift_end_minutes: 30    # Don't assign overflow in last 30min of shift
   exclude_skills:
-    cardvask: [msk]  # MSK specialists won't get Cardvask work unless no one else available
+    cardthor: [msk-haut]  # MSK-Haut specialists won't get CardThor work unless no one else available
 ```
 
 ### Two-Phase Minimum Balancer
@@ -461,10 +461,10 @@ vendor_mappings:
       skill_overrides:
         Notfall_ct: 1
         Privat_ct: 1
-        MSK_ct: 0
+        MSK-Haut_ct: 0
         Abdomen_ct: 0
-        Chest_ct: 0
-        Cardvask_ct: 0
+        CardThor_ct: 0
+        KopfHals_ct: 0
         Uro_ct: 0
         Gyn_ct: 0
         Päd_ct: 0
@@ -477,7 +477,7 @@ vendor_mappings:
       skill_overrides:
         Notfall_ct: 1
         Privat_ct: 1
-        MSK_ct: 0
+        MSK-Haut_ct: 0
 
     # Weighted entry (beginner/assisted worker)
     - match: "MR Assistent 1. Monat"
@@ -491,15 +491,15 @@ vendor_mappings:
         Privat_mr: 0
 
     # Multi-modality team
-    - match: "MSK Team"
+    - match: "MSK-Haut Team"
       type: "shift"
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        MSK_ct: 1
-        MSK_mr: 1
-        MSK_xray: 1
+        MSK-Haut_ct: 1
+        MSK-Haut_mr: 1
+        MSK-Haut_xray: 1
 
     # Administrative shift that doesn't count toward load balancing
     - match: "Cortex Aufklärung"
@@ -545,18 +545,18 @@ vendor_mappings:
 
 The `skill_overrides` field supports shortcuts:
 - `all: -1` → all Skill×Modality combinations = -1
-- `MSK: 1` → all MSK_* combinations = 1 (MSK_ct, MSK_mr, etc.)
-- `ct: 1` → all *_ct combinations = 1 (Notfall_ct, MSK_ct, etc.)
+- `MSK-Haut: 1` → all MSK-Haut_* combinations = 1 (MSK-Haut_ct, MSK-Haut_mr, etc.)
+- `ct: 1` → all *_ct combinations = 1 (Notfall_ct, MSK-Haut_ct, etc.)
 
 ### Weighted/Assisted Workers
 
 Use `skill_overrides: {Skill_mod: w}` plus a `modifier` (0.5–1.5):
 ```yaml
-- match: "MSK Anfänger"
+- match: "MSK-Haut Anfänger"
   modifier: 0.5  # Beginner: counts double toward their load
   skill_overrides:
-    MSK_ct: w
-    MSK_xray: w
+    MSK-Haut_ct: w
+    MSK-Haut_xray: w
 ```
 
 ### Hours Counting
@@ -584,7 +584,7 @@ times:
 
 Defines Skill×Modality combinations for each worker. The worker roster is stored in `worker_skill_roster.json` and can be edited via the Skill Matrix admin page (`/skill-roster`).
 
-**Format:** `"skill_modality": value` (e.g., `"MSK_ct": 1`)
+**Format:** `"skill_modality": value` (e.g., `"MSK-Haut_ct": 1`)
 
 Both `"skill_modality"` and `"modality_skill"` formats are accepted and normalized automatically.
 
@@ -593,28 +593,28 @@ Both `"skill_modality"` and `"modality_skill"` formats are accepted and normaliz
 ```json
 {
   "AA": {
-    "MSK_ct": 1,
-    "MSK_mr": 1,
-    "MSK_xray": 1,
-    "MSK_mammo": 0,
+    "MSK-Haut_ct": 1,
+    "MSK-Haut_mr": 1,
+    "MSK-Haut_xray": 1,
+    "MSK-Haut_mammo": 0,
     "Notfall_ct": 1,
     "Notfall_mr": 1,
     "Notfall_xray": 1,
     "Notfall_mammo": 0
   },
   "DEMO1": {
-    "Cardvask_ct": 1,
-    "Cardvask_mr": 1,
+    "CardThor_ct": 1,
+    "CardThor_mr": 1,
     "Notfall_ct": 1,
     "Notfall_mr": 1,
-    "MSK_ct": -1,
-    "MSK_mr": -1,
-    "Chest_ct": -1
+    "MSK-Haut_ct": -1,
+    "MSK-Haut_mr": -1,
+    "KopfHals_ct": -1
   },
   "MSK_ANFAENGER": {
-    "MSK_ct": "w",
-    "MSK_xray": "w",
-    "MSK_mr": 0
+    "MSK-Haut_ct": "w",
+    "MSK-Haut_xray": "w",
+    "MSK-Haut_mr": 0
   }
 }
 ```
@@ -635,10 +635,10 @@ When combining roster values with vendor CSV `skill_overrides`:
 3. **Roster -1 (hard exclude)** - always wins, cannot be overridden
 
 **Example:**
-- Worker roster: `{"MSK_ct": 1, "MSK_mr": 1, "Gyn_ct": 0, "Gyn_mr": 0}`
+- Worker roster: `{"MSK-Haut_ct": 1, "MSK-Haut_mr": 1, "Gyn_ct": 0, "Gyn_mr": 0}`
 - CSV rule assigns "Gyn Team" with `skill_overrides: {"Gyn_ct": 1, "Gyn_mr": 1}`
-- Result: Gyn → 1, MSK → 1 (both active for this worker on this day)
-- If roster had `"MSK_ct": -1`, it stays -1 (hard exclude wins)
+- Result: Gyn → 1, MSK-Haut → 1 (both active for this worker on this day)
+- If roster had `"MSK-Haut_ct": -1`, it stays -1 (hard exclude wins)
 
 ---
 
@@ -676,15 +676,15 @@ skills:
     label: Privat
     weight: 1.2
     display_order: 1
-  Cardvask:
-    label: Cardvask
+  CardThor:
+    label: CardThor
     weight: 1.2
     special: true
     display_order: 7
 
 skill_modality_overrides:
   mr:
-    Cardvask: 1.8  # MR cardiac work weighted higher
+    CardThor: 1.8  # MR cardiac work weighted higher
 
 balancer:
   enabled: true
@@ -697,7 +697,7 @@ balancer:
     shift_default: true
     gap_default: false
   exclude_skills:
-    cardvask: [msk]
+    cardthor: [msk-haut]
     notfall: []
 
 vendor_mappings:
@@ -716,7 +716,7 @@ vendor_mappings:
         skill_overrides:
           Notfall_ct: 1
           Privat_ct: 0
-          Cardvask_ct: 0
+          CardThor_ct: 0
       - match: "Kopf-Hals-Board"
         type: "gap"
         times:
