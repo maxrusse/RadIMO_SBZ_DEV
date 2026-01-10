@@ -275,32 +275,23 @@ Option B: Create separate routes/pages:
 
 ## 5. TIMETABLE
 
-### 5.1 Simplify Timetable Link to Always All
+### 5.1 ~~Simplify Timetable Link to Always All~~ ✅ COMPLETED
 **Feedback:** "simplify link to timetable always all http://../timetable?modality=all"
 
 **Problem:** Timetable links should default to showing all modalities
 
-**Code Location:**
-- `templates/index.html:334` - Timetable link
-- `templates/partials/header.html` - Header navigation
-- All templates with timetable links
+**Solution Implemented:**
+- Updated all timetable links in templates to use `modality='all'` parameter
+- Modified files:
+  - `templates/index.html` (2 links)
+  - `templates/timetable.html` (2 links)
+  - `templates/upload.html` (1 link)
+  - `templates/index_by_skill.html` (2 links)
+  - `templates/skill_roster.html` (1 link)
+  - `templates/prep_next_day.html` (1 link)
+  - `templates/worker_load_monitor.html` (1 link)
 
-**Current Behavior:**
-```jinja2
-{'href': url_for('routes.timetable', modality=modality), 'label': 'Timetable'}
-```
-
-**Implementation Plan:**
-1. Change all timetable links to use `modality='all'`:
-   ```jinja2
-   {'href': url_for('routes.timetable', modality='all'), 'label': 'Timetable'}
-   ```
-2. Update templates:
-   - `templates/index.html`
-   - `templates/partials/header.html`
-   - Other templates with timetable links
-
-**Priority:** Low - Navigation simplification
+**Priority:** Low - Navigation simplification ✅ DONE
 
 ### 5.2 Multi-Shifts and Gaps in Timetable - One Row
 **Feedback:** "Multishifts and gaps in timetable -> always one row (might have min overlaps -- Shift ending 15:00 next starting from 15:00) Filter timetable multi list scaling?"
@@ -440,7 +431,7 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 2. 2.3 - Remove optional/special flags
 3. ~~3.8 - Filter highlighting~~ ✅
 4. 4.2 - Remove preload button
-5. 5.1 - Simplify timetable link
+5. ~~5.1 - Simplify timetable link~~ ✅
 6. 6.1 - Header color
 7. 6.2 - Table color consistency
 8. 7.1 - Rename Abdomen
