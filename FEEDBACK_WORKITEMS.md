@@ -50,7 +50,7 @@ No pending items in this category.
 
 **Resolution:**
 - Added dedicated routes `/prep-today` and `/prep-tomorrow` with per-view titles and default tab selection.
-- Updated navigation to expose both "Change Today" and "Prep Tomorrow" as top-level links while keeping the combined `/prep-next-day` view available.
+- Updated navigation to expose both "Change Today" and "Prep Tomorrow" as top-level links with dedicated routes.
 
 ### 3.3 ~~Popup Edit: Missing Shifts/Gaps~~ ✓ RESOLVED
 **Feedback:** "Popup edit: added gaps also shifts? missing in popup edit mode should be all shifts/gaps in there? (from csv 2 shifts are working!)? - no shift/gap removal possible at the moment?"

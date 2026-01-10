@@ -401,57 +401,6 @@ function updateHoursToggleLabel(checkbox) {
   }
 }
 
-// Tab switching with lazy loading
-async function switchTab(tab) {
-  const previousTab = currentTab;
-  currentTab = tab;
-  document.getElementById('tab-today').className = tab === 'today' ? 'tab-btn active-today' : 'tab-btn';
-  document.getElementById('tab-tomorrow').className = tab === 'tomorrow' ? 'tab-btn active-tomorrow' : 'tab-btn';
-  document.getElementById('content-today').className = tab === 'today' ? 'tab-content active' : 'tab-content';
-  document.getElementById('content-tomorrow').className = tab === 'tomorrow' ? 'tab-content active' : 'tab-content';
-
-  // Preserve filter state when switching tabs
-  if (previousTab && previousTab !== tab) {
-    const prevFilter = tableFilters[previousTab];
-    if (prevFilter) {
-      // Copy filter state to new tab
-      tableFilters[tab] = { ...prevFilter };
-
-      // Update UI button states for new tab
-      const hideZeroCheckbox = document.getElementById(`filter-hide-zero-${tab}`);
-
-      // Update modality button states
-      if (prevFilter.modality !== undefined) {
-        const modalityButtons = document.querySelectorAll(`[data-modality]`);
-        modalityButtons.forEach(btn => {
-          if (btn.onclick && btn.onclick.toString().includes(`'${tab}'`)) {
-            btn.classList.toggle('active', btn.getAttribute('data-modality') === prevFilter.modality);
-          }
-        });
-      }
-
-      // Update skill button states
-      if (prevFilter.skill !== undefined) {
-        const skillButtons = document.querySelectorAll(`[data-skill]`);
-        skillButtons.forEach(btn => {
-          if (btn.onclick && btn.onclick.toString().includes(`'${tab}'`)) {
-            btn.classList.toggle('active', btn.getAttribute('data-skill') === prevFilter.skill);
-          }
-        });
-      }
-
-      if (hideZeroCheckbox && prevFilter.hideZero !== undefined) {
-        hideZeroCheckbox.checked = prevFilter.hideZero;
-      }
-    }
-  }
-
-  // Lazy load data for the selected tab if not already loaded
-  if (!dataLoaded[tab]) {
-    await loadTabData(tab);
-  }
-}
-
 // Load data for a specific tab (lazy loading)
 async function loadTabData(tab) {
   try {
@@ -2171,4 +2120,4 @@ function showMessage(type, message) {
 // Initialize edit mode UI and load current tab (lazy loading)
 applyEditModeUI('today');
 applyEditModeUI('tomorrow');
-switchTab(currentTab);
+loadTabData(currentTab);

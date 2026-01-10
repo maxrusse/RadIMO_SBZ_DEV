@@ -1,7 +1,6 @@
 {% extends 'base.html' %}
 
 {% set page_mode = initial_tab|default('today') %}
-{% set initial_tab = 'today' if page_mode == 'both' else page_mode %}
 {% if page_mode == 'today' %}
   {% set page_title = 'RadIMO Cortex | Change Today' %}
 {% elif page_mode == 'tomorrow' %}
@@ -1220,14 +1219,8 @@
 
   <div id="message-container"></div>
 
-  <!-- Tab Navigation -->
-  <div class="tab-container">
-    <button class="tab-btn{% if initial_tab == 'today' %} active-today{% endif %}" onclick="switchTab('today')" id="tab-today">Change Today</button>
-    <button class="tab-btn{% if initial_tab == 'tomorrow' %} active-tomorrow{% endif %}" onclick="switchTab('tomorrow')" id="tab-tomorrow">Prep Tomorrow</button>
-  </div>
-
-  <!-- TODAY TAB -->
-  <div id="content-today" class="tab-content{% if initial_tab == 'today' %} active{% endif %}">
+  {% if page_mode == 'today' %}
+  <div id="content-today" class="tab-content active">
     <div class="today-banner">
       <h2>LIVE CHANGES - Immediate Effect</h2>
       <p>Changes here apply IMMEDIATELY to today's schedule. <strong>Counters are NOT reset.</strong></p>
@@ -1315,9 +1308,8 @@
       <div class="timeline-legend" id="timeline-legend-today"></div>
     </div>
   </div>
-
-  <!-- TOMORROW TAB -->
-  <div id="content-tomorrow" class="tab-content{% if initial_tab == 'tomorrow' %} active{% endif %}">
+  {% elif page_mode == 'tomorrow' %}
+  <div id="content-tomorrow" class="tab-content active">
     <div class="tomorrow-banner">
       <h2>STAGING MODE - Prep for Tomorrow</h2>
       <p>Changes are saved to STAGED area for tomorrow. <strong>Counter reset happens on CSV import.</strong></p>
@@ -1407,6 +1399,7 @@
       <div class="timeline-legend" id="timeline-legend-tomorrow"></div>
     </div>
   </div>
+  {% endif %}
 
   <!-- Edit Modal -->
   <div class="modal-overlay" id="edit-modal">
@@ -1444,7 +1437,7 @@
       "skill_value_colors": {{ skill_value_colors|default ({}) | tojson }},
       "ui_colors": {{ ui_colors|default ({}) | tojson }},
       "quick_break": {{ quick_break|default ({"duration_minutes": 30, "gap_type": "Break", "mode": "split_shift"}) | tojson }},
-      "initial_tab": {{ initial_tab | tojson }}
+      "initial_tab": {{ page_mode | tojson }}
     }
   </script>
 

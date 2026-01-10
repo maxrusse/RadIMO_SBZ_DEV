@@ -919,12 +919,6 @@ def prep_today():
 def prep_tomorrow():
     return _render_prep_page('tomorrow')
 
-
-@routes.route('/prep-next-day')
-@admin_required
-def prep_next_day():
-    return _render_prep_page('both')
-
 @routes.route('/api/prep-next-day/data', methods=['GET'])
 @admin_required
 def get_prep_data():
