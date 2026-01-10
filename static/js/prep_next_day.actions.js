@@ -2171,4 +2171,4 @@ function showMessage(type, message) {
 // Initialize edit mode UI and load current tab (lazy loading)
 applyEditModeUI('today');
 applyEditModeUI('tomorrow');
-loadTabData('today');
+switchTab(currentTab);

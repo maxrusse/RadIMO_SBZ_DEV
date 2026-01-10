@@ -1,5 +1,6 @@
 // State
-let currentTab = 'today';
+const INITIAL_TAB = (typeof CONFIG !== 'undefined' && CONFIG.initial_tab) ? CONFIG.initial_tab : 'today';
+let currentTab = INITIAL_TAB;
 let rawData = { today: {}, tomorrow: {} };  // Raw modality data
 let entriesData = { today: [], tomorrow: [] };  // Grouped by worker -> shifts (time-based)
 let workerCounts = { today: {}, tomorrow: {} };  // Count entries per worker for duplicate detection
