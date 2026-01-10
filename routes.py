@@ -145,7 +145,19 @@ def get_access_password():
 
 def is_access_protection_enabled():
     """Check if basic access protection is enabled."""
-    return APP_CONFIG.get("access_protection_enabled", True)
+    return APP_CONFIG.get("access_protection_enabled", False)
+
+
+def is_admin_protection_enabled():
+    """Check if admin access protection is enabled."""
+    return APP_CONFIG.get("admin_access_protection_enabled", False)
+
+
+def has_admin_access():
+    """Determine if the current session has admin access."""
+    if not is_admin_protection_enabled():
+        return True
+    return session.get('admin_logged_in', False)
 
 
 def access_required(f):
@@ -170,7 +182,7 @@ def access_required(f):
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not session.get('admin_logged_in'):
+        if not has_admin_access():
             modality = resolve_modality_from_request()
             return redirect(url_for('routes.login', modality=modality))
         return f(*args, **kwargs)
@@ -219,7 +231,7 @@ def index():
         info_texts=d.get('info_texts', []),
         modality=modality,
         visible_skills=visible_skills,
-        is_admin=session.get('admin_logged_in', False)
+        is_admin=has_admin_access()
     )
 
 @routes.route('/by-skill')
@@ -257,7 +269,7 @@ def index_by_skill():
         skill=skill,
         visible_modalities=visible_modalities,
         info_texts=info_texts,
-        is_admin=session.get('admin_logged_in', False)
+        is_admin=has_admin_access()
     )
 
 @routes.route('/timetable')
@@ -292,7 +304,7 @@ def timetable():
         skill_slug_map=skill_slug_map,
         skill_color_map=skill_color_map,
         modality_color_map=modality_color_map,
-        is_admin=session.get('admin_logged_in', False)
+        is_admin=has_admin_access()
     )
 
 @routes.route('/skill-roster')
@@ -338,6 +350,8 @@ def import_new_skill_roster_api():
 def login():
     modality = resolve_modality_from_request()
     error = None
+    if not is_admin_protection_enabled():
+        return redirect(url_for('routes.upload_file', modality=modality))
     if request.method == 'POST':
         pw = request.form.get('password', '')
         if pw == get_admin_password():
