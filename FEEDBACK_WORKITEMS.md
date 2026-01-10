@@ -45,33 +45,15 @@ rosterData[workerId] = { modifier: 1.0 };  // Default is 1.0
 
 **Priority:** Low - Configuration refinement
 
-### 2.2 Remove Optional/Special Flags from Config
+### 2.2 ~~Remove Optional/Special Flags from Config~~ ✓ RESOLVED
 **Feedback:** "do we really still need these entries? optional: If true, skill can be toggled on/off by workers; special: If true, skill requires special handling"
 
-**Problem:** `optional` and `special` flags in skill config may no longer be used.
-
-**Code Location:**
-- `config.yaml:88-93` - Skills have `optional` and `special` flags
-- `config.py` - May reference these flags
-- `balancer.py:354-516` - Might use `special` flag
-
-**Current Behavior:**
-```yaml
-skills:
-  Notfall:
-    optional: false   # These may not be used
-    special: false
-```
-
-**Implementation Plan:**
-1. Search codebase for usages of `optional` and `special`
-2. If not used in logic:
-   - Remove from config.yaml
-   - Remove from config.py loading
-   - Update documentation
-3. If used, document the actual behavior
-
-**Priority:** Low - Technical debt cleanup
+**Resolution:**
+- **`optional` flag**: NOT USED anywhere in application logic. Removed from:
+  - `config.yaml` - all skill definitions
+  - `config.py` - loading code
+  - `docs/CONFIGURATION.md` - documentation
+- **`special` flag**: ACTIVELY USED in `templates/index.html:373` to add CSS class `special-btn` for distinct button styling (larger buttons for subspecialty skills). Kept in place.
 
 ---
 
@@ -278,7 +260,7 @@ The feedback mentions "defauls w-weight in skill = 0.5 for w" - need to clarify 
 
 ### Low Priority (Polish & Cleanup)
 1. 2.1 - Default w-weight
-2. 2.2 - Remove optional/special flags
+2. ~~2.2 - Remove optional/special flags~~ ✓ RESOLVED
 3. 4.2 - Remove preload button
 4. 7.1 - Rename Abdomen
 

@@ -98,7 +98,6 @@ skills:
     button_color: '#dc3545'
     text_color: '#ffffff'
     weight: 1.1
-    optional: false
     special: false
     display_order: 0
     slug: notfall
@@ -108,7 +107,6 @@ skills:
     button_color: '#ffc107'
     text_color: '#333333'
     weight: 1.2
-    optional: true
     special: false
     display_order: 1
     slug: privat
@@ -118,7 +116,6 @@ skills:
     button_color: '#e91e63'
     text_color: '#ffffff'
     weight: 1.0
-    optional: true
     special: true
     # valid_modalities: [mammo, mr]  # Optional: only show on these modalities
     # hidden_modalities: [xray]      # Optional: hide on these modalities
@@ -130,7 +127,6 @@ skills:
     button_color: '#4caf50'
     text_color: '#ffffff'
     weight: 1.0
-    optional: true
     special: true
     display_order: 3
     slug: paed
@@ -140,7 +136,6 @@ skills:
     button_color: '#9c27b0'
     text_color: '#ffffff'
     weight: 0.8
-    optional: true
     special: true
     display_order: 4
     slug: msk
@@ -150,7 +145,6 @@ skills:
     button_color: '#00bcd4'
     text_color: '#ffffff'
     weight: 1.0
-    optional: true
     special: true
     always_visible: true  # If true, button stays even if no worker available
     display_order: 5
@@ -161,7 +155,6 @@ skills:
     button_color: '#ff9800'
     text_color: '#ffffff'
     weight: 0.8
-    optional: true
     special: true
     display_order: 6
     slug: chest
@@ -171,7 +164,6 @@ skills:
     button_color: '#28a745'
     text_color: '#ffffff'
     weight: 1.2
-    optional: true
     special: true
     display_order: 7
     slug: cardvask
@@ -181,15 +173,13 @@ skills:
     button_color: '#795548'
     text_color: '#ffffff'
     weight: 1.0
-    optional: true
     special: true
     display_order: 8
     slug: uro
 ```
 
-**Optional vs. special:**
-- `optional: false` keeps the button visible even if no worker is active for the skill.
-- `special: true` marks subspecialty buttons that can be hidden when no worker is available unless `optional: false`.
+**Special flag:**
+- `special: true` marks subspecialty buttons with distinct styling (larger buttons).
 
 ---
 
@@ -681,17 +671,14 @@ skills:
   Notfall:
     label: Notfall
     weight: 1.1
-    optional: false
     display_order: 0
   Privat:
     label: Privat
     weight: 1.2
-    optional: true
     display_order: 1
   Cardvask:
     label: Cardvask
     weight: 1.2
-    optional: true
     special: true
     display_order: 7
 
