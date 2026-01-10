@@ -35,9 +35,10 @@
 
     .card h3 {
       margin-bottom: 1rem;
-      color: #333;
-      border-bottom: 2px solid #eee;
+      color: #004892;
+      border-bottom: 2px solid #e0e0e0;
       padding-bottom: 0.5rem;
+      font-size: 1rem;
     }
 
     /* Mode Toggle */
@@ -156,50 +157,64 @@
       margin: 0 0.5rem;
     }
 
-    /* Tables */
+    /* Tables - styled to match prep page */
     .load-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.85rem;
+      font-size: 0.78rem;
     }
 
     .load-table th,
     .load-table td {
-      padding: 0.5rem 0.75rem;
+      padding: 0.35rem 0.5rem;
       text-align: left;
       border: 1px solid #e5e5e5;
+      vertical-align: middle;
     }
 
     .load-table th {
-      background: #f8f9fa;
+      background: #004892;
+      color: white;
       font-weight: 600;
       position: sticky;
       top: 0;
       z-index: 10;
       cursor: pointer;
+      white-space: nowrap;
     }
 
     .load-table th:hover {
-      background: #e9ecef;
+      background: #003670;
     }
 
     .load-table tr:hover {
-      background: #f8f9fa;
+      background: rgba(0, 72, 146, 0.05);
+    }
+
+    .load-table tr:nth-child(even) {
+      background: #fafafa;
+    }
+
+    .load-table tr:nth-child(even):hover {
+      background: rgba(0, 72, 146, 0.08);
     }
 
     .load-table .sortable::after {
       content: ' ↕';
-      opacity: 0.3;
+      opacity: 0.5;
+      color: rgba(255, 255, 255, 0.8);
     }
 
     .load-table .sort-asc::after {
       content: ' ↑';
       opacity: 1;
+      color: white;
     }
 
     .load-table .sort-desc::after {
       content: ' ↓';
       opacity: 1;
+      color: white;
     }
 
     /* Weight Bar */
@@ -268,14 +283,16 @@
     }
 
     .compact-grid .header-top th {
-      font-size: 0.8rem;
-      padding: 0.4rem 0.3rem;
+      font-size: 0.75rem;
+      padding: 0.3rem 0.25rem;
     }
 
     .compact-grid .header-sub th {
       font-size: 0.7rem;
-      padding: 0.25rem 0.2rem;
-      background: #eef1f5;
+      padding: 0.2rem 0.15rem;
+      background: #e8f0f7;
+      color: #004892;
+      font-weight: 600;
     }
 
     .compact-grid td {
@@ -285,6 +302,8 @@
     .compact-grid .worker-col {
       text-align: left !important;
       min-width: 140px;
+      background: #fff;
+      color: #333;
     }
 
     /* Auto-refresh */
