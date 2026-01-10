@@ -122,7 +122,6 @@ def _build_app_config() -> Dict[str, Any]:
         values.setdefault('button_color', '#004892')
         values.setdefault('text_color', '#ffffff')
         values['weight'] = coerce_float(values.get('weight', 1.0))
-        values.setdefault('optional', False)
         values.setdefault('special', False)
         values.setdefault('always_visible', True)  # Default: always visible
         values['display_order'] = coerce_int(values.get('display_order', 0))
@@ -217,7 +216,6 @@ def _build_skill_metadata(skills_config: Dict[str, Dict[str, Any]]) -> Tuple[Lis
             'slug': slug,
             'button_color': data.get('button_color', '#004892'),
             'text_color': data.get('text_color', '#ffffff'),
-            'optional': bool(data.get('optional', False)),
             'special': bool(data.get('special', False)),
             'always_visible': bool(data.get('always_visible', True)),
         })
