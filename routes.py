@@ -92,7 +92,7 @@ def _format_time(value: Any) -> str:
     return ''
 
 
-def _parse_tasks(value: Any) -> list:
+def _parse_tasks(value: Any) -> list[str]:
     if isinstance(value, list):
         return value
     if isinstance(value, str) and value:
@@ -100,8 +100,8 @@ def _parse_tasks(value: Any) -> list:
     return []
 
 
-def _get_counts_for_hours(row: pd.Series, columns: pd.Index) -> bool:
-    if 'counts_for_hours' not in columns:
+def _get_counts_for_hours(row: pd.Series, has_column: bool) -> bool:
+    if not has_column:
         return True
     value = row.get('counts_for_hours', True)
     if pd.isna(value):
@@ -115,8 +115,11 @@ def _df_to_api_response(df: pd.DataFrame) -> list[dict[str, Any]]:
 
     data: list[dict[str, Any]] = []
     columns = df.columns
-    for idx in df.index:
-        row = df.loc[idx]
+    has_gaps = 'gaps' in columns
+    has_counts_for_hours = 'counts_for_hours' in columns
+    has_manual = 'is_manual' in columns
+    has_gap_id = 'gap_id' in columns
+    for idx, row in df.iterrows():
         worker_data = {
             'row_index': int(idx),
             'PPL': row['PPL'],
@@ -125,18 +128,18 @@ def _df_to_api_response(df: pd.DataFrame) -> list[dict[str, Any]]:
             'Modifier': float(row.get('Modifier', 1.0)) if pd.notnull(row.get('Modifier')) else 1.0,
         }
 
-        if 'gaps' in columns:
+        if has_gaps:
             worker_data['gaps'] = row.get('gaps', None)
 
         for skill in SKILL_COLUMNS:
             worker_data[skill] = skill_value_to_display(row.get(skill, None))
 
         worker_data['tasks'] = _parse_tasks(row.get('tasks', ''))
-        worker_data['counts_for_hours'] = _get_counts_for_hours(row, columns)
+        worker_data['counts_for_hours'] = _get_counts_for_hours(row, has_counts_for_hours)
 
-        if 'is_manual' in columns:
+        if has_manual:
             worker_data['is_manual'] = bool(row.get('is_manual', False))
-        if 'gap_id' in columns:
+        if has_gap_id:
             worker_data['gap_id'] = row.get('gap_id')
 
         data.append(worker_data)
