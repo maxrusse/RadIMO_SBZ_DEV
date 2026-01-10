@@ -18,8 +18,12 @@ admin_password: change_pw_for_live
 
 # Basic access protection for non-admin pages (optional)
 # Set to false to disable password protection entirely
-access_protection_enabled: true
+access_protection_enabled: false
 access_password: change_easy_pw
+
+# Basic access protection for admin pages (optional)
+# Set to false to disable password protection entirely
+admin_access_protection_enabled: false
 
 # -----------------------------------------------------------------------------
 # TIMEZONE
