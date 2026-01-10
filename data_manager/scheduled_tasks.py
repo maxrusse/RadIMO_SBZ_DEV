@@ -10,7 +10,7 @@ import os
 import json
 import shutil
 from datetime import datetime, time
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from config import (
     APP_CONFIG,
@@ -34,7 +34,15 @@ modality_data = _state.modality_data
 staged_modality_data = _state.staged_modality_data
 
 
-def check_and_perform_daily_reset():
+def _parse_reset_time(reset_time_str: str) -> time:
+    try:
+        reset_hour, reset_min = map(int, reset_time_str.split(':'))
+    except ValueError:
+        return time(7, 30)
+    return time(reset_hour, reset_min)
+
+
+def check_and_perform_daily_reset() -> None:
     """
     Perform a single global daily reset at the configured reset time.
 
@@ -55,11 +63,7 @@ def check_and_perform_daily_reset():
     today = now.date()
 
     reset_time_str = APP_CONFIG.get('scheduler', {}).get('daily_reset_time', '07:30')
-    try:
-        reset_hour, reset_min = map(int, reset_time_str.split(':'))
-        reset_time = time(reset_hour, reset_min)
-    except Exception:
-        reset_time = time(7, 30)
+    reset_time = _parse_reset_time(reset_time_str)
 
     # Quick check without lock to avoid unnecessary locking on most requests
     if global_worker_data['last_reset_date'] == today:
@@ -119,8 +123,8 @@ def check_and_perform_daily_reset():
                         selection_logger.warning("Scheduled file for %s war defekt und wurde entfernt.", mod)
                 else:
                     selection_logger.debug(f"No scheduled file found for modality {mod}. Keeping old data.")
-            except Exception as e:
-                selection_logger.error(f"Error during daily reset for {mod}: {e}")
+            except Exception as exc:
+                selection_logger.error(f"Error during daily reset for {mod}: {exc}")
 
         selection_logger.info(f"Global daily reset completed. Modalities with new data: {modalities_reset or 'none'}")
 
@@ -150,7 +154,7 @@ def clear_staged_data(modality: Optional[str] = None) -> Dict[str, Any]:
     return {'cleared': cleared, 'total_modalities': len(cleared)}
 
 
-def preload_next_workday(csv_path: str, config: dict) -> dict:
+def preload_next_workday(csv_path: str, config: dict) -> Dict[str, Any]:
     """Load data from master CSV for the next workday and save to scheduled files."""
     # Import here to avoid circular imports
     from data_manager.csv_parser import build_working_hours_from_medweb
@@ -204,8 +208,9 @@ def preload_next_workday(csv_path: str, config: dict) -> dict:
                     continue
 
                 export_df = df.copy()
-                export_df['TIME'] = export_df['start_time'].apply(lambda x: x.strftime(TIME_FORMAT)) + '-' + \
-                                    export_df['end_time'].apply(lambda x: x.strftime(TIME_FORMAT))
+                start_times = export_df['start_time'].apply(lambda value: value.strftime(TIME_FORMAT))
+                end_times = export_df['end_time'].apply(lambda value: value.strftime(TIME_FORMAT))
+                export_df['TIME'] = start_times + '-' + end_times
 
                 # Exclude internal columns from export
                 cols_to_export = [
@@ -226,8 +231,8 @@ def preload_next_workday(csv_path: str, config: dict) -> dict:
                 saved_modalities.append(modality)
                 total_workers += len(df['PPL'].unique())
 
-            except Exception as e:
-                selection_logger.error(f"Failed to save scheduled file for {modality}: {str(e)}")
+            except Exception as exc:
+                selection_logger.error(f"Failed to save scheduled file for {modality}: {exc}")
 
         if not saved_modalities:
             return {
@@ -244,10 +249,10 @@ def preload_next_workday(csv_path: str, config: dict) -> dict:
             'message': f'Preload erfolgreich gespeichert (wird am {date_str} aktiviert)'
         }
 
-    except Exception as e:
-        selection_logger.error(f"Error in preload_next_workday: {str(e)}", exc_info=True)
+    except Exception as exc:
+        selection_logger.error(f"Error in preload_next_workday: {exc}", exc_info=True)
         return {
             'success': False,
             'target_date': get_next_workday().strftime('%Y-%m-%d'),
-            'message': f'Fehler beim Preload: {str(e)}'
+            'message': f'Fehler beim Preload: {exc}'
         }
