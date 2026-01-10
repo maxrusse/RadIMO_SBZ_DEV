@@ -18,6 +18,7 @@ import pandas as pd
 
 from config import (
     allowed_modalities,
+    APP_CONFIG,
     SKILL_COLUMNS,
     UPLOAD_FOLDER,
     SKILL_ROSTER_AUTO_IMPORT,
@@ -31,6 +32,12 @@ from lib.utils import (
     validate_excel_structure,
     normalize_skill_value,
 )
+from data_manager.worker_management import (
+    apply_skill_overrides,
+    get_canonical_worker_id,
+    get_merged_worker_roster,
+    get_worker_skill_mod_combinations,
+)
 from state_manager import StateManager
 
 # Get state references
@@ -39,6 +46,41 @@ lock = _state.lock
 global_worker_data = _state.global_worker_data
 modality_data = _state.modality_data
 staged_modality_data = _state.staged_modality_data
+
+
+def apply_roster_overrides_to_schedule(df: pd.DataFrame, modality: str) -> pd.DataFrame:
+    """Reapply roster skill constraints to a schedule DataFrame."""
+    if df is None or df.empty or 'PPL' not in df.columns:
+        return df
+
+    worker_roster = get_merged_worker_roster(APP_CONFIG)
+
+    for idx, row in df.iterrows():
+        canonical_id = get_canonical_worker_id(row.get('PPL'))
+        roster_combinations = get_worker_skill_mod_combinations(canonical_id, worker_roster)
+        overrides = {}
+
+        for skill in SKILL_COLUMNS:
+            if skill not in df.columns:
+                continue
+            normalized = normalize_skill_value(row.get(skill))
+            if normalized == 'w':
+                override_value = 1
+            else:
+                try:
+                    override_value = int(normalized)
+                except (TypeError, ValueError):
+                    override_value = 0
+            overrides[f"{skill}_{modality}"] = override_value
+
+        final_combinations = apply_skill_overrides(roster_combinations, overrides)
+
+        for skill in SKILL_COLUMNS:
+            key = f"{skill}_{modality}"
+            if skill in df.columns and key in final_combinations:
+                df.at[idx, skill] = final_combinations[key]
+
+    return df
 
 
 def _calculate_total_work_hours(df: pd.DataFrame) -> dict:
@@ -249,6 +291,8 @@ def initialize_data(file_path: str, modality: str):
                 if skill not in df.columns:
                     df[skill] = 0
                 df[skill] = df[skill].fillna(0).apply(normalize_skill_value)
+
+            df = apply_roster_overrides_to_schedule(df, modality)
 
             df['shift_duration'] = df.apply(
                 lambda row: calculate_shift_duration_hours(row['start_time'], row['end_time']),

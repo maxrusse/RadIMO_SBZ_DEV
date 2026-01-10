@@ -70,21 +70,14 @@ No pending items in this category.
 
 ## 4. UPLOAD / CSV LOADING
 
-### 4.1 Load Next Day - No Overwrite from Shifts over Roster
+### 4.1 ~~Load Next Day - No Overwrite from Shifts over Roster~~ ✓ RESOLVED
 **Feedback:** "load next day -> no overwrite from shifts over roaster? -> really do it just like csv workflow on loading today? check it again"
 
 **Problem:** Loading next day may not properly respect roster settings vs CSV shift data
 
-**Code Location:**
-- `data_manager/schedule_crud.py` - Schedule loading logic
-- `data_manager/csv_parser.py` - CSV parsing
-- `routes.py:530-792` - Upload and load endpoints
-
-**Implementation Plan:**
-1. Review and document current loading behavior
-2. Ensure CSV data merges correctly with roster skills
-3. Add option/flag for "overwrite roster" vs "merge with roster"
-4. Test loading workflow for both today and tomorrow
+**Resolution:**
+- Scheduled JSON loads now reapply the current skill roster before staging or activating next-day data.
+- Both daily reset loads and manual "Load Next Day" runs ensure roster exclusions/weighted rules override shift data.
 
 **Priority:** High - Core functionality verification
 

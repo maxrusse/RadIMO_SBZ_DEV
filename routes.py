@@ -65,7 +65,8 @@ from data_manager import (
     _delete_worker_from_schedule,
     _add_gap_to_schedule,
     preload_next_workday,
-    _calculate_total_work_hours
+    _calculate_total_work_hours,
+    apply_roster_overrides_to_schedule,
 )
 from balancer import (
     get_next_available_worker,
@@ -536,6 +537,8 @@ def preload_from_master():
 
                         if 'counts_for_hours' not in df.columns:
                             df['counts_for_hours'] = True
+
+                        df = apply_roster_overrides_to_schedule(df, modality)
 
                         staged_modality_data[modality]['working_hours_df'] = df
                         staged_modality_data[modality]['info_texts'] = data.get('info_texts', [])
