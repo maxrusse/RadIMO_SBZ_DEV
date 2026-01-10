@@ -28,8 +28,10 @@ const QUICK_BREAK = CONFIG.quick_break || { duration_minutes: 30, gap_type: 'Bre
   for (const [skill, settings] of Object.entries(SKILL_SETTINGS)) {
     const btnColor = settings.button_color || '#6c757d';
     const textColor = settings.text_color || '#ffffff';
-    css += `.skill-header-${skill.toLowerCase()} { background: ${btnColor}; color: ${textColor}; }\n`;
-    css += `.skill-btn-${skill.toLowerCase()} { background: ${btnColor}; color: ${textColor}; border: none; }\n`;
+    const rawSlug = settings.slug || skill.toLowerCase();
+    const slug = rawSlug.replace(/[^a-z0-9-]/g, '-');
+    css += `.skill-header-${slug} { background: ${btnColor}; color: ${textColor}; }\n`;
+    css += `.skill-btn-${slug} { background: ${btnColor}; color: ${textColor}; border: none; }\n`;
   }
   // Skill VALUE colors - only highlight 1 (active) and w (weighted)
   // 0 and -1 are neutral/subdued - use config colors

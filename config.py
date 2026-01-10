@@ -1,5 +1,6 @@
 # Standard library imports
 import os
+import re
 import yaml
 import copy
 import logging
@@ -81,6 +82,11 @@ def _validate_name(name: str, name_type: str) -> None:
         )
 
 
+def _slugify(value: str) -> str:
+    slug = re.sub(r'[^a-z0-9]+', '-', value.lower())
+    return slug.strip('-')
+
+
 def _build_app_config() -> Dict[str, Any]:
     raw_config = _load_raw_config()
     config: Dict[str, Any] = {
@@ -135,7 +141,7 @@ def _build_app_config() -> Dict[str, Any]:
         values.setdefault('special', False)
         values.setdefault('always_visible', True)  # Default: always visible
         values['display_order'] = coerce_int(values.get('display_order', 0))
-        slug = values.get('slug') or key.lower().replace(' ', '_')
+        slug = values.get('slug') or _slugify(key)
         values['slug'] = slug
         values.setdefault('form_key', slug)
 
@@ -214,7 +220,7 @@ def _build_skill_metadata(skills_config: Dict[str, Dict[str, Any]]) -> Tuple[Lis
     weights: Dict[str, float] = {}
 
     for name, data in ordered_skills:
-        slug = data.get('slug') or name.lower().replace(' ', '_')
+        slug = data.get('slug') or _slugify(name)
 
         columns.append(name)
         slug_map[name] = slug
@@ -347,8 +353,8 @@ def _normalize_no_overflow(raw_list: list) -> set:
     Normalize no_overflow list to canonical Skill_Modality format.
 
     Supports:
-    - Skill_Modality: CardThor_ct → CardThor_ct
-    - Modality_Skill: ct_CardThor → CardThor_ct
+    - Skill_Modality: Card/Thor_ct → Card/Thor_ct
+    - Modality_Skill: ct_Card/Thor → Card/Thor_ct
 
     Returns: set of canonical 'Skill_modality' strings
     """
@@ -407,7 +413,8 @@ def normalize_modality(modality_value: Optional[str]) -> str:
 def normalize_skill(skill_name: Optional[str]) -> str:
     if not skill_name:
         return SKILL_COLUMNS[0] if SKILL_COLUMNS else ''
-    return skill_columns_map.get(skill_name.lower().strip(), skill_name.strip())
+    key = skill_name.lower().strip()
+    return _resolve_skill(key) or skill_name.strip()
 
 
 def is_no_overflow(skill: str, modality: str) -> bool:

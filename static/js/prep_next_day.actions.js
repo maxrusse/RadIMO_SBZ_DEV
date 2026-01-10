@@ -1451,7 +1451,7 @@ function applyPresetToShift(shiftIdx, taskName) {
 
   // Apply skills to all modalities in this shift
   // Config uses skill×modality format: { "Notfall_ct": 1, "Privat_mr": 0 }
-  // Also supports shortcuts: { "all": -1 }, { "MSK-Haut": 1 }
+  // Also supports shortcuts: { "all": -1 }, { "MSK/Haut": 1 }
   Object.keys(shift.modalities).forEach(modKey => {
     SKILLS.forEach(skill => {
       const el = document.getElementById(`edit-shift-${shiftIdx}-${modKey}-skill-${skill}`);

@@ -15,7 +15,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -34,7 +34,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -53,7 +53,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -72,7 +72,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -91,7 +91,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -110,7 +110,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -129,7 +129,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -148,7 +148,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -167,7 +167,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -186,7 +186,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -205,7 +205,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -224,7 +224,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -243,7 +243,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -253,7 +253,7 @@ vendor_mappings:
         day_part: ''
         occurrences: 3
       notes: modality unclear
-    - match: Abdomen Team
+    - match: Abd/Onco Team
       type: shift
       modality: TODO_modality
       shift: Fruehdienst
@@ -263,7 +263,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -283,7 +283,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -303,7 +303,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -323,7 +323,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0
@@ -343,7 +343,7 @@ vendor_mappings:
         Gyn: 0
         Päd: 0
         MSK: 0
-        Abdomen: 0
+        Abd/Onco: 0
         Chest: 0
         Cardvask: 0
         Uro: 0

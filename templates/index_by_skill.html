@@ -236,10 +236,10 @@
     {'href': url_for('routes.index_by_skill'), 'label': 'Skill', 'active': True}
   ] %}
   {% set selector_links %}
-    {% for s in skill_order %}
-    <a href="{{ url_for('routes.index_by_skill', skill=s) }}" data-skill="{{ s }}"
-      class="selector-link{% if skill == s %} selector-link--active{% endif %}">
-      {{ skill_labels[s] }}
+    {% for skill_def in skill_definitions %}
+    <a href="{{ url_for('routes.index_by_skill', skill=skill_def.slug) }}" data-skill="{{ skill_def.name }}"
+      class="selector-link{% if skill == skill_def.name %} selector-link--active{% endif %}">
+      {{ skill_def.label }}
     </a>
     {% endfor %}
   {% endset %}
@@ -252,11 +252,11 @@
       <div class="modality-button-wrapper" data-modality="{{ mod_key }}"
         data-visible="{{ 'true' if mod_key in visible_modalities else 'false' }}">
         <button id="mod-btn-{{ mod_key }}" data-modality="{{ mod_key }}"
-          onclick="getNextAssignment('{{ mod_key }}', '{{ skill }}')" class="btn assignment-btn modality-main-btn">
+          onclick="getNextAssignment('{{ mod_key }}')" class="btn assignment-btn modality-main-btn">
           {{ modalities[mod_key].label }}
         </button>
         <button type="button" class="btn assignment-btn modality-strict-btn"
-          onclick="getNextAssignment('{{ mod_key }}', '{{ skill }}', true)"
+          onclick="getNextAssignment('{{ mod_key }}', true)"
           aria-label="Nur diese Modalität (kein Fallback)" title="Nur diese Modalität">
           *
         </button>
@@ -283,10 +283,11 @@
   </div>
 
   <script>
+    const currentSkill = "{{ skill }}";
+    const skillDefinitions = JSON.parse('{{ skill_definitions|tojson|safe }}');
+    const modalities = JSON.parse('{{ modalities|tojson|safe }}');
+
     (function injectDynamicStyles() {
-      const currentSkill = "{{ skill }}";
-      const skillDefinitions = JSON.parse('{{ skill_definitions|tojson|safe }}');
-      const modalities = JSON.parse('{{ modalities|tojson|safe }}');
 
       // Find current skill definition
       const skillDef = skillDefinitions.find(s => s.name === currentSkill);
@@ -322,7 +323,9 @@
 
     let requestInProgress = false;
     let timerInterval, lastClickTime, disableTimeout;
-    let currentSkill = "{{ skill }}";
+    const currentSkillDef = skillDefinitions.find(s => s.name === currentSkill);
+    const currentSkillSlug = currentSkillDef?.slug || (currentSkill || '').toLowerCase();
+    const currentSkillLabel = currentSkillDef?.label || currentSkill;
     let lastModalityUsed = "";
 
     // Utility: Escape HTML to prevent XSS
@@ -336,13 +339,14 @@
     // Button visibility is now controlled by config only
     // All modality buttons are always visible
 
-    function getNextAssignment(modality, skill, forcePrimary = false) {
+    function getNextAssignment(modality, forcePrimary = false) {
       if (requestInProgress) return;
       lastModalityUsed = modality;
       setButtonsDisabled(true);
+      const encodedSkill = encodeURIComponent(currentSkillSlug);
       const endpoint = forcePrimary
-        ? `/api/${modality}/${skill}/strict`
-        : `/api/${modality}/${skill}`;
+        ? `/api/${modality}/${encodedSkill}/strict`
+        : `/api/${modality}/${encodedSkill}`;
       fetch(endpoint)
         .then(response => {
           if (!response.ok) {
@@ -385,7 +389,7 @@
       const timeStr = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
       const lastEl = document.getElementById('lastAssignment');
       const mod = (modality || lastModalityUsed || '').toUpperCase();
-      lastEl.textContent = `Letzte Zuweisung: ${timeStr} · ${displayPerson} · ${mod}/${currentSkill}`;
+      lastEl.textContent = `Letzte Zuweisung: ${timeStr} · ${displayPerson} · ${mod}/${currentSkillLabel}`;
       lastEl.classList.add('visible');
     }
 

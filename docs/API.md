@@ -24,11 +24,11 @@ Assigns a worker with automatic overflow to generalists if specialists are overl
 | Name | Type | Description |
 |------|------|-------------|
 | modality | path | `ct`, `mr`, or `xray` |
-| skill | path | `notfall`, `privat`, `gyn`, `paed`, `msk-haut`, `abdomen`, `cardthor`, `uro`, `kopfhals` |
+| skill | path | `notfall`, `privat`, `gyn`, `paed`, `msk-haut`, `abd-onco`, `card-thor`, `uro`, `kopf-hals` |
 
 **Example:**
 ```bash
-curl http://localhost:5000/api/ct/cardthor
+curl http://localhost:5000/api/ct/card-thor
 ```
 
 **Response:**
@@ -37,8 +37,8 @@ curl http://localhost:5000/api/ct/cardthor
   "Assigned Person": "Dr. Anna Müller (AM)",
   "Draw Time": "14:23:45",
   "Modality": "ct",
-  "Requested Skill": "CardThor",
-  "Used Skill": "CardThor",
+  "Requested Skill": "Card/Thor",
+  "Used Skill": "Card/Thor",
   "Fallback Used": false
 }
 ```
@@ -49,10 +49,10 @@ curl http://localhost:5000/api/ct/cardthor
   "Assigned Person": "Dr. Max Schmidt (MS)",
   "Draw Time": "14:24:12",
   "Modality": "ct",
-  "Requested Skill": "CardThor",
+  "Requested Skill": "Card/Thor",
   "Used Skill": "Notfall",
   "Fallback Used": true,
-  "Fallback Reason": "No active CardThor workers available"
+  "Fallback Reason": "No active Card/Thor workers available"
 }
 ```
 
@@ -68,13 +68,13 @@ Assigns a worker without overflow. Returns error if no specialist available.
 
 **Example:**
 ```bash
-curl http://localhost:5000/api/ct/cardthor/strict
+curl http://localhost:5000/api/ct/card-thor/strict
 ```
 
 **Error response (no match):**
 ```json
 {
-  "error": "No available worker for CardThor in ct",
+  "error": "No available worker for Card/Thor in ct",
   "Fallback Used": false
 }
 ```
@@ -101,7 +101,7 @@ curl http://localhost:5000/api/quick_reload?modality=ct
 {
   "available_buttons": {
     "notfall": true,
-    "cardthor": true,
+    "card-thor": true,
     "privat": false,
     "msk-haut": true
   },
@@ -124,7 +124,7 @@ Get live statistics for skill-based view.
 
 **Example:**
 ```bash
-curl http://localhost:5000/api/quick_reload?skill=cardthor
+curl http://localhost:5000/api/quick_reload?skill=card-thor
 ```
 
 **Response:**
@@ -263,9 +263,9 @@ Get staged working_hours_df for all modalities.
       "gap_id": "gap_AM_123456",
       "Notfall": 1,
       "Privat": 0,
-      "MSK-Haut": 0,
-      "CardThor": 0,
-      "KopfHals": 0,
+      "MSK/Haut": 0,
+      "Card/Thor": 0,
+      "Kopf/Hals": 0,
       "Uro": 0
     }
   ],
@@ -328,9 +328,9 @@ Add new worker to staged data.
     "end_time": "15:00",
     "Notfall": 1,
     "Privat": 0,
-    "MSK-Haut": 0,
-    "CardThor": 0,
-    "KopfHals": 0,
+    "MSK/Haut": 0,
+    "Card/Thor": 0,
+    "Kopf/Hals": 0,
     "Uro": 0,
     "Modifier": 1.0
   }
@@ -379,11 +379,11 @@ Get staged worker skill roster.
       "Notfall_xray": 1,
       "Privat_ct": 0,
       "Privat_mr": 1,
-      "CardThor_ct": 1,
-      "CardThor_mr": 1
+      "Card/Thor_ct": 1,
+      "Card/Thor_mr": 1
     }
   },
-  "skills": ["Notfall", "Privat", "Gyn", "Päd", "MSK-Haut", "Abdomen", "CardThor", "Uro", "KopfHals"],
+  "skills": ["Notfall", "Privat", "Gyn", "Päd", "MSK/Haut", "Abd/Onco", "Card/Thor", "Uro", "Kopf/Hals"],
   "modalities": ["ct", "mr", "xray"]
 }
 ```
@@ -410,8 +410,8 @@ Save roster changes to staging.
       "Notfall_mr": 1,
       "Privat_ct": 0,
       "Privat_mr": 1,
-      "CardThor_ct": 1,
-      "CardThor_mr": 1
+      "Card/Thor_ct": 1,
+      "Card/Thor_mr": 1
     }
   }
 }

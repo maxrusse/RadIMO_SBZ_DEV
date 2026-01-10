@@ -5,44 +5,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Schmidt (CT2)": {
@@ -51,44 +51,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Weber (CT3)": {
@@ -97,44 +97,44 @@
       "Privat": 1,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Schneider (MR1)": {
@@ -143,44 +143,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 1,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Fischer (MR2)": {
@@ -189,44 +189,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Meyer (MR3)": {
@@ -235,44 +235,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 1,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Wagner (MR4)": {
@@ -281,44 +281,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 1,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Becker (XR1)": {
@@ -327,44 +327,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 1,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Hoffmann (XR2)": {
@@ -373,44 +373,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 1,
       "Privat": 1,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Schulz (MA1)": {
@@ -419,44 +419,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 1,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Koch (MA2)": {
@@ -465,44 +465,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 1,
       "Gyn": 1,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Richter (GYN1)": {
@@ -511,44 +511,44 @@
       "Privat": 0,
       "Gyn": 1,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 1,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Wolf (MSK1)": {
@@ -557,44 +557,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 1,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 1,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 1,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 1,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 1,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 1,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Schröder (ABD1)": {
@@ -603,44 +603,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 1,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 1,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 1,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 1,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Neumann (CHE1)": {
@@ -649,44 +649,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 1,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 1,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 1,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 1,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Schwarz (CAR1)": {
@@ -695,44 +695,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 1,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 1,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 1,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 1,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 1,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Braun (URO1)": {
@@ -741,44 +741,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 1,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 1,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Krause (PAD1)": {
@@ -787,44 +787,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 1,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 1,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 1,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   },
   "Dr. Jung (MSK Trainee)": {
@@ -833,44 +833,44 @@
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 2,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 2,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mr": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 2,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 2,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "xray": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 2,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 2,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     },
     "mammo": {
       "Notfall": 0,
       "Privat": 0,
       "Gyn": 0,
       "Päd": 0,
-      "MSK-Haut": 0,
-      "Abdomen": 0,
-      "CardThor": 0,
+      "MSK/Haut": 0,
+      "Abd/Onco": 0,
+      "Card/Thor": 0,
       "Uro": 0,
-      "KopfHals": 0
+      "Kopf/Hals": 0
     }
   }
 }

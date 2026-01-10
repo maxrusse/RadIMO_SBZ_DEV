@@ -130,7 +130,7 @@ skills:
     special: true             # Subspecialty team
     display_order: 3
     slug: paed
-  MSK-Haut:
+  MSK/Haut:
     label: MSK/Haut
     button_color: '#9c27b0'
     text_color: '#ffffff'
@@ -138,22 +138,22 @@ skills:
     special: true             # Musculoskeletal & skin subspecialty
     display_order: 4
     slug: msk-haut
-  Abdomen:
+  Abd/Onco:
     label: Abd/Onco
     button_color: '#00bcd4'
     text_color: '#ffffff'
     weight: 1.0
     special: true             # Abdominal imaging subspecialty
     display_order: 5
-    slug: abdomen
-  CardThor:
+    slug: abd-onco
+  Card/Thor:
     label: Card/Thor
     button_color: '#28a745'
     text_color: '#ffffff'
     weight: 1.2
     special: true             # Cardio-thoracic subspecialty
     display_order: 6
-    slug: cardthor
+    slug: card-thor
   Uro:
     label: Uro
     button_color: '#795548'
@@ -162,14 +162,14 @@ skills:
     special: true             # Urology subspecialty
     display_order: 7
     slug: uro
-  KopfHals:
+  Kopf/Hals:
     label: Kopf/Hals
     button_color: '#607d8b'
     text_color: '#ffffff'
     weight: 1.0
     special: true             # Head & neck subspecialty
     display_order: 8
-    slug: kopfhals
+    slug: kopf-hals
 
 # =============================================================================
 # SKILL×MODALITY WEIGHT OVERRIDES
@@ -181,7 +181,7 @@ skills:
 
 skill_modality_overrides:
   mr:
-    CardThor: 1.8    # Cardiac MR weighted higher due to complexity
+    Card/Thor: 1.8    # Cardiac MR weighted higher due to complexity
 
 # =============================================================================
 # NO OVERFLOW (STRICT MODE) COMBINATIONS
@@ -189,12 +189,12 @@ skill_modality_overrides:
 # List of Skill_Modality combinations where overflow to generalists is disabled.
 # For these combos, the normal button acts like the [*] strict button - only
 # specialists (skill=1 or 'w') will be assigned, never generalists (skill=0).
-# Format: Skill_Modality (e.g., CardThor_ct, Gyn_mr)
+# Format: Skill_Modality (e.g., Card/Thor_ct, Gyn_mr)
 # =============================================================================
 
 # Examples:
-#   - CardThor_ct    # Cardiac CT - specialists only
-#   - CardThor_mr    # Cardiac MR - specialists only
+#   - Card/Thor_ct    # Cardiac CT - specialists only
+#   - Card/Thor_mr    # Cardiac MR - specialists only
 no_overflow: []
 
 # =============================================================================
@@ -301,10 +301,10 @@ balancer:
     gyn: []
     paed: []
     msk-haut: []
-    abdomen: []
-    cardthor: []
+    abd-onco: []
+    card-thor: []
     uro: []
-    kopfhals: []
+    kopf-hals: []
 
 # =============================================================================
 # MEDWEB CSV MAPPING CONFIGURATION
@@ -375,31 +375,31 @@ vendor_mappings:
         Privat_ct: 1
         Gyn_ct: 1
         Päd_ct: 1
-        MSK-Haut_ct: 1
-        Abdomen_ct: 1
-        CardThor_ct: 1
+        MSK/Haut_ct: 1
+        Abd/Onco_ct: 1
+        Card/Thor_ct: 1
         Uro_ct: 1
-        KopfHals_ct: 1
+        Kopf/Hals_ct: 1
         # MR modality - all skills active
         Notfall_mr: 1
         Privat_mr: 1
         Gyn_mr: 1
         Päd_mr: 1
-        MSK-Haut_mr: 1
-        Abdomen_mr: 1
-        CardThor_mr: 1
+        MSK/Haut_mr: 1
+        Abd/Onco_mr: 1
+        Card/Thor_mr: 1
         Uro_mr: 1
-        KopfHals_mr: 1
+        Kopf/Hals_mr: 1
         # X-ray modality - all skills active
         Notfall_xray: 1
         Privat_xray: 1
         Gyn_xray: 1
         Päd_xray: 1
-        MSK-Haut_xray: 1
-        Abdomen_xray: 1
-        CardThor_xray: 1
+        MSK/Haut_xray: 1
+        Abd/Onco_xray: 1
+        Card/Thor_xray: 1
         Uro_xray: 1
-        KopfHals_xray: 1
+        Kopf/Hals_xray: 1
 
     # =========================================================================
     # COMMENTED OUT: Individual CT/MR Früh/Spätdienst rules
@@ -417,13 +417,13 @@ vendor_mappings:
     #   skill_overrides:
     #     Notfall_ct: 1
     #     Privat_ct: 1
-    #     MSK-Haut_ct: 0
-    #     Abdomen_ct: 0
-    #     CardThor_ct: 0
+    #     MSK/Haut_ct: 0
+    #     Abd/Onco_ct: 0
+    #     Card/Thor_ct: 0
     #     Uro_ct: 0
     #     Gyn_ct: 0
     #     Päd_ct: 0
-    #     KopfHals_ct: 0
+    #     Kopf/Hals_ct: 0
 
     # - match: "CT Assistent"
     #   type: "shift"
@@ -433,13 +433,13 @@ vendor_mappings:
     #   skill_overrides:
     #     Notfall_ct: 1
     #     Privat_ct: 1
-    #     MSK-Haut_ct: 0
-    #     Abdomen_ct: 0
-    #     CardThor_ct: 0
+    #     MSK/Haut_ct: 0
+    #     Abd/Onco_ct: 0
+    #     Card/Thor_ct: 0
     #     Uro_ct: 0
     #     Gyn_ct: 0
     #     Päd_ct: 0
-    #     KopfHals_ct: 0
+    #     Kopf/Hals_ct: 0
 
     # CT Private patients shift - specialized assignment
     - match: "CT Privatpatienten"
@@ -460,13 +460,13 @@ vendor_mappings:
     #   skill_overrides:
     #     Notfall_mr: 1
     #     Privat_mr: 1
-    #     MSK-Haut_mr: 0
-    #     Abdomen_mr: 0
-    #     CardThor_mr: 0
+    #     MSK/Haut_mr: 0
+    #     Abd/Onco_mr: 0
+    #     Card/Thor_mr: 0
     #     Uro_mr: 0
     #     Gyn_mr: 0
     #     Päd_mr: 0
-    #     KopfHals_mr: 0
+    #     Kopf/Hals_mr: 0
 
     # - match: "MR Assistent 1. Monat"
     #   type: "shift"
@@ -486,13 +486,13 @@ vendor_mappings:
     #   skill_overrides:
     #     Notfall_mr: 1
     #     Privat_mr: 1
-    #     MSK-Haut_mr: 0
-    #     Abdomen_mr: 0
-    #     CardThor_mr: 0
+    #     MSK/Haut_mr: 0
+    #     Abd/Onco_mr: 0
+    #     Card/Thor_mr: 0
     #     Uro_mr: 0
     #     Gyn_mr: 0
     #     Päd_mr: 0
-    #     KopfHals_mr: 0
+    #     Kopf/Hals_mr: 0
 
     # MR senior physician shift - full skill coverage
     - match: "MRT-OA"
@@ -503,13 +503,13 @@ vendor_mappings:
       skill_overrides:
         Notfall_mr: 1
         Privat_mr: 1
-        MSK-Haut_mr: 1
-        Abdomen_mr: 1
-        CardThor_mr: 1
+        MSK/Haut_mr: 1
+        Abd/Onco_mr: 1
+        Card/Thor_mr: 1
         Uro_mr: 1
         Gyn_mr: 1
         Päd_mr: 1
-        KopfHals_mr: 1
+        Kopf/Hals_mr: 1
 
     # =========================================================================
     # X-RAY SHIFTS
@@ -525,7 +525,7 @@ vendor_mappings:
       skill_overrides:
         Notfall_xray: 1
         Privat_xray: 1
-        MSK-Haut_xray: 0     # Fallback for MSK
+        MSK/Haut_xray: 0     # Fallback for MSK
         Päd_xray: 0          # Fallback for pediatrics
 
     - match: "OA / FA Chir"
@@ -536,7 +536,7 @@ vendor_mappings:
       skill_overrides:
         Notfall_xray: 1
         Privat_xray: 1
-        MSK-Haut_xray: 1     # Full MSK coverage
+        MSK/Haut_xray: 1     # Full MSK coverage
         Päd_xray: 1          # Full pediatric coverage
 
     # =========================================================================
@@ -571,35 +571,35 @@ vendor_mappings:
     # Team members handle cases for their specialty across relevant modalities.
     # =========================================================================
 
-    # - match: "MSK-Haut Assistent"
+    # - match: "MSK/Haut Assistent"
     #   type: "shift"
     #   times:
     #     default: "07:00-15:00"
     #     Freitag: "07:00-13:00"
     #   skill_overrides:
-    #     MSK-Haut_ct: 1
-    #     MSK-Haut_mr: 1
-    #     MSK-Haut_xray: 1
+    #     MSK/Haut_ct: 1
+    #     MSK/Haut_mr: 1
+    #     MSK/Haut_xray: 1
 
-    - match: "MSK-Haut Team"
+    - match: "MSK/Haut Team"
       type: "shift"
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        MSK-Haut_ct: 1
-        MSK-Haut_mr: 1
-        MSK-Haut_xray: 1
+        MSK/Haut_ct: 1
+        MSK/Haut_mr: 1
+        MSK/Haut_xray: 1
 
-    # - match: "MSK-Haut Anfänger"
+    # - match: "MSK/Haut Anfänger"
     #   type: "shift"
     #   times:
     #     default: "07:00-15:00"
     #     Freitag: "07:00-13:00"
     #   modifier: 0.5          # Beginner: counts double toward their load
     #   skill_overrides:
-    #     MSK-Haut_ct: w       # Weighted: supervised
-    #     MSK-Haut_xray: w
+    #     MSK/Haut_ct: w       # Weighted: supervised
+    #     MSK/Haut_xray: w
 
     # - match: "CT Anfänger"
     #   type: "shift"
@@ -610,23 +610,23 @@ vendor_mappings:
     #   skill_overrides:
     #     Notfall_ct: w        # Weighted: supervised, receives less work
 
-    - match: "CardThor Team"
+    - match: "Card/Thor Team"
       type: "shift"
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        CardThor_ct: 1       # Cardiac CT
-        CardThor_mr: 1       # Cardiac MR
+        Card/Thor_ct: 1       # Cardiac CT
+        Card/Thor_mr: 1       # Cardiac MR
 
-    - match: "Abdomen Team"
+    - match: "Abd/Onco Team"
       type: "shift"
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        Abdomen_ct: 1
-        Abdomen_mr: 1
+        Abd/Onco_ct: 1
+        Abd/Onco_mr: 1
 
     - match: "Uro Team"
       type: "shift"
@@ -657,14 +657,14 @@ vendor_mappings:
         Päd_mr: 1
         Päd_xray: 1
 
-    - match: "KopfHals Team"
+    - match: "Kopf/Hals Team"
       type: "shift"
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
       skill_overrides:
-        KopfHals_ct: 1
-        KopfHals_mr: 1
+        Kopf/Hals_ct: 1
+        Kopf/Hals_mr: 1
 
     # =========================================================================
     # NOTFALL TEAM - Emergency coverage across modalities
@@ -732,17 +732,17 @@ vendor_mappings:
         Päd_ct: 1
         Päd_mr: 1
         Päd_xray: 1
-        MSK-Haut_ct: 1
-        MSK-Haut_mr: 1
-        MSK-Haut_xray: 1
-        Abdomen_ct: 1
-        Abdomen_mr: 1
-        CardThor_ct: 1
-        CardThor_mr: 1
+        MSK/Haut_ct: 1
+        MSK/Haut_mr: 1
+        MSK/Haut_xray: 1
+        Abd/Onco_ct: 1
+        Abd/Onco_mr: 1
+        Card/Thor_ct: 1
+        Card/Thor_mr: 1
         Uro_ct: 1
         Uro_mr: 1
-        KopfHals_ct: 1
-        KopfHals_mr: 1
+        Kopf/Hals_ct: 1
+        Kopf/Hals_mr: 1
 
     # =========================================================================
     # ADMINISTRATIVE SHIFTS
@@ -768,7 +768,7 @@ vendor_mappings:
     #
     # Shortcuts for skill_overrides:
     #   all: -1        → all skill_modality combos = -1
-    #   MSK-Haut: 1    → all MSK-Haut_* combos = 1
+    #   MSK/Haut: 1    → all MSK/Haut_* combos = 1
     #   ct: 1          → all *_ct combos = 1
     # =========================================================================
 

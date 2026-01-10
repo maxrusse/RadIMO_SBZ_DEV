@@ -37,7 +37,7 @@ Example:
 ```
 ('Notfall', 'ct') → 15
 ('Privat', 'ct') → 8
-('MSK-Haut', 'mr') → 12
+('MSK/Haut', 'mr') → 12
 ```
 
 ### CSV Export Format
@@ -49,12 +49,12 @@ Usage statistics are exported to a single CSV file in **wide format** with one r
 **CSV Structure**:
 - **First Column**: `date` (YYYY-MM-DD format)
 - **Remaining Columns**: One column for each skill-modality combination in format `Skill_modality`
-  - Examples: `Notfall_ct`, `Privat_mr`, `MSK-Haut_xray`, `CardThor_ct`
+  - Examples: `Notfall_ct`, `Privat_mr`, `MSK/Haut_xray`, `Card/Thor_ct`
   - All columns are always present, with value 0 if not used that day
 
 **Example**:
 ```csv
-date,Notfall_ct,Notfall_mr,Privat_ct,Privat_mr,MSK-Haut_ct,MSK-Haut_mr,CardThor_ct,CardThor_mr,...
+date,Notfall_ct,Notfall_mr,Privat_ct,Privat_mr,MSK/Haut_ct,MSK/Haut_mr,Card/Thor_ct,Card/Thor_mr,...
 2025-12-22,15,8,5,2,3,12,5,1,...
 2025-12-23,18,6,7,3,2,10,4,0,...
 2025-12-24,12,10,6,4,5,15,3,2,...
