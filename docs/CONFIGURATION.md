@@ -141,7 +141,7 @@ skills:
     slug: msk-haut
 
   Abdomen:
-    label: Abd/Onco
+    label: Abd/Onco  # Canonical key remains Abdomen; label is displayed as Abd/Onco in the UI
     button_color: '#00bcd4'
     text_color: '#ffffff'
     weight: 1.0
