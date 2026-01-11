@@ -37,6 +37,7 @@
 - [x] app.py: removed unused imports (modality_data, lock).
 - [x] gunicorn_config.py: removed unused import (multiprocessing).
 - [x] config.py, state_manager.py: reviewed - well-structured, no changes needed.
+- [x] state_manager.py, data_manager/worker_management.py: clarified Optional type hints for nullable parameters.
 
 ## Safety check
 - [x] data_manager/file_ops.py changes verified for identical behavior.

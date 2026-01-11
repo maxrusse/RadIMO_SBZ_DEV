@@ -9,7 +9,7 @@ This module provides functions for:
 """
 import copy
 import json
-from typing import Dict, Any, List, Iterable, Mapping
+from typing import Dict, Any, List, Iterable, Mapping, Optional
 
 import pandas as pd
 
@@ -32,7 +32,7 @@ global_worker_data = _state.global_worker_data
 worker_skill_json_roster = _state.worker_skill_json_roster
 
 
-def get_canonical_worker_id(worker_name: str) -> str:
+def get_canonical_worker_id(worker_name: Optional[str]) -> str:
     """Map worker name variations to a single canonical identifier."""
     worker_name = '' if worker_name is None else str(worker_name)
     worker_key = worker_name.strip()
@@ -52,7 +52,7 @@ def get_canonical_worker_id(worker_name: str) -> str:
     return canonical_id
 
 
-def invalidate_work_hours_cache(modality: str = None) -> None:
+def invalidate_work_hours_cache(modality: Optional[str] = None) -> None:
     """Invalidate the work hours cache when modality data changes.
 
     Args:
