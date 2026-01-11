@@ -36,19 +36,23 @@ flask --app app run --debug  # Start application
 
 ### Access Points
 
-**Operational pages (public):**
+**Operational pages (access-protected if enabled):**
 | Page | URL | Description |
 |------|-----|-------------|
 | Main Interface | `/` | Assignment by modality (CT/MR/XRAY) |
 | Skill View | `/by-skill` | Assignment by skill (Notfall, Card/Thor, MSK/Haut, etc.) |
 | Timetable | `/timetable` | Visualize shifts and schedules |
 
-**Admin pages (password protected):**
+If basic access protection is enabled, users authenticate via `/access-login` before reaching the operational pages.
+
+**Admin pages (password protected when enabled):**
 | Page | URL | Description |
 |------|-----|-------------|
 | Admin Panel | `/upload` | Master CSV management, stats, system health |
 | Skill Matrix | `/skill-roster` | Edit worker skills (Direct Save) |
-| Schedule Edit | `/prep-next-day` | Edit Today (Live) or Prep Tomorrow (Staged) |
+| Schedule Edit (Today) | `/prep-today` | Edit today (live) |
+| Schedule Edit (Tomorrow) | `/prep-tomorrow` | Prep tomorrow (staged) |
+| Worker Load | `/worker-load` | Load monitoring dashboard |
 
 ---
 
@@ -95,7 +99,8 @@ Assignments are weighted by:
 
 ### Admin Pages
 1. **Skill Matrix** (`/skill-roster`) - Edit worker skills across modalities (saves directly)
-2. **Schedule Edit** (`/prep-next-day`) - Modify Today (Live) or prepare Tomorrow (Staged)
+2. **Schedule Edit (Today)** (`/prep-today`) - Modify today (live)
+3. **Schedule Edit (Tomorrow)** (`/prep-tomorrow`) - Prepare tomorrow (staged)
 
 ### Navigation & UI Features
 
@@ -103,7 +108,9 @@ Assignments are weighted by:
 - **Dashboard** (`/`) - Main workload view (toggle Modality/Skill views)
 - **Timetable** (`/timetable`) - Visual timeline of shifts and gaps
 - **Skill Matrix** (`/skill-roster`) - Manage worker skills (direct save)
-- **Schedule Edit** (`/prep-next-day`) - Live Edit (Today) + Prep Tomorrow (Staged)
+- **Change Today** (`/prep-today`) - Live edits for today
+- **Prep Tomorrow** (`/prep-tomorrow`) - Staged edits for tomorrow
+- **Worker Load** (`/worker-load`) - Load monitoring dashboard
 - **Admin** (`/upload`) - System configuration and CSV uploads
 
 ---
@@ -176,8 +183,9 @@ Validates: config file, admin password, upload folder, modalities, skills, medwe
 
 ## Security
 
-- **Admin password**: Configure in `config.yaml`
-- **Session-based auth**: Admin routes protected by login
+- **Admin password**: Configure in `config.yaml` (enforced when `admin_access_protection_enabled` is true)
+- **Access password**: Optional access login for non-admin pages (`access_protection_enabled`)
+- **Session-based auth**: Admin routes protected by login when enabled
 - **GDPR-compliant**: Documentation in `static/verfahrensverzeichniss.txt`
 
 ---
