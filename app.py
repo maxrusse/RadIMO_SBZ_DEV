@@ -10,7 +10,7 @@ from flask import Flask
 
 # Local imports
 from config import APP_CONFIG
-from routes import routes, auto_preload_job
+from routes import routes
 from data_manager import (
     load_state,
     check_and_perform_daily_reset,
@@ -43,9 +43,6 @@ scheduler = BackgroundScheduler()
 def before_request_hook():
     check_and_perform_daily_reset()
 
-# Schedule auto-preload daily from Master CSV
-preload_hour = APP_CONFIG.get('scheduler', {}).get('auto_preload_time', 14)
-scheduler.add_job(auto_preload_job, 'cron', hour=preload_hour, minute=0)
 scheduler.start()
 atexit.register(lambda: scheduler.shutdown())
 

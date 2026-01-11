@@ -29,7 +29,8 @@ def save_state():
                 'worker_ids': global_worker_data['worker_ids'],
                 'weighted_counts': global_worker_data['weighted_counts'],
                 'assignments_per_mod': global_worker_data['assignments_per_mod'],
-                'last_reset_date': global_worker_data['last_reset_date'].isoformat() if global_worker_data['last_reset_date'] else None
+                'last_reset_date': global_worker_data['last_reset_date'].isoformat() if global_worker_data['last_reset_date'] else None,
+                'last_preload_date': global_worker_data['last_preload_date'].isoformat() if global_worker_data['last_preload_date'] else None
             },
             'modality_data': {}
         }
@@ -73,6 +74,9 @@ def load_state():
             last_reset_str = gwd.get('last_reset_date')
             if last_reset_str:
                 global_worker_data['last_reset_date'] = datetime.fromisoformat(last_reset_str).date()
+            last_preload_str = gwd.get('last_preload_date')
+            if last_preload_str:
+                global_worker_data['last_preload_date'] = datetime.fromisoformat(last_preload_str).date()
 
         if 'modality_data' in state:
             for mod in allowed_modalities:

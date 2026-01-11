@@ -132,7 +132,8 @@ class StateManager:
                 'worker_ids': {},  # Map of worker name variations to canonical ID
                 'weighted_counts': {},  # {worker_id: count}
                 'assignments_per_mod': {mod: {} for mod in allowed_modalities},
-                'last_reset_date': None  # Global reset date tracker
+                'last_reset_date': None,  # Global reset date tracker
+                'last_preload_date': None  # Next-workday preload tracker
             }
 
             # Modality active data (Live)
