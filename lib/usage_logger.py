@@ -10,7 +10,7 @@ import logging
 import os
 from datetime import datetime, date, time
 from pathlib import Path
-from typing import Dict, Tuple, List, Set
+from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
 import threading
 
@@ -72,6 +72,37 @@ def _get_all_skill_modality_columns() -> List[str]:
     return columns
 
 
+def _write_usage_to_csv(export_date: date) -> Optional[Path]:
+    """
+    Write current usage data to CSV in wide format (one row per day).
+
+    Args:
+        export_date: Date to use for the export row.
+
+    Returns:
+        Path to CSV file if successful, None otherwise.
+    """
+    all_columns = _get_all_skill_modality_columns()
+    file_exists = USAGE_STATS_FILE.exists()
+
+    row_data = {'date': export_date.strftime('%Y-%m-%d')}
+    for skill in SKILL_COLUMNS:
+        for modality in allowed_modalities:
+            column = f"{skill}_{modality}"
+            row_data[column] = _daily_usage.get((skill, modality), 0)
+
+    with open(USAGE_STATS_FILE, 'a', newline='', encoding='utf-8') as f:
+        fieldnames = ['date'] + all_columns
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row_data)
+
+    total_usage = sum(_daily_usage.values())
+    logger.info(f"Exported usage data for {export_date} to {USAGE_STATS_FILE} ({total_usage} total assignments)")
+    return USAGE_STATS_FILE
+
+
 def _export_and_reset(export_date: date = None) -> None:
     """
     Export current usage data to CSV in wide format (one row per day) and reset counters.
@@ -89,46 +120,14 @@ def _export_and_reset(export_date: date = None) -> None:
         return
 
     try:
-        # Get all possible skill-modality columns
-        all_columns = _get_all_skill_modality_columns()
-
-        # Check if file exists to determine if we need headers
-        file_exists = USAGE_STATS_FILE.exists()
-
-        # Prepare row data
-        row_data = {'date': export_date.strftime('%Y-%m-%d')}
-
-        # Add all skill-modality counts (0 if not used)
-        # Iterate directly over skills and modalities instead of parsing column names
-        for skill in SKILL_COLUMNS:
-            for modality in allowed_modalities:
-                column = f"{skill}_{modality}"
-                row_data[column] = _daily_usage.get((skill, modality), 0)
-
-        # Write to CSV
-        with open(USAGE_STATS_FILE, 'a', newline='', encoding='utf-8') as f:
-            fieldnames = ['date'] + all_columns
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-
-            # Write header if new file
-            if not file_exists:
-                writer.writeheader()
-
-            # Write data row
-            writer.writerow(row_data)
-
-        total_usage = sum(_daily_usage.values())
-        logger.info(f"Exported usage data for {export_date} to {USAGE_STATS_FILE} ({total_usage} total assignments)")
-
-        # Reset counters
+        _write_usage_to_csv(export_date)
         _daily_usage.clear()
         logger.info("Usage counters reset for new day")
-
     except Exception as e:
         logger.error(f"Failed to export usage statistics: {e}", exc_info=True)
 
 
-def export_current_usage() -> Path:
+def export_current_usage() -> Optional[Path]:
     """
     Manually trigger export of current usage data without resetting.
     Useful for end-of-day exports or manual backups.
@@ -137,7 +136,7 @@ def export_current_usage() -> Path:
     If data for the current date already exists in the file, this will add a duplicate row.
 
     Returns:
-        Path to the exported CSV file, or None if no data to export
+        Path to the exported CSV file, or None if no data to export.
     """
     with _lock:
         if not _daily_usage:
@@ -145,38 +144,7 @@ def export_current_usage() -> Path:
             return None
 
         try:
-            # Get all possible skill-modality columns
-            all_columns = _get_all_skill_modality_columns()
-
-            # Check if file exists to determine if we need headers
-            file_exists = USAGE_STATS_FILE.exists()
-
-            # Prepare row data
-            row_data = {'date': _current_date.strftime('%Y-%m-%d')}
-
-            # Add all skill-modality counts (0 if not used)
-            # Iterate directly over skills and modalities instead of parsing column names
-            for skill in SKILL_COLUMNS:
-                for modality in allowed_modalities:
-                    column = f"{skill}_{modality}"
-                    row_data[column] = _daily_usage.get((skill, modality), 0)
-
-            # Write to CSV
-            with open(USAGE_STATS_FILE, 'a', newline='', encoding='utf-8') as f:
-                fieldnames = ['date'] + all_columns
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-
-                # Write header if new file
-                if not file_exists:
-                    writer.writeheader()
-
-                # Write data row
-                writer.writerow(row_data)
-
-            total_usage = sum(_daily_usage.values())
-            logger.info(f"Exported usage data for {_current_date} to {USAGE_STATS_FILE} ({total_usage} total assignments)")
-            return USAGE_STATS_FILE
-
+            return _write_usage_to_csv(_current_date)
         except Exception as e:
             logger.error(f"Failed to export usage statistics: {e}", exc_info=True)
             return None
@@ -226,17 +194,11 @@ def check_and_export_at_scheduled_time() -> bool:
     scheduled_time = time(7, 30)
 
     with _lock:
-        # If it's a new day and we're past 7:30 AM, or if it's past 7:30 and we haven't exported yet
         if today > _current_date:
-            # New day detected, export previous day's data
             logger.info(f"New day detected, exporting data from {_current_date}")
             _export_and_reset(export_date=_current_date)
             _current_date = today
             return True
-        elif today == _current_date and current_time >= scheduled_time:
-            # Same day, check if we need a scheduled export
-            # This is primarily for consistency, main export happens at date change
-            pass
 
     return False
 
