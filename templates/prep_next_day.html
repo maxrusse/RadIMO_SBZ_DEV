@@ -12,24 +12,7 @@
 {% block title %}{{ page_title }}{% endblock %}
 
 {% block styles %}
-    :root {
-      --app-header-bg: #004892;
-      --app-header-text: #fff;
-      --app-header-link-color: #fff;
-      --app-header-link-bg: rgba(255, 255, 255, 0.2);
-      --app-header-link-hover-bg: rgba(255, 255, 255, 0.3);
-      --app-header-link-active-bg: rgba(255, 255, 255, 0.4);
-      --app-header-link-active-color: #fff;
-      --app-subheader-bg: rgba(255, 255, 255, 0.2);
-      --app-subheader-text: #fff;
-      --header-context-color: #e6eef8;
-      --header-context-global-color: #fff;
-      --pill-bg: rgba(255, 255, 255, 0.2);
-      --pill-hover-bg: rgba(255, 255, 255, 0.3);
-      --pill-active-bg: rgba(255, 255, 255, 0.4);
-      --pill-color: #fff;
-      --pill-active-color: #fff;
-    }
+    {% include 'partials/admin_theme.html' %}
 
     * {
       margin: 0;
