@@ -42,6 +42,39 @@ def _validate_row_index(df: pd.DataFrame, row_index: int) -> bool:
     return row_index in df.index
 
 
+def _parse_gap_list(raw_val) -> list:
+    """Parse gap list from various formats (None, list, JSON string)."""
+    if raw_val is None or (isinstance(raw_val, float) and pd.isna(raw_val)):
+        return []
+    if isinstance(raw_val, list):
+        return raw_val
+    if isinstance(raw_val, str):
+        try:
+            return json.loads(raw_val)
+        except Exception:
+            return []
+    return []
+
+
+def _merge_gap(existing: list, new_gap: dict) -> list:
+    """Merge a new gap into existing gap list, avoiding duplicates."""
+    merged = existing.copy() if existing else []
+    for g in merged:
+        if (
+            g.get('start') == new_gap.get('start') and
+            g.get('end') == new_gap.get('end') and
+            g.get('activity') == new_gap.get('activity')
+        ):
+            return merged
+    merged.append(new_gap)
+    return merged
+
+
+def _calc_shift_duration_seconds(start_dt: datetime, end_dt: datetime) -> float:
+    """Calculate shift duration in hours from datetime objects."""
+    return (end_dt - start_dt).seconds / 3600
+
+
 def _get_schedule_data_dict(modality: str, use_staged: bool) -> dict:
     """Get the appropriate data dict (staged or live)."""
     if use_staged:
@@ -489,30 +522,6 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
         row = df.loc[row_index].copy()
         worker_name = row['PPL']
 
-        def parse_gap_list(raw_val):
-            if raw_val is None or (isinstance(raw_val, float) and pd.isna(raw_val)):
-                return []
-            if isinstance(raw_val, list):
-                return raw_val
-            if isinstance(raw_val, str):
-                try:
-                    return json.loads(raw_val)
-                except Exception:
-                    return []
-            return []
-
-        def merge_gap(existing: list, new_gap: dict) -> list:
-            merged = existing.copy() if existing else []
-            for g in merged:
-                if (
-                    g.get('start') == new_gap.get('start') and
-                    g.get('end') == new_gap.get('end') and
-                    g.get('activity') == new_gap.get('activity')
-                ):
-                    return merged
-            merged.append(new_gap)
-            return merged
-
         gap_start_time = datetime.strptime(gap_start, TIME_FORMAT).time()
         gap_end_time = datetime.strptime(gap_end, TIME_FORMAT).time()
 
@@ -543,11 +552,16 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
             return False, None, 'Gap is outside worker shift times'
 
         log_prefix = "STAGED: " if use_staged else ""
+        merged_gaps = json.dumps(_merge_gap(_parse_gap_list(row.get('gaps')), gap_entry))
+
+        # Helper to update TIME column if it exists
+        def update_time_col(idx, start_t, end_t):
+            if 'TIME' in df.columns:
+                df.at[idx, 'TIME'] = f"{start_t.strftime(TIME_FORMAT)}-{end_t.strftime(TIME_FORMAT)}"
 
         if gap_start_dt <= shift_start_dt and gap_end_dt >= shift_end_dt:
             # Case 1: Gap covers entire shift - delete row(s)
             if existing_gap_id:
-                # Delete all rows sharing the same gap_id (linked split shifts)
                 data_dict['working_hours_df'] = df[df['gap_id'] != existing_gap_id].reset_index(drop=True)
             else:
                 data_dict['working_hours_df'] = df.drop(index=row_index).reset_index(drop=True)
@@ -559,11 +573,10 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
         elif gap_start_dt <= shift_start_dt < gap_end_dt < shift_end_dt:
             # Case 2: Gap at start - adjust start time
             df.at[row_index, 'start_time'] = gap_end_time
-            if 'TIME' in df.columns:
-                df.at[row_index, 'TIME'] = f"{gap_end_time.strftime(TIME_FORMAT)}-{shift_end.strftime(TIME_FORMAT)}"
+            update_time_col(row_index, gap_end_time, shift_end)
             new_start_dt = datetime.combine(base_date, gap_end_time)
-            df.at[row_index, 'shift_duration'] = (shift_end_dt - new_start_dt).seconds / 3600
-            df.at[row_index, 'gaps'] = json.dumps(merge_gap(parse_gap_list(row.get('gaps')), gap_entry))
+            df.at[row_index, 'shift_duration'] = _calc_shift_duration_seconds(new_start_dt, shift_end_dt)
+            df.at[row_index, 'gaps'] = merged_gaps
             backup_dataframe(modality, use_staged=use_staged)
             selection_logger.info(f"{log_prefix}Gap ({gap_type}) at start for {worker_name}: new start {gap_end_time}")
             return True, 'start_adjusted', None
@@ -571,43 +584,40 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
         elif shift_start_dt < gap_start_dt < shift_end_dt and gap_end_dt >= shift_end_dt:
             # Case 3: Gap at end - adjust end time
             df.at[row_index, 'end_time'] = gap_start_time
-            if 'TIME' in df.columns:
-                df.at[row_index, 'TIME'] = f"{shift_start.strftime(TIME_FORMAT)}-{gap_start_time.strftime(TIME_FORMAT)}"
+            update_time_col(row_index, shift_start, gap_start_time)
             new_end_dt = datetime.combine(base_date, gap_start_time)
-            df.at[row_index, 'shift_duration'] = (new_end_dt - shift_start_dt).seconds / 3600
-            df.at[row_index, 'gaps'] = json.dumps(merge_gap(parse_gap_list(row.get('gaps')), gap_entry))
+            df.at[row_index, 'shift_duration'] = _calc_shift_duration_seconds(shift_start_dt, new_end_dt)
+            df.at[row_index, 'gaps'] = merged_gaps
             backup_dataframe(modality, use_staged=use_staged)
             selection_logger.info(f"{log_prefix}Gap ({gap_type}) at end for {worker_name}: new end {gap_start_time}")
             return True, 'end_adjusted', None
 
         else:
             # Case 4: Gap in middle - SPLIT into two rows
-            # Use UUID for guaranteed uniqueness
             new_gap_id = f"gap_{uuid.uuid4().hex[:12]}"
-
-            df.at[row_index, 'end_time'] = gap_start_time
-            if 'TIME' in df.columns:
-                df.at[row_index, 'TIME'] = f"{shift_start.strftime(TIME_FORMAT)}-{gap_start_time.strftime(TIME_FORMAT)}"
             new_end_dt = datetime.combine(base_date, gap_start_time)
-            df.at[row_index, 'shift_duration'] = (new_end_dt - shift_start_dt).seconds / 3600
+            new_start_dt = datetime.combine(base_date, gap_end_time)
+
+            # Update existing row (first half)
+            df.at[row_index, 'end_time'] = gap_start_time
+            update_time_col(row_index, shift_start, gap_start_time)
+            df.at[row_index, 'shift_duration'] = _calc_shift_duration_seconds(shift_start_dt, new_end_dt)
             df.at[row_index, 'gap_id'] = new_gap_id
+            df.at[row_index, 'gaps'] = merged_gaps
             if use_staged:
                 df.at[row_index, 'is_manual'] = True
 
+            # Create new row (second half)
             new_row = row.to_dict()
             new_row['start_time'] = gap_end_time
             new_row['end_time'] = shift_end
+            new_row['shift_duration'] = _calc_shift_duration_seconds(new_start_dt, shift_end_dt)
+            new_row['gap_id'] = new_gap_id
+            new_row['gaps'] = merged_gaps
             if 'TIME' in df.columns:
                 new_row['TIME'] = f"{gap_end_time.strftime(TIME_FORMAT)}-{shift_end.strftime(TIME_FORMAT)}"
-            new_start_dt = datetime.combine(base_date, gap_end_time)
-            new_row['shift_duration'] = (shift_end_dt - new_start_dt).seconds / 3600
-            new_row['gap_id'] = new_gap_id
             if use_staged:
                 new_row['is_manual'] = True
-
-            serialized_gaps = json.dumps(merge_gap(parse_gap_list(row.get('gaps')), gap_entry))
-            df.at[row_index, 'gaps'] = serialized_gaps
-            new_row['gaps'] = serialized_gaps
 
             data_dict['working_hours_df'] = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             backup_dataframe(modality, use_staged=use_staged)
