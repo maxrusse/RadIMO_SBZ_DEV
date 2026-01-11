@@ -115,7 +115,7 @@ def guess_modality(activity: str, modalities: List[str]) -> Tuple[Optional[str],
         "ct": ["ct", "computed"],
         "mr": ["mr", "mrt", "magnet"],
         "xray": ["xray", "chir", "convention"],
-        "mammo": ["mammo", "mammo", "gyn", "gyn"],
+        "mammo": ["mammo", "gyn"],
     }
 
     for modality in modalities:
@@ -165,7 +165,13 @@ def build_rules(df: pd.DataFrame, skills: List[str], modalities: List[str], cols
 
     rules: List[Dict] = []
     for activity, count in counts.most_common():
-        day_part = day_part_lookup.get(activity, "") if (hasattr(day_part_lookup, 'empty') and not day_part_lookup.empty) or (isinstance(day_part_lookup, dict) and day_part_lookup) else ""
+        # Get day part from lookup (handles both Series and dict types)
+        day_part = ""
+        if isinstance(day_part_lookup, dict) and day_part_lookup:
+            day_part = day_part_lookup.get(activity, "")
+        elif hasattr(day_part_lookup, 'empty') and not day_part_lookup.empty:
+            day_part = day_part_lookup.get(activity, "")
+
         modality, modality_source = guess_modality(activity, modalities)
         times, times_source = guess_times_from_activity(activity, day_part)
 
