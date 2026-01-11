@@ -143,9 +143,22 @@ function sortTable(tableType, column) {
   renderAllTables();
 }
 
-function getSortValue(worker, column) {
+function getSortValue(worker, column, tableType) {
   if (column === 'name') return worker.name.toLowerCase();
-  if (column === 'weight' || column === 'total') return worker.global_weight || 0;
+  if (column === 'weight') return worker.global_weight || 0;
+  if (column === 'total') {
+    if (tableType === 'modality') {
+      return MODALITIES.reduce(function(total, mod) {
+        return total + (worker.modalities[mod]?.weighted_count || 0);
+      }, 0);
+    }
+    if (tableType === 'skill') {
+      return SKILLS.reduce(function(total, skill) {
+        return total + (worker.skills[skill] || 0);
+      }, 0);
+    }
+    return worker.global_weight || 0;
+  }
   if (MODALITIES.includes(column)) return worker.modalities[column]?.weighted_count || 0;
   if (SKILLS.includes(column)) return worker.skills[column] || 0;
   return 0;
@@ -157,8 +170,8 @@ function sortWorkers(workers, tableType) {
   const ascending = direction === 'asc';
 
   sorted.sort(function(a, b) {
-    const valA = getSortValue(a, column);
-    const valB = getSortValue(b, column);
+    const valA = getSortValue(a, column, tableType);
+    const valB = getSortValue(b, column, tableType);
 
     if (typeof valA === 'string') {
       return ascending ? valA.localeCompare(valB) : valB.localeCompare(valA);
