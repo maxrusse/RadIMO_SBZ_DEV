@@ -1,6 +1,6 @@
 # Standard library imports
-from datetime import datetime, timedelta
-from typing import Optional, Any, Tuple
+from datetime import datetime
+from typing import Optional
 
 # Third-party imports
 import pandas as pd
@@ -17,26 +17,23 @@ from config import (
     coerce_float
 )
 from lib.utils import (
-    get_local_now,
     compute_shift_window,
     is_now_in_shift,
     skill_value_to_numeric,
     is_weighted_skill,
-    WEIGHTED_SKILL_MARKER
 )
 from data_manager import (
     get_canonical_worker_id,
     get_roster_modifier,
     global_worker_data,
     modality_data,
-    save_state
 )
 from state_manager import get_state
 
 # -----------------------------------------------------------
 # Helper functions to compute global totals across modalities
 # -----------------------------------------------------------
-def get_global_weighted_count(canonical_id):
+def get_global_weighted_count(canonical_id: str) -> float:
     """Get single global weighted count for a worker (consolidated across all modalities)."""
     return global_worker_data['weighted_counts'].get(canonical_id, 0.0)
 
@@ -61,12 +58,10 @@ def get_modality_weighted_count(canonical_id: str, modality: str) -> float:
     return total_weight
 
 
-def get_global_assignments(canonical_id):
+def get_global_assignments(canonical_id: str) -> dict[str, int]:
+    """Get aggregated assignment counts for a worker across all modalities."""
     totals = {skill: 0 for skill in SKILL_COLUMNS}
     totals['total'] = 0
-    # We need to access allowed_modalities. Importing directly might cause circular import issues
-    # if not careful, but data_manager already imports it from config. 
-    # Let's iterate over keys of modality_data which should match allowed_modalities.
     for mod in modality_data.keys():
         mod_assignments = global_worker_data['assignments_per_mod'][mod].get(canonical_id, {})
         for skill in SKILL_COLUMNS:
@@ -140,7 +135,7 @@ def update_global_assignment(person: str, role: str, modality: str, is_weighted:
 
     return canonical_id
 
-def calculate_work_hours_now(current_dt: datetime, modality: str) -> dict:
+def calculate_work_hours_now(current_dt: datetime, modality: str) -> dict[str, float]:
     """
     Calculate cumulative work hours for all workers up to current_dt.
 
@@ -202,7 +197,7 @@ def calculate_work_hours_now(current_dt: datetime, modality: str) -> dict:
     return hours_by_canonical
 
 
-def calculate_global_work_hours_now(current_dt: datetime) -> dict:
+def calculate_global_work_hours_now(current_dt: datetime) -> dict[str, float]:
     """
     Calculate cumulative work hours for all workers across ALL modalities up to current_dt.
 
