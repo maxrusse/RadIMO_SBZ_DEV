@@ -186,6 +186,10 @@ def preload_next_workday(csv_path: str, config: dict) -> Dict[str, Any]:
         if not modality_dfs:
             # No staff entries found - this is OK, not all shifts have staff (balancer handles this)
             selection_logger.info(f"No staff entries found for {date_str} - this is expected for some shifts")
+            with lock:
+                global_worker_data['last_preload_date'] = next_day.date()
+            from data_manager.state_persistence import save_state
+            save_state()
             return {
                 'success': True,
                 'target_date': date_str,
@@ -240,6 +244,11 @@ def preload_next_workday(csv_path: str, config: dict) -> Dict[str, Any]:
                 'target_date': next_day.strftime('%Y-%m-%d'),
                 'message': 'Fehler beim Speichern der Preload-Dateien'
             }
+
+        with lock:
+            global_worker_data['last_preload_date'] = next_day.date()
+        from data_manager.state_persistence import save_state
+        save_state()
 
         return {
             'success': True,

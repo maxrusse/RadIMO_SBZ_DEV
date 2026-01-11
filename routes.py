@@ -147,6 +147,28 @@ def _df_to_api_response(df: pd.DataFrame) -> list[dict[str, Any]]:
     return data
 
 
+def _ensure_next_workday_preloaded() -> None:
+    next_day = get_next_workday().date()
+    with lock:
+        last_preload_date = global_worker_data.get('last_preload_date')
+    if last_preload_date == next_day:
+        return
+    today = get_local_now().date()
+    for modality in allowed_modalities:
+        staged = staged_modality_data.get(modality, {})
+        last_modified = staged.get('last_modified')
+        if last_modified and last_modified.date() == today:
+            return
+    if not os.path.exists(MASTER_CSV_PATH):
+        selection_logger.info(f"Lazy preload skipped: No master CSV at {MASTER_CSV_PATH}")
+        return
+
+    selection_logger.info(f"Lazy preload triggered from {MASTER_CSV_PATH}")
+    result = preload_next_workday(MASTER_CSV_PATH, APP_CONFIG)
+    if not result.get('success'):
+        selection_logger.error(f"Lazy preload failed: {result.get('message')}")
+
+
 def resolve_modality_from_request() -> str:
     return normalize_modality(request.values.get('modality'))
 
@@ -498,29 +520,6 @@ def upload_master_csv():
         return jsonify({"error": f"Upload fehlgeschlagen: {str(e)}"}), 500
 
 
-def auto_preload_job():
-    try:
-        if not os.path.exists(MASTER_CSV_PATH):
-            selection_logger.warning(f"Auto-preload skipped: No master CSV at {MASTER_CSV_PATH}")
-            return
-
-        selection_logger.info(f"Starting auto-preload from {MASTER_CSV_PATH}")
-
-        result = preload_next_workday(MASTER_CSV_PATH, APP_CONFIG)
-
-        if result['success']:
-            selection_logger.info(
-                f"Auto-preload successful: {result['target_date']}, "
-                f"modalities={result['modalities_loaded']}, "
-                f"workers={result['total_workers']}"
-            )
-        else:
-            selection_logger.error(f"Auto-preload failed: {result['message']}")
-
-    except Exception as e:
-        selection_logger.error(f"Auto-preload exception: {str(e)}", exc_info=True)
-
-
 @routes.route('/preload-from-master', methods=['POST'])
 @admin_required
 def preload_from_master():
@@ -643,11 +642,7 @@ def _check_scheduler() -> dict[str, str]:
     """Check scheduler configuration."""
     scheduler_conf = APP_CONFIG.get('scheduler', {})
     reset_time = scheduler_conf.get('daily_reset_time', '07:30')
-    preload_hour = scheduler_conf.get('auto_preload_time', 14)
-
-    if not isinstance(preload_hour, int) or not (0 <= preload_hour <= 23):
-        return {'status': 'ERROR', 'detail': f'Invalid auto_preload_time: {preload_hour} (must be 0-23)'}
-    return {'status': 'OK', 'detail': f'Resets at {reset_time}, auto-preloads at {preload_hour}:00'}
+    return {'status': 'OK', 'detail': f'Resets at {reset_time}, lazy preload on demand'}
 
 
 def _check_admin_password() -> dict[str, str]:
@@ -847,6 +842,9 @@ def load_today_from_master():
         return jsonify({"error": f"Fehler: {str(e)}"}), 500
 
 def _render_prep_page(initial_tab):
+    if initial_tab == 'tomorrow':
+        _ensure_next_workday_preloaded()
+
     next_day = get_next_workday()
 
     roster = load_worker_skill_json()
@@ -927,6 +925,7 @@ def prep_tomorrow():
 @admin_required
 def get_prep_data():
     result = {}
+    _ensure_next_workday_preloaded()
 
     # Acquire lock to prevent race conditions when reading/writing staged data
     with lock:
