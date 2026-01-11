@@ -14,10 +14,8 @@ from routes import routes, auto_preload_job
 from data_manager import (
     load_state,
     check_and_perform_daily_reset,
-    modality_data,
     allowed_modalities,
     attempt_initialize_data,
-    lock
 )
 from lib.utils import selection_logger
 

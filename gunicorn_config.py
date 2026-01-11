@@ -1,5 +1,3 @@
-
-import multiprocessing
 import logging
 from logging.handlers import RotatingFileHandler
 import sys
