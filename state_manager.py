@@ -46,7 +46,7 @@ class TTLCache:
         with self._lock:
             self._cache[key] = (value, time_module.time())
 
-    def invalidate(self, key: str = None) -> None:
+    def invalidate(self, key: Optional[str] = None) -> None:
         """Invalidate specific key or all keys if key is None."""
         with self._lock:
             if key is None:
@@ -198,7 +198,7 @@ class StateManager:
         """Get single global weighted count for a worker."""
         return self._global_worker_data['weighted_counts'].get(canonical_id, 0.0)
 
-    def invalidate_work_hours_cache(self, modality: str = None) -> None:
+    def invalidate_work_hours_cache(self, modality: Optional[str] = None) -> None:
         """Invalidate work hours cache for a modality or all modalities."""
         if modality:
             self.work_hours_cache.invalidate_prefix(f"work_hours:{modality}:")
@@ -274,7 +274,11 @@ class StateManager:
         except Exception as e:
             logger.error(f"Failed to load state: {str(e)}", exc_info=True)
 
-    def reset_for_testing(self, allowed_modalities: list = None, skill_columns: list = None) -> None:
+    def reset_for_testing(
+        self,
+        allowed_modalities: Optional[list] = None,
+        skill_columns: Optional[list] = None,
+    ) -> None:
         """Reset all state for testing purposes."""
         with self._lock:
             if allowed_modalities is None:
