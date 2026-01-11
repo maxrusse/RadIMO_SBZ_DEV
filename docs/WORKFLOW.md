@@ -1,8 +1,8 @@
-- Single **Master CSV** upload populates current and future workday schedules.
-- Configurable mapping rules attach modality, shift, and skill overrides to activity descriptions.
-- **GAP Handling**: meetings and boards trigger split shifts, ensuring coverage accounts for unavailability.
-- **Skill Management**: workers pull global skill levels from the Skill Matrix (saves directly).
-- **Daily Prep**: admins use the "Prep Tomorrow" mode to adjust the next day's rotation before it goes live at the **configured reset time** (default 07:30 CET).
+- A single **Master CSV** upload populates current and future workday schedules.
+- Mapping rules attach modality, shift, and skill overrides to activity descriptions.
+- **GAP handling**: meetings and boards trigger split shifts, keeping coverage aligned with availability.
+- **Skill management**: workers pull global skill levels from the Skill Matrix (saves directly).
+- **Daily prep**: admins use "Prep Tomorrow" to adjust the next day's rotation before it goes live at the **configured reset time** (default 07:30 CET).
 
 ---
 
@@ -10,12 +10,12 @@
 
 1) **Source**: medweb exports a monthly CSV with worker activities.
 2) **Ingestion**: the CSV is uploaded once as the master copy; it powers both manual processing and the daily preload.
-3) **Parsing**: mapping rules attach modality and shift names; shift times are derived from the config with Friday-specific exceptions when defined.
-4) **Normalization**: shift windows are normalized into start/end datetimes. Durations are calculated for same-day shifts only (end time must be after start time).
+3) **Parsing**: mapping rules attach modality and shift names; shift times come from the config with Friday-specific exceptions when defined.
+4) **Normalization**: shift windows become start/end datetimes. Durations are calculated for same-day shifts only (end time must be after start time).
 5) **Exclusions**: scheduled boards or meetings split shifts into available segments without losing total coverage accounting.
-6) **Rosters**: worker skills are loaded from flat Skill×Modality combinations in the roster; CSV rule skill_overrides can selectively override specific combinations.
-7) **Preparation**: optional edits for the next workday occur on `/prep-next-day`, keeping current-day assignments untouched.
-8) **Assignment**: real-time selection uses the normalized shifts and skill values to balance workload and honour fallback rules.
+6) **Rosters**: worker skills load from flat Skill×Modality combinations in the roster; CSV rule skill_overrides can override specific combinations.
+7) **Preparation**: optional edits for the next workday happen on `/prep-next-day`, keeping current-day assignments untouched.
+8) **Assignment**: real-time selection uses the normalized shifts and skill values to balance workload and honor fallback rules.
 
 ---
 
@@ -39,7 +39,7 @@ RadIMO uses a single monthly CSV (`master_medweb.csv`) to power the entire sched
 - Populates the "Prep Tomorrow" view in Schedule Edit.
 
 ### 4. Automated Reset
-- Every morning at the **configured time** (default 07:30 CET), the system automatically performs a "Load Today" logic for the new date.
+- Every morning at the **configured time** (default 07:30 CET), the system automatically performs the "Load Today" logic for the new date.
 
 ---
 
@@ -48,17 +48,17 @@ RadIMO uses a single monthly CSV (`master_medweb.csv`) to power the entire sched
 Admins can adjust "Today" (Live) or plan "Tomorrow" (Staged).
 
 **Features:**
-- **Manual Highlighting**: Any shifts added or edited manually by an admin are highlighted (subtle yellow) to distinguish them from auto-loaded Master CSV data.
-- **Split Shift (GAP)**: Add a meeting (e.g., "Board 15:00-16:00") and the system automatically splits the worker's shift into two active segments.
-- **Linked Gaps**: Split shifts are linked via `gap_id`. Deleting one segment removes the entire linked chain.
+- **Manual highlighting**: Any shifts added or edited manually by an admin are highlighted (subtle yellow) to distinguish them from auto-loaded Master CSV data.
+- **Split shift (GAP)**: Add a meeting (e.g., "Board 15:00-16:00") and the system automatically splits the worker's shift into two active segments.
+- **Linked gaps**: Split shifts are linked via `gap_id`. Deleting one segment removes the entire linked chain.
 
 ---
 
 ## ⚙️ Configuration Notes
 
-- **Mapping Rules**: First match wins. Order from specific to general.
-- **Same-Day Shifts**: All shifts must have end time after start time on the same day.
-- **Skill Roster**: Saves directly to `worker_skill_roster.json`; priority over mapping defaults.
+- **Mapping rules**: First match wins. Order from specific to general.
+- **Same-day shifts**: All shifts must have end time after start time on the same day.
+- **Skill roster**: Saves directly to `worker_skill_roster.json`; priority over mapping defaults.
 
 ---
 

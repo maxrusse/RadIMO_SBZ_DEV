@@ -6,7 +6,7 @@ Guide to the admin system for managing workers and schedules.
 
 ## Overview
 
-RadIMO provides two admin interfaces for different operational needs:
+RadIMO provides three admin entry points for different operational needs:
 
 | Page | URL | Effect | Use Case |
 |------|-----|--------|----------|
@@ -36,9 +36,11 @@ All admin pages require login with the admin password from `config.yaml`.
 
 ---
 
+## Skill Matrix (`/skill-roster`)
+
 **Purpose:** Manage permanent worker skills across CT, MR, X-ray, and Mammo.
 
-**Key behavior:** Changes save directly to `worker_skill_roster.json` and take effect on next reload/assignment.
+**Key behavior:** Changes save directly to `worker_skill_roster.json` and take effect on the next reload/assignment.
 
 ### How It Works
 
@@ -56,7 +58,7 @@ All admin pages require login with the admin password from `config.yaml`.
 5. Click **"Save"** to persist changes.
 6. Use **"Import new workers"** to pull workers from current schedules who are missing from the roster.
 
-**Important:** Workers with `w` in roster are only included in a shift if the CSV mapping explicitly assigns them (`skill_overrides: 1`). Otherwise they become `-1` (excluded). This prevents trainees from appearing on teams they're not assigned to.
+**Important:** Workers with `w` in the roster are only included in a shift if the CSV mapping explicitly assigns them (`skill_overrides: 1`). Otherwise they become `-1` (excluded). This prevents trainees from appearing on teams they're not assigned to.
 
 See [CONFIGURATION.md](CONFIGURATION.md#skill-value-hierarchy--overwrite-logic) for detailed overwrite rules.
 
@@ -68,9 +70,11 @@ To make "AM" an MSK/Haut specialist (key: `msk-haut`):
 
 ---
 
-**Purpose:** Edit schedules with two modes - "Edit Today" for immediate live changes, or "Prep Tomorrow" for planning.
+## Schedule Edit (`/prep-next-day`)
 
-**Key behavior:** Premium interface with modality tabs (CT/MR/XRAY/MAMMO).
+**Purpose:** Edit schedules with two modes: "Edit Today" for immediate live changes, or "Prep Tomorrow" for planning.
+
+**Key behavior:** Shared interface with modality tabs (CT/MR/XRAY/MAMMO).
 - **Edit Today**: Immediate effect on live assignment pool.
 - **Prep Tomorrow**: Stages changes for the next workday's auto-preload.
 
