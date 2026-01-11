@@ -143,34 +143,27 @@ function sortTable(tableType, column) {
   renderAllTables();
 }
 
+function getSortValue(worker, column) {
+  if (column === 'name') return worker.name.toLowerCase();
+  if (column === 'weight' || column === 'total') return worker.global_weight || 0;
+  if (MODALITIES.includes(column)) return worker.modalities[column]?.weighted_count || 0;
+  if (SKILLS.includes(column)) return worker.skills[column] || 0;
+  return 0;
+}
+
 function sortWorkers(workers, tableType) {
-  const state = sortState[tableType];
+  const { column, direction } = sortState[tableType];
   const sorted = [...workers];
+  const ascending = direction === 'asc';
 
   sorted.sort(function(a, b) {
-    let valA, valB;
-
-    if (state.column === 'name') {
-      valA = a.name.toLowerCase();
-      valB = b.name.toLowerCase();
-    } else if (state.column === 'weight' || state.column === 'total') {
-      valA = a.global_weight || 0;
-      valB = b.global_weight || 0;
-    } else if (MODALITIES.includes(state.column)) {
-      valA = a.modalities[state.column]?.weighted_count || 0;
-      valB = b.modalities[state.column]?.weighted_count || 0;
-    } else if (SKILLS.includes(state.column)) {
-      valA = a.skills[state.column] || 0;
-      valB = b.skills[state.column] || 0;
-    } else {
-      valA = 0;
-      valB = 0;
-    }
+    const valA = getSortValue(a, column);
+    const valB = getSortValue(b, column);
 
     if (typeof valA === 'string') {
-      return state.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      return ascending ? valA.localeCompare(valB) : valB.localeCompare(valA);
     }
-    return state.direction === 'asc' ? valA - valB : valB - valA;
+    return ascending ? valA - valB : valB - valA;
   });
 
   return sorted;

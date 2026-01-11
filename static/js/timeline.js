@@ -9,22 +9,27 @@ const TimelineChart = (function() {
   const TIMELINE_END = 20;   // 20:00
   const TIMELINE_HOURS = TIMELINE_END - TIMELINE_START;
 
+  // Parse time string "HH:MM" into hours and minutes
+  function parseTimeStr(timeStr) {
+    if (!timeStr || typeof timeStr !== 'string') return null;
+    const parts = timeStr.split(':');
+    if (parts.length < 2) return null;
+    const [h, m] = parts.map(Number);
+    return { hours: h || 0, minutes: m || 0 };
+  }
+
   // Convert time string to minutes for comparison
   function timeToMinutes(timeStr) {
-    if (!timeStr || typeof timeStr !== 'string') return 0;
-    const parts = timeStr.split(':');
-    if (parts.length < 2) return 0;
-    const [h, m] = parts.map(Number);
-    return (h || 0) * 60 + (m || 0);
+    const parsed = parseTimeStr(timeStr);
+    if (!parsed) return 0;
+    return parsed.hours * 60 + parsed.minutes;
   }
 
   // Convert time string to percentage position
   function timeToPercent(timeStr) {
-    if (!timeStr || typeof timeStr !== 'string') return 0;
-    const parts = timeStr.split(':');
-    if (parts.length < 2) return 0;
-    const [h, m] = parts.map(Number);
-    const hours = (h || 0) + (m || 0) / 60;
+    const parsed = parseTimeStr(timeStr);
+    if (!parsed) return 0;
+    const hours = parsed.hours + parsed.minutes / 60;
     const clamped = Math.max(TIMELINE_START, Math.min(TIMELINE_END, hours));
     return ((clamped - TIMELINE_START) / TIMELINE_HOURS) * 100;
   }
@@ -56,17 +61,14 @@ const TimelineChart = (function() {
   function parseGapList(rawGaps) {
     if (!rawGaps) return [];
     if (Array.isArray(rawGaps)) return rawGaps;
+    if (typeof rawGaps !== 'string') return [];
 
-    if (typeof rawGaps === 'string') {
-      try {
-        const parsed = JSON.parse(rawGaps);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (_) {
-        return [];
-      }
+    try {
+      const parsed = JSON.parse(rawGaps);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
     }
-
-    return [];
   }
 
   // Build gradient for skill stripes
