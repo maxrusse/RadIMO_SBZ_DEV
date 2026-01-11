@@ -72,7 +72,7 @@ def _merge_gap(existing: list, new_gap: dict) -> list:
 
 def _calc_shift_duration_seconds(start_dt: datetime, end_dt: datetime) -> float:
     """Calculate shift duration in hours from datetime objects."""
-    return (end_dt - start_dt).seconds / 3600
+    return (end_dt - start_dt).total_seconds() / 3600
 
 
 def _get_schedule_data_dict(modality: str, use_staged: bool) -> dict:
@@ -335,7 +335,7 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
                 end_dt = datetime.combine(datetime.today(), end)
                 # Same-day only: duration is 0 if end <= start
                 if end_dt > start_dt:
-                    df.at[row_index, 'shift_duration'] = (end_dt - start_dt).seconds / 3600
+                    df.at[row_index, 'shift_duration'] = (end_dt - start_dt).total_seconds() / 3600
                 else:
                     df.at[row_index, 'shift_duration'] = 0.0
 
@@ -408,7 +408,7 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
         end_dt = datetime.combine(datetime.today(), new_row['end_time'])
         # Same-day only: duration is 0 if end <= start
         if end_dt > start_dt:
-            new_row['shift_duration'] = (end_dt - start_dt).seconds / 3600
+            new_row['shift_duration'] = (end_dt - start_dt).total_seconds() / 3600
         else:
             new_row['shift_duration'] = 0.0
 
