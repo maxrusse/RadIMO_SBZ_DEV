@@ -283,6 +283,35 @@ def _resolve_skill(key_lower: str) -> Optional[str]:
     return ROLE_MAP.get(key_lower) or SKILL_LABEL_MAP.get(key_lower) or skill_columns_map.get(key_lower)
 
 
+def _resolve_skill_modality_pair(key: str) -> Optional[Tuple[str, str]]:
+    """
+    Resolve a skill_modality key to canonical (skill, modality) tuple.
+
+    Tries both orderings: skill_mod and mod_skill.
+    Returns None if the key cannot be resolved.
+    """
+    key_lower = key.lower().strip()
+    if '_' not in key_lower:
+        return None
+
+    parts = key_lower.split('_', 1)
+    if len(parts) != 2:
+        return None
+
+    # Try skill_mod first
+    skill = _resolve_skill(parts[0])
+    mod = allowed_modalities_map.get(parts[1])
+
+    # Try mod_skill if first attempt failed
+    if not (skill and mod):
+        skill = _resolve_skill(parts[1])
+        mod = allowed_modalities_map.get(parts[0])
+
+    if skill and mod:
+        return (skill, mod)
+    return None
+
+
 def _normalize_exclude_skills(raw_exclude_skills: Dict[str, List[str]]) -> Dict[str, List[str]]:
     """
     Normalize exclude_skills shortcuts to canonical skill names.
@@ -304,30 +333,19 @@ def _normalize_exclude_skills(raw_exclude_skills: Dict[str, List[str]]) -> Dict[
         key_lower = key.lower().strip()
         canonical_keys = []
 
-        if '_' in key_lower:
-            # Handle skill_mod or mod_skill combo
-            parts = key_lower.split('_')
-            if len(parts) == 2:
-                # Try skill_mod first, then mod_skill
-                skill = _resolve_skill(parts[0])
-                mod = allowed_modalities_map.get(parts[1])
-                if not (skill and mod):
-                    skill = _resolve_skill(parts[1])
-                    mod = allowed_modalities_map.get(parts[0])
-                if skill and mod:
-                    canonical_keys.append(f"{skill}_{mod}")
-
+        pair = _resolve_skill_modality_pair(key)
+        if pair:
+            canonical_keys.append(f"{pair[0]}_{pair[1]}")
         elif _resolve_skill(key_lower):
             # Skill only - expand to all modalities
             canonical_skill = _resolve_skill(key_lower)
             canonical_keys = [f"{canonical_skill}_{mod}" for mod in allowed_modalities]
-
         elif key_lower in allowed_modalities_map:
             # Modality only - expand to all skills
             canonical_mod = allowed_modalities_map[key_lower]
             canonical_keys = [f"{skill}_{canonical_mod}" for skill in SKILL_COLUMNS]
 
-        # Normalize the exclude list using the same resolution
+        # Normalize the exclude list
         normalized_excludes = []
         for exclude_item in exclude_list:
             if isinstance(exclude_item, str):
@@ -335,15 +353,15 @@ def _normalize_exclude_skills(raw_exclude_skills: Dict[str, List[str]]) -> Dict[
                 if canonical:
                     normalized_excludes.append(canonical)
 
-        # Add to result
+        # Add to result (deduplicate)
         for canonical_key in canonical_keys:
             if canonical_key not in result:
                 result[canonical_key] = []
             result[canonical_key].extend(normalized_excludes)
-            # Remove duplicates
             result[canonical_key] = list(set(result[canonical_key]))
 
     return result
+
 
 BALANCER_SETTINGS = APP_CONFIG.get('balancer', DEFAULT_BALANCER)
 
@@ -365,25 +383,11 @@ def _normalize_no_overflow(raw_list: list) -> set:
     result = set()
 
     for item in raw_list:
-        if not isinstance(item, str) or '_' not in item:
+        if not isinstance(item, str):
             continue
-
-        item_lower = item.lower().strip()
-        parts = item_lower.split('_', 1)
-        if len(parts) != 2:
-            continue
-
-        # Try Skill_Modality first
-        skill = _resolve_skill(parts[0])
-        mod = allowed_modalities_map.get(parts[1])
-
-        # Try Modality_Skill if first attempt failed
-        if not (skill and mod):
-            skill = _resolve_skill(parts[1])
-            mod = allowed_modalities_map.get(parts[0])
-
-        if skill and mod:
-            result.add(f"{skill}_{mod}")
+        pair = _resolve_skill_modality_pair(item)
+        if pair:
+            result.add(f"{pair[0]}_{pair[1]}")
 
     return result
 

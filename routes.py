@@ -632,88 +632,99 @@ def upload_file():
         scheduler_config=APP_CONFIG.get('scheduler', {}),
     )
 
-def run_operational_checks(context: str = 'unknown', force: bool = False) -> dict:
-    results = []
-    now = get_local_now().isoformat()
-
-    # Check if APP_CONFIG is available and populated
+def _check_config_file() -> dict[str, str]:
+    """Check if APP_CONFIG is loaded."""
     if APP_CONFIG:
-        results.append({'name': 'Config File', 'status': 'OK', 'detail': 'APP_CONFIG is loaded and available'})
-    else:
-        results.append({'name': 'Config File', 'status': 'ERROR', 'detail': 'APP_CONFIG is not loaded or empty'})
+        return {'status': 'OK', 'detail': 'APP_CONFIG is loaded and available'}
+    return {'status': 'ERROR', 'detail': 'APP_CONFIG is not loaded or empty'}
 
-    try:
-        scheduler_conf = APP_CONFIG.get('scheduler', {})
-        reset_time = scheduler_conf.get('daily_reset_time', '07:30')
-        preload_hour = scheduler_conf.get('auto_preload_time', 14)
 
-        if not isinstance(preload_hour, int) or not (0 <= preload_hour <= 23):
-            results.append({'name': 'Scheduler', 'status': 'ERROR', 'detail': f'Invalid auto_preload_time: {preload_hour} (must be 0-23)'})
-        else:
-            results.append({'name': 'Scheduler', 'status': 'OK', 'detail': f'Resets at {reset_time}, auto-preloads at {preload_hour}:00'})
-    except Exception as e:
-        results.append({'name': 'Scheduler', 'status': 'ERROR', 'detail': f'Failed to check scheduler config: {str(e)}'})
+def _check_scheduler() -> dict[str, str]:
+    """Check scheduler configuration."""
+    scheduler_conf = APP_CONFIG.get('scheduler', {})
+    reset_time = scheduler_conf.get('daily_reset_time', '07:30')
+    preload_hour = scheduler_conf.get('auto_preload_time', 14)
 
-    try:
-        admin_pw = get_admin_password()
-        if not admin_pw:
-            results.append({'name': 'Admin Password', 'status': 'WARNING', 'detail': 'Admin password is not set in config.yaml'})
-        elif admin_pw == 'change_pw_for_live':
-            results.append({'name': 'Admin Password', 'status': 'WARNING', 'detail': 'Admin password is still set to default value - change for production!'})
-        else:
-            results.append({'name': 'Admin Password', 'status': 'OK', 'detail': 'Admin password is configured'})
-    except Exception as e:
-        results.append({'name': 'Admin Password', 'status': 'ERROR', 'detail': f'Failed to check admin password: {str(e)}'})
+    if not isinstance(preload_hour, int) or not (0 <= preload_hour <= 23):
+        return {'status': 'ERROR', 'detail': f'Invalid auto_preload_time: {preload_hour} (must be 0-23)'}
+    return {'status': 'OK', 'detail': f'Resets at {reset_time}, auto-preloads at {preload_hour}:00'}
 
-    try:
-        upload_folder = 'uploads'
-        if not os.path.exists(upload_folder):
-            results.append({'name': 'Upload Folder', 'status': 'WARNING', 'detail': f'Upload folder "{upload_folder}" does not exist (will be created on upload)'})
-        elif not os.access(upload_folder, os.W_OK):
-            results.append({'name': 'Upload Folder', 'status': 'ERROR', 'detail': f'Upload folder "{upload_folder}" is not writable'})
-        else:
-            has_master_csv = os.path.exists(os.path.join(upload_folder, 'master_medweb.csv'))
-            csv_status = "Master CSV present" if has_master_csv else "No Master CSV"
-            results.append({'name': 'Upload Folder', 'status': 'OK', 'detail': f'Upload folder "{upload_folder}" is writable ({csv_status})'})
-    except Exception as e:
-        results.append({'name': 'Upload Folder', 'status': 'ERROR', 'detail': f'Failed to check upload folder: {str(e)}'})
 
-    try:
-        modality_count = len(allowed_modalities)
-        if modality_count == 0:
-            results.append({'name': 'Modalities', 'status': 'ERROR', 'detail': 'No modalities configured in config.yaml'})
-        else:
-            results.append({'name': 'Modalities', 'status': 'OK', 'detail': f'{modality_count} modalities configured: {", ".join(allowed_modalities)}'})
-    except Exception as e:
-        results.append({'name': 'Modalities', 'status': 'ERROR', 'detail': f'Failed to check modalities: {str(e)}'})
+def _check_admin_password() -> dict[str, str]:
+    """Check admin password configuration."""
+    admin_pw = get_admin_password()
+    if not admin_pw:
+        return {'status': 'WARNING', 'detail': 'Admin password is not set in config.yaml'}
+    if admin_pw == 'change_pw_for_live':
+        return {'status': 'WARNING', 'detail': 'Admin password is still set to default value - change for production!'}
+    return {'status': 'OK', 'detail': 'Admin password is configured'}
 
-    try:
-        skill_count = len(SKILL_COLUMNS)
-        if skill_count == 0:
-            results.append({'name': 'Skills', 'status': 'ERROR', 'detail': 'No skills configured in config.yaml'})
-        else:
-            results.append({'name': 'Skills', 'status': 'OK', 'detail': f'{skill_count} skills configured: {", ".join(SKILL_COLUMNS)}'})
-    except Exception as e:
-        results.append({'name': 'Skills', 'status': 'ERROR', 'detail': f'Failed to check skills: {str(e)}'})
 
-    try:
-        total_workers = 0
-        for mod in allowed_modalities:
-            d = modality_data.get(mod, {})
-            if d.get('working_hours_df') is not None:
-                total_workers += len(d['working_hours_df']['PPL'].unique())
+def _check_upload_folder() -> dict[str, str]:
+    """Check upload folder exists and is writable."""
+    upload_folder = 'uploads'
+    if not os.path.exists(upload_folder):
+        return {'status': 'WARNING', 'detail': f'Upload folder "{upload_folder}" does not exist (will be created on upload)'}
+    if not os.access(upload_folder, os.W_OK):
+        return {'status': 'ERROR', 'detail': f'Upload folder "{upload_folder}" is not writable'}
+    has_master_csv = os.path.exists(os.path.join(upload_folder, 'master_medweb.csv'))
+    csv_status = "Master CSV present" if has_master_csv else "No Master CSV"
+    return {'status': 'OK', 'detail': f'Upload folder "{upload_folder}" is writable ({csv_status})'}
 
-        if total_workers == 0:
-            results.append({'name': 'Worker Data', 'status': 'WARNING', 'detail': 'No worker data loaded - upload Master CSV and use Load Today'})
-        else:
-            results.append({'name': 'Worker Data', 'status': 'OK', 'detail': f'{total_workers} workers loaded across all modalities'})
-    except Exception as e:
-        results.append({'name': 'Worker Data', 'status': 'ERROR', 'detail': f'Failed to check worker data: {str(e)}'})
+
+def _check_modalities() -> dict[str, str]:
+    """Check modality configuration."""
+    modality_count = len(allowed_modalities)
+    if modality_count == 0:
+        return {'status': 'ERROR', 'detail': 'No modalities configured in config.yaml'}
+    return {'status': 'OK', 'detail': f'{modality_count} modalities configured: {", ".join(allowed_modalities)}'}
+
+
+def _check_skills() -> dict[str, str]:
+    """Check skill configuration."""
+    skill_count = len(SKILL_COLUMNS)
+    if skill_count == 0:
+        return {'status': 'ERROR', 'detail': 'No skills configured in config.yaml'}
+    return {'status': 'OK', 'detail': f'{skill_count} skills configured: {", ".join(SKILL_COLUMNS)}'}
+
+
+def _check_worker_data() -> dict[str, str]:
+    """Check worker data is loaded."""
+    total_workers = 0
+    for mod in allowed_modalities:
+        d = modality_data.get(mod, {})
+        if d.get('working_hours_df') is not None:
+            total_workers += len(d['working_hours_df']['PPL'].unique())
+
+    if total_workers == 0:
+        return {'status': 'WARNING', 'detail': 'No worker data loaded - upload Master CSV and use Load Today'}
+    return {'status': 'OK', 'detail': f'{total_workers} workers loaded across all modalities'}
+
+
+def run_operational_checks(context: str = 'unknown', force: bool = False) -> dict:
+    """Run all operational checks and return results."""
+    checks = [
+        ('Config File', _check_config_file),
+        ('Scheduler', _check_scheduler),
+        ('Admin Password', _check_admin_password),
+        ('Upload Folder', _check_upload_folder),
+        ('Modalities', _check_modalities),
+        ('Skills', _check_skills),
+        ('Worker Data', _check_worker_data),
+    ]
+
+    results = []
+    for name, check_fn in checks:
+        try:
+            result = check_fn()
+            results.append({'name': name, **result})
+        except Exception as e:
+            results.append({'name': name, 'status': 'ERROR', 'detail': f'Failed to check {name.lower()}: {str(e)}'})
 
     return {
         'results': results,
         'context': context,
-        'timestamp': now
+        'timestamp': get_local_now().isoformat()
     }
 
 @routes.route('/load-today-from-master', methods=['POST'])
