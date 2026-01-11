@@ -80,17 +80,19 @@ function getShiftTimes(taskConfig, targetDay) {
 // Active skill values for filtering - excludes 0 and -1 (only shows explicitly active workers)
 const ACTIVE_SKILL_VALUES = new Set([1, '1', 'w', 'W']);
 
+// Weighted skill markers (normalized to 'w' internally)
+const WEIGHTED_MARKERS = new Set(['w', 'W', 2, '2']);
+
 function normalizeSkillValueJS(value) {
   if (value === undefined || value === null) return 0;
-  if (value === 'w' || value === 'W') return 'w';
+  if (WEIGHTED_MARKERS.has(value)) return 'w';
   if (typeof value === 'string' && value.trim() === '') return 0;
   const parsed = parseInt(value, 10);
-  if (!isNaN(parsed) && parsed === 2) return 'w';
   return isNaN(parsed) ? value : parsed;
 }
 
 function isWeightedSkill(value) {
-  return value === 'w' || value === 'W' || value === 2;
+  return WEIGHTED_MARKERS.has(value);
 }
 
 function getModalShifts(group) {
@@ -184,19 +186,20 @@ function renderTaskOptionsWithGroups(selectedValue = '', includeGaps = false) {
 // Get CSS class for skill value display
 function getSkillClass(value) {
   const v = normalizeSkillValueJS(value);
-  if (v === 1) return 'skill-val-1';
-  if (v === 0) return 'skill-val-0';
-  if (v === -1) return 'skill-val--1';
-  if (isWeightedSkill(v)) return 'skill-val-w';
-  return '';
+  switch (v) {
+    case 1: return 'skill-val-1';
+    case 0: return 'skill-val-0';
+    case -1: return 'skill-val--1';
+    case 'w': return 'skill-val-w';
+    default: return '';
+  }
 }
 
 // Get color for skill value - only 1 and w get strong colors, 0/-1 are neutral (from config)
 function getSkillColor(value) {
   const v = normalizeSkillValueJS(value);
   if (v === 1) return SKILL_VALUE_COLORS.active?.color || '#28a745';
-  if (isWeightedSkill(v)) return SKILL_VALUE_COLORS.weighted?.color || '#17a2b8';
-  if (v === 0) return SKILL_VALUE_COLORS.passive?.color || '#ccc';
+  if (v === 'w') return SKILL_VALUE_COLORS.weighted?.color || '#17a2b8';
   if (v === -1) return SKILL_VALUE_COLORS.excluded?.color || '#ccc';
   return SKILL_VALUE_COLORS.passive?.color || '#ccc';
 }
