@@ -2,7 +2,7 @@
 - Mapping rules attach modality, shift, and skill overrides to activity descriptions.
 - **GAP handling**: meetings and boards trigger split shifts, keeping coverage aligned with availability.
 - **Skill management**: workers pull global skill levels from the Skill Matrix (saves directly).
-- **Daily prep**: admins use "Prep Tomorrow" to adjust the next day's rotation before it goes live at the **configured reset time** (default 07:30 CET).
+- **Daily prep**: admins use "Prep Tomorrow" to adjust the staged schedule for the next workday.
 
 ---
 
@@ -14,7 +14,7 @@
 4) **Normalization**: shift windows become start/end datetimes. Durations are calculated for same-day shifts only (end time must be after start time).
 5) **Exclusions**: scheduled boards or meetings split shifts into available segments without losing total coverage accounting.
 6) **Rosters**: worker skills load from flat Skill×Modality combinations in the roster; CSV rule skill_overrides can override specific combinations.
-7) **Preparation**: optional edits for the next workday happen on `/prep-next-day`, keeping current-day assignments untouched.
+7) **Preparation**: optional edits for the next workday happen on `/prep-tomorrow`, keeping current-day assignments untouched.
 8) **Assignment**: real-time selection uses the normalized shifts and skill values to balance workload and honor fallback rules.
 
 ---
@@ -43,9 +43,9 @@ RadIMO uses a single monthly CSV (`master_medweb.csv`) to power the entire sched
 
 ---
 
-## 📝 Schedule Editing (`/prep-next-day`)
+## 📝 Schedule Editing (`/prep-today`, `/prep-tomorrow`)
 
-Admins can adjust "Today" (Live) or plan "Tomorrow" (Staged).
+Admins can adjust "Today" (Live) or plan "Tomorrow" (Staged) via separate pages.
 
 **Features:**
 - **Manual highlighting**: Any shifts added or edited manually by an admin are highlighted (subtle yellow) to distinguish them from auto-loaded Master CSV data.
@@ -65,6 +65,6 @@ Admins can adjust "Today" (Live) or plan "Tomorrow" (Staged).
 ## ✅ Quick Checklist
 
 - [ ] Upload Master CSV at start of month.
-- [ ] Review "Prep Tomorrow" in the evening.
-- [ ] Use "Live Edit" for same-day sickness/changes.
+- [ ] Review "Prep Tomorrow" in the evening (`/prep-tomorrow`).
+- [ ] Use "Change Today" for same-day sickness/changes (`/prep-today`).
 - [ ] Monitor `selection.log` for auto-reset confirmation at 07:30.

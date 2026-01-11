@@ -6,7 +6,10 @@ REST API endpoints for worker assignment and administration.
 
 ## Authentication
 
-Admin endpoints require session authentication via `/login`.
+- **Operational assignment endpoints** are protected by basic access login when `access_protection_enabled` is true. Users authenticate via `/access-login`.
+- **Admin endpoints** require an admin session when `admin_access_protection_enabled` is true. Users authenticate via `/login`.
+
+When access protection is disabled, these endpoints are reachable without a session.
 
 ---
 
@@ -18,13 +21,13 @@ Admin endpoints require session authentication via `/login`.
 GET /api/{modality}/{skill}
 ```
 
-Assigns a worker with automatic overflow to generalists if specialists are overloaded.
+Assigns a worker with overflow enabled unless the skill/modality is configured in `no_overflow`.
 
 **Parameters:**
 | Name | Type | Description |
 |------|------|-------------|
-| modality | path | `ct`, `mr`, or `xray` |
-| skill | path | `notfall`, `privat`, `gyn`, `paed`, `msk-haut`, `abd-onco`, `card-thor`, `uro`, `kopf-hals` |
+| modality | path | Modality slug from `config.yaml` (e.g., `ct`, `mr`, `xray`, `mammo`) |
+| skill | path | Skill slug from `config.yaml` (e.g., `notfall`, `card-thor`) |
 
 **Example:**
 ```bash
@@ -34,25 +37,18 @@ curl http://localhost:5000/api/ct/card-thor
 **Response:**
 ```json
 {
-  "Assigned Person": "Dr. Anna Müller (AM)",
-  "Draw Time": "14:23:45",
-  "Modality": "ct",
-  "Requested Skill": "card-thor",
-  "Used Skill": "card-thor",
-  "Fallback Used": false
+  "selected_person": "Dr. Anna Müller (AM)",
+  "canonical_id": "AM",
+  "source_modality": "ct",
+  "skill_used": "card-thor",
+  "is_weighted": false
 }
 ```
 
-**Fallback response:**
+**Error response (no match):**
 ```json
 {
-  "Assigned Person": "Dr. Max Schmidt (MS)",
-  "Draw Time": "14:24:12",
-  "Modality": "ct",
-  "Requested Skill": "card-thor",
-  "Used Skill": "notfall",
-  "Fallback Used": true,
-  "Fallback Reason": "No active card-thor workers available"
+  "error": "No available worker found"
 }
 ```
 
@@ -64,80 +60,7 @@ curl http://localhost:5000/api/ct/card-thor
 GET /api/{modality}/{skill}/strict
 ```
 
-Assigns a worker without overflow. Returns error if no specialist available.
-
-**Example:**
-```bash
-curl http://localhost:5000/api/ct/card-thor/strict
-```
-
-**Error response (no match):**
-```json
-{
-  "error": "No available worker for card-thor in ct",
-  "Fallback Used": false
-}
-```
-
----
-
-## Statistics
-
-### Quick Reload (modality view)
-
-```http
-GET /api/quick_reload?modality={modality}
-```
-
-Get live statistics for modality-based view.
-
-**Example:**
-```bash
-curl http://localhost:5000/api/quick_reload?modality=ct
-```
-
-**Response:**
-```json
-{
-  "available_buttons": {
-    "notfall": true,
-    "card-thor": true,
-    "privat": false,
-    "msk-haut": true
-  },
-  "operational_checks": {
-    "workers_loaded": true,
-    "config_valid": true
-  }
-}
-```
-
----
-
-### Quick Reload (skill view)
-
-```http
-GET /api/quick_reload?skill={skill}
-```
-
-Get live statistics for skill-based view.
-
-**Example:**
-```bash
-curl http://localhost:5000/api/quick_reload?skill=card-thor
-```
-
-**Response:**
-```json
-{
-  "available_modalities": {
-    "ct": true,
-    "mr": true,
-    "xray": false
-  },
-  "operational_checks": {...}
-}
-```
+Assigns a worker without overflow. Returns an error if no specialist is available.
 
 ---
 
@@ -151,13 +74,20 @@ GET /api/master-csv-status
 
 Check if `master_medweb.csv` exists and get its metadata.
 
-**Response:**
+**Response (exists):**
 ```json
 {
   "exists": true,
   "filename": "master_medweb.csv",
   "modified": "21.12.2025 20:30",
   "size": 12345
+}
+```
+
+**Response (missing):**
+```json
+{
+  "exists": false
 }
 ```
 
@@ -182,27 +112,37 @@ Upload a new monthly medweb file.
 POST /load-today-from-master
 ```
 
-Rebuilds today's live schedule using current date and Master CSV.
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Heute (21.12.2025) aus Master-CSV geladen",
-  "modalities_loaded": ["ct", "mr", "xray"],
-  "total_workers": 24
-}
-```
+Rebuilds today's live schedule using the current date and Master CSV.
 
 ---
 
-### Preload Tomorrow from Master
+### Preload Next Workday from Master
 
 ```http
 POST /preload-from-master
 ```
 
-Rebuilds tomorrow's staged schedule using Master CSV.
+Rebuilds the next workday's scheduled files from the Master CSV and refreshes staged data.
+
+---
+
+## Info Texts (Admin)
+
+### Update Modality Info Text
+
+```http
+POST /api/edit_info
+```
+
+Update the info text for a modality.
+
+**Request:**
+```json
+{
+  "modality": "ct",
+  "info_text": "Line 1\nLine 2"
+}
+```
 
 ---
 
@@ -220,135 +160,53 @@ GET /api/live-schedule/data
 POST /api/live-schedule/update-row
 ```
 
+### Add Live Worker
+
+```http
+POST /api/live-schedule/add-worker
+```
+
+### Delete Live Worker
+
+```http
+POST /api/live-schedule/delete-worker
+```
+
 ### Add Live GAP (Split Shift)
 
 ```http
 POST /api/live-schedule/add-gap
 ```
 
-**Request:**
-```json
-{
-  "modality": "ct",
-  "row_index": 5,
-  "gap_type": "Board",
-  "gap_start": "13:00",
-  "gap_end": "14:00"
-}
-```
-
 ---
 
-## Prep Next Day (Admin)
+## Staged Schedule (Admin)
 
-### Get Prep Data
+### Get Staged Data
 
 ```http
 GET /api/prep-next-day/data
 ```
 
-Get staged working_hours_df for all modalities.
+Returns staged schedules for all modalities plus `last_prepped_at` when available.
 
-**Response:**
-```json
-{
-  "ct": [
-    {
-      "row_index": 0,
-      "PPL": "Dr. Müller (AM)",
-      "start_time": "07:00",
-      "end_time": "15:00",
-      "Modifier": 1.0,
-      "is_manual": false,
-      "gap_id": "gap_AM_123456",
-      "notfall": 1,
-      "privat": 0,
-      "msk-haut": 0,
-      "card-thor": 0,
-      "kopf-hals": 0,
-      "Uro": 0
-    }
-  ],
-  "mr": [...],
-  "xray": [...],
-  "last_prepped_at": "21.12.2025 14:00"
-}
-```
-
----
-
-### Update Row
+### Update Staged Row
 
 ```http
 POST /api/prep-next-day/update-row
-Content-Type: application/json
 ```
 
-Update a single worker row in staged data.
-
-**Request:**
-```json
-{
-  "modality": "ct",
-  "row_index": 5,
-  "updates": {
-    "start_time": "08:00",
-    "end_time": "16:00",
-    "Normal": 1,
-    "notfall": 0
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "success": true
-}
-```
-
----
-
-### Add Worker
+### Add Staged Worker
 
 ```http
 POST /api/prep-next-day/add-worker
-Content-Type: application/json
 ```
 
-Add new worker to staged data.
+### Delete Staged Worker
 
-**Request:**
-```json
-{
-  "modality": "mr",
-  "worker_data": {
-    "PPL": "Neuer Worker (NW)",
-    "start_time": "07:00",
-    "end_time": "15:00",
-    "notfall": 1,
-    "privat": 0,
-    "msk-haut": 0,
-    "card-thor": 0,
-    "kopf-hals": 0,
-    "Uro": 0,
-    "Modifier": 1.0
-  }
-}
+```http
+POST /api/prep-next-day/delete-worker
 ```
-
-**Response:**
-```json
-{
-  "success": true,
-  "row_index": 12
-}
-```
-
----
-
-### Update Row
-... (see above)
 
 ### Add Staged GAP
 
@@ -366,70 +224,15 @@ POST /api/prep-next-day/add-gap
 GET /api/admin/skill_roster
 ```
 
-Get staged worker skill roster.
-
-**Response:**
-```json
-{
-  "success": true,
-  "roster": {
-    "AM": {
-      "notfall_ct": 1,
-      "notfall_mr": 1,
-      "notfall_xray": 1,
-      "privat_ct": 0,
-      "privat_mr": 1,
-      "card-thor_ct": 1,
-      "card-thor_mr": 1
-    }
-  },
-  "skills": ["notfall", "privat", "gyn", "paed", "msk-haut", "abd-onco", "card-thor", "uro", "kopf-hals"],
-  "modalities": ["ct", "mr", "xray"]
-}
-```
-
-**Note:** Roster uses flat Skill×Modality combinations. Each key is `"skill_modality"` (e.g., `"notfall_ct"`). Both `"skill_modality"` and `"modality_skill"` formats are accepted.
-
----
+Returns the worker roster, skills list, and modalities list.
 
 ### Save Skill Matrix
 
 ```http
 POST /api/admin/skill_roster
-Content-Type: application/json
 ```
 
-Save roster changes to staging.
-
-**Request:**
-```json
-{
-  "roster": {
-    "AM": {
-      "notfall_ct": 1,
-      "notfall_mr": 1,
-      "privat_ct": 0,
-      "privat_mr": 1,
-      "card-thor_ct": 1,
-      "card-thor_mr": 1
-    }
-  }
-}
-```
-
-**Note:** Use flat Skill×Modality combinations. Each key is `"skill_modality"` format.
-
-**Response:**
-```json
-{
-  "success": true
-}
-```
-
----
-
-### Activate Skill Matrix
-*(Removed - Roster now saves directly)*
+Persist roster changes to `worker_skill_roster.json`.
 
 ### Import New Workers
 
@@ -437,7 +240,47 @@ Save roster changes to staging.
 POST /api/admin/skill_roster/import_new
 ```
 
-Scan current schedules for workers missing from the roster and add them with default (-1) skills.
+Scan current schedules for workers missing from the roster and add them with default skills.
+
+---
+
+## Usage Statistics (Admin)
+
+### Get Current Usage Statistics
+
+```http
+GET /api/usage-stats/current
+```
+
+### Export Usage Statistics
+
+```http
+POST /api/usage-stats/export
+```
+
+### Reset Usage Statistics
+
+```http
+POST /api/usage-stats/reset
+```
+
+### Get Usage CSV File Info
+
+```http
+GET /api/usage-stats/file
+```
+
+---
+
+## Worker Load (Admin)
+
+### Worker Load Data
+
+```http
+GET /api/worker-load/data
+```
+
+Returns the worker load monitoring payload for the dashboard.
 
 ---
 
@@ -455,4 +298,5 @@ All endpoints may return error responses:
 HTTP status codes:
 - `400` - Bad request (invalid parameters)
 - `401` - Unauthorized (login required)
+- `404` - No matching worker (assignment endpoints)
 - `500` - Server error

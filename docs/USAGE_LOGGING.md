@@ -9,7 +9,7 @@ The usage logging system tracks how often each skill-modality combination is use
 - **Automatic Tracking**: Every assignment request automatically logs the skill-modality combination used
 - **Daily Aggregation**: Usage is tracked per day with automatic reset and export
 - **CSV Export**: Daily statistics are exported to CSV files for easy analysis
-- **Scheduled Export**: Automatic export at 7:30 AM daily (or when the first assignment after that time occurs)
+- **Automatic Export**: Export and reset when the date changes (triggered by the first assignment request of the new day)
 - **API Access**: RESTful API endpoints for viewing stats and manual export
 
 ## How It Works
@@ -23,7 +23,7 @@ When a worker is assigned via the API endpoints:
 The system automatically:
 1. Records the skill-modality combination used (e.g., `notfall + ct`)
 2. Increments the daily counter for that combination
-3. Checks if it's time for the daily export (7:30 AM)
+3. Checks if the date changed to trigger a daily export/reset
 
 ### Data Structure
 
@@ -68,15 +68,11 @@ date,notfall_ct,notfall_mr,privat_ct,privat_mr,msk-haut_ct,msk-haut_mr,card-thor
 
 ### Daily Reset
 
-The system automatically exports and resets counters when:
-1. **Date Changes**: When the first assignment request occurs on a new day
-2. **Scheduled Time**: At or after 7:30 AM (checked with each assignment)
-
-The export preserves the previous day's data to a CSV file before resetting.
+The system automatically exports and resets counters when the date changes (triggered by the first assignment request on the new day). The export preserves the previous day's data to a CSV file before resetting.
 
 ## API Endpoints
 
-All endpoints require authentication (via the `@requires_auth` decorator).
+All endpoints require an admin session when `admin_access_protection_enabled` is true.
 
 ### Get Current Usage Statistics
 
@@ -230,14 +226,14 @@ Use the usage data to:
 
 - **CSV File**: `logs/usage_stats/usage_stats.csv` (single file, wide format, one row per day)
 - **Module**: `lib/usage_logger.py`
-- **Integration**: `routes.py` (usage stats endpoints at lines 1126-1229)
+- **Integration**: `routes.py` (usage stats endpoints)
 
 ## Configuration
 
 No additional configuration is required. The system automatically:
 - Creates the `logs/usage_stats/` directory if it doesn't exist
 - Handles file naming and rotation
-- Manages daily reset timing
+- Manages daily reset timing based on the date change
 
 ## Technical Details
 
