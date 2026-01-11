@@ -10,9 +10,9 @@
 - [x] Review state/task orchestration (`state_manager.py`, `data_manager/scheduled_tasks.py`).
 - [x] Review worker roster/skill management (`data_manager/worker_management.py`).
 - [x] Review prep/timeline UI logic for data contracts (`static/js/prep_next_day.actions.js`, `static/js/timeline.js`).
-- [ ] Review remaining Flask app entrypoints and templates for boundary issues (`app.py`, `templates/`).
-- [ ] Review remaining static JS/CSS assets for data contract mismatches (`static/js/*`, `static/*.css`).
-- [ ] Review docs/config for mismatches that could drive runtime defects (`docs/*`, `config.yaml`).
+- [x] Review remaining Flask app entrypoints and templates for boundary issues (`app.py`, `templates/`).
+- [x] Review remaining static JS/CSS assets for data contract mismatches (`static/js/*`, `static/*.css`).
+- [x] Review docs/config for mismatches that could drive runtime defects (`docs/*`, `config.yaml`).
 
 ## Findings & Fixes
 1. **Shift duration truncation for multi-day windows**
@@ -28,3 +28,10 @@
    - **Fix**: Realigned the conditional block to the correct indentation level.
    - **Risk**: Low. This restores valid module parsing and keeps the existing duration logic.
    - **Suggested tests**: Import the app module and add a worker through `/api/live-schedule/add-worker` and `/api/prep-next-day/add-worker`.
+
+3. **Worker load table total sorting mismatched displayed totals**
+   - **Symptom**: Sorting by “Total” in the modality/skill tables used global weighted counts, so the sort order did not match the totals displayed in those tables when modifiers or per-skill counts differed.
+   - **Root cause**: `static/js/worker_load_monitor.js` routed the `total` sort column through `global_weight`, ignoring the per-table totals that the UI renders.
+   - **Fix**: Compute table-specific totals in `getSortValue` for modality (sum of per-modality weighted counts) and skill (sum of per-skill counts) tables.
+   - **Risk**: Low. Only affects sort ordering; displayed totals and data remain unchanged.
+   - **Suggested tests**: Open Worker Load Monitor, sort by Total in Modality and Skill tables, and confirm ordering matches displayed totals.
