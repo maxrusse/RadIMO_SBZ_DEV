@@ -51,27 +51,27 @@ timezone: Europe/Berlin
 modalities:
   ct:
     label: CT
-    nav_color: '#1a5276'
-    hover_color: '#153f5b'
-    background_color: '#e6f2fa'
+    nav_color: '#2f5d8a'
+    hover_color: '#24496b'
+    background_color: '#e7f0f7'
     factor: 1.0
   mr:
     label: MR
-    nav_color: '#777777'
-    hover_color: '#555555'
-    background_color: '#f9f9f9'
+    nav_color: '#5b4a7a'
+    hover_color: '#47395f'
+    background_color: '#f0eef6'
     factor: 1.2
   xray:
     label: X-ray
-    nav_color: '#239b56'
-    hover_color: '#1d7a48'
-    background_color: '#e0f2e9'
+    nav_color: '#2f8c7a'
+    hover_color: '#247060'
+    background_color: '#e3f3ef'
     factor: 0.33
   mammo:
     label: Mammo
-    nav_color: '#e91e63'
-    hover_color: '#c2185b'
-    background_color: '#fce4ec'
+    nav_color: '#b45a7a'
+    hover_color: '#8f4761'
+    background_color: '#f7ecf1'
     factor: 0.5
     # Visibility filters (both optional, can combine):
     # - valid_skills: positive filter - only show these skills
@@ -116,7 +116,7 @@ skills:
     slug: privat
   gyn:
     label: Gyn
-    button_color: '#e91e63'
+    button_color: '#b65c9a'
     text_color: '#ffffff'
     weight: 1.0
     special: true             # Subspecialty team
@@ -124,7 +124,7 @@ skills:
     slug: gyn
   paed:
     label: Päd
-    button_color: '#4caf50'
+    button_color: '#5aa56a'
     text_color: '#ffffff'
     weight: 1.0
     special: true             # Subspecialty team
@@ -132,7 +132,7 @@ skills:
     slug: paed
   msk-haut:
     label: MSK/Haut
-    button_color: '#9c27b0'
+    button_color: '#7a6bb0'
     text_color: '#ffffff'
     weight: 0.8
     special: true             # Musculoskeletal & skin subspecialty
@@ -140,7 +140,7 @@ skills:
     slug: msk-haut
   abd-onco:
     label: Abd/Onco
-    button_color: '#00bcd4'
+    button_color: '#2b8fa1'
     text_color: '#ffffff'
     weight: 1.0
     special: true             # Abdominal imaging subspecialty
@@ -148,7 +148,7 @@ skills:
     slug: abd-onco
   card-thor:
     label: Card/Thor
-    button_color: '#28a745'
+    button_color: '#3d6aa8'
     text_color: '#ffffff'
     weight: 1.2
     special: true             # Cardio-thoracic subspecialty
@@ -156,7 +156,7 @@ skills:
     slug: card-thor
   uro:
     label: Uro
-    button_color: '#795548'
+    button_color: '#7a5a4a'
     text_color: '#ffffff'
     weight: 1.0
     special: true             # urology subspecialty
@@ -164,7 +164,7 @@ skills:
     slug: uro
   kopf-hals:
     label: Kopf/Hals
-    button_color: '#607d8b'
+    button_color: '#6b7a8c'
     text_color: '#ffffff'
     weight: 1.0
     special: true             # Head & neck subspecialty
@@ -206,16 +206,16 @@ no_overflow: []
 
 skill_value_colors:
   active:     # skill = 1 (primary assignment - actively receives work)
-    color: '#28a745'
+    color: '#2f8c7a'
     label: 'Active'
   passive:    # skill = 0 (fallback only - receives work if no active workers)
-    color: '#6c757d'
+    color: '#8a8f98'
     label: 'Passive'
   excluded:   # skill = -1 (never assign - worker explicitly excluded)
     color: '#dc3545'
     label: 'Excluded'
   weighted:   # skill = 'w' (assisted/weighted - receives less work, supervised)
-    color: '#17a2b8'
+    color: '#3d6aa8'
     label: 'Weighted'
 
 # =============================================================================
@@ -225,12 +225,12 @@ skill_value_colors:
 # =============================================================================
 
 ui_colors:
-  today_tab: '#28a745'        # Green for "Change Today" tab
-  tomorrow_tab: '#ffc107'     # Yellow for "Prep Tomorrow" tab
-  success: '#28a745'          # Success messages
+  today_tab: '#2f8c7a'        # Teal for "Change Today" tab
+  tomorrow_tab: '#f2c94c'     # Golden for "Prep Tomorrow" tab
+  success: '#2f8c7a'          # Success messages
   error: '#dc3545'            # Error messages
-  warning: '#ffc107'          # Warning messages
-  info: '#17a2b8'             # Info messages
+  warning: '#f2c94c'          # Warning messages
+  info: '#3d6aa8'             # Info messages
 
 # =============================================================================
 # WORKER LOAD MONITOR
