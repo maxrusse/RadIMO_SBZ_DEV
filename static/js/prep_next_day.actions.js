@@ -2143,6 +2143,16 @@ async function onQuickGapFromModal() {
 
 // Load from CSV
 async function loadFromCSV(mode) {
+  if (mode === 'today') {
+    const hasPendingChanges = Object.keys(pendingChanges.today || {}).length > 0;
+    const message = hasPendingChanges
+      ? 'Load Today will discard unsaved Quick Edit changes and reset today from the Master CSV. Continue?'
+      : 'Load Today will reset today from the Master CSV. Continue?';
+    if (!window.confirm(message)) {
+      return;
+    }
+  }
+
   const statusId = mode === 'today' ? 'load-status-today' : 'load-status-tomorrow';
   const loadStatus = document.getElementById(statusId);
   loadStatus.textContent = 'Loading...';

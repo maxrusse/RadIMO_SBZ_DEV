@@ -59,6 +59,14 @@ function applyEditModeUI(tab) {
     saveBtn.style.display = editMode[tab] ? 'inline-block' : 'none';
   }
   updateSaveButtonCount(tab);
+
+  // Safety gate: only show Load Today in edit mode
+  if (tab === 'today') {
+    const loadBtn = document.getElementById('load-today-btn-today');
+    if (loadBtn) {
+      loadBtn.style.display = editMode[tab] ? 'inline-block' : 'none';
+    }
+  }
 }
 
 // Sort entries by column while keeping worker rows grouped
