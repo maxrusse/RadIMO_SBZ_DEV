@@ -296,9 +296,13 @@ When CSV mapping rules apply `skill_overrides` to a worker's roster values:
 Manual edits in the prep page can change any value:
 
 - No restrictions - allows daily flexibility
-- Can change `-1` → `w`/`1`/`0` (e.g., adding someone new to a team)
+- Can change `-1` → `w`/`1` (e.g., adding someone new to a team)
 - Can change `w` → `1` (promoting from training to full)
 - Changes persist only for that day's schedule
+
+**Roster re-apply on load:** When schedules are reloaded (live/staged JSON),
+only edited values of `1` or `w` overwrite roster exclusions. Edited `0`
+values do not override roster entries, so roster defaults remain in place.
 
 ### Modifier Priority
 

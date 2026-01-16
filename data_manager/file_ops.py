@@ -68,13 +68,8 @@ def apply_roster_overrides_to_schedule(df: pd.DataFrame, modality: str) -> pd.Da
     if df is None or df.empty or 'PPL' not in df.columns:
         return df
 
-    def _get_override_value(normalized: str) -> int:
-        if normalized == 'w':
-            return 1
-        try:
-            return int(normalized)
-        except (TypeError, ValueError):
-            return 0
+    def _get_override_value(normalized: str) -> str:
+        return normalize_skill_value(normalized)
 
     skill_columns = [skill for skill in SKILL_COLUMNS if skill in df.columns]
     if not skill_columns:
@@ -92,7 +87,13 @@ def apply_roster_overrides_to_schedule(df: pd.DataFrame, modality: str) -> pd.Da
             override_value = _get_override_value(normalized)
             overrides[f"{skill}_{modality}"] = override_value
 
-        final_combinations = apply_skill_overrides(roster_combinations, overrides)
+        final_combinations = apply_skill_overrides(
+            roster_combinations,
+            overrides,
+            allow_roster_exclusion_override=True,
+            ignore_zero_overrides=True,
+            exclude_unprocessed_weighted=False,
+        )
 
         for skill in skill_columns:
             key = f"{skill}_{modality}"

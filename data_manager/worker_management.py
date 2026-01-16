@@ -23,7 +23,7 @@ from config import (
     BALANCER_SETTINGS,
     selection_logger,
 )
-from lib.utils import is_weighted_skill
+from lib.utils import is_weighted_skill, normalize_skill_value
 from state_manager import StateManager
 
 # Get state references
@@ -384,24 +384,35 @@ def expand_skill_overrides(rule_overrides: dict) -> dict:
     return expanded
 
 
-def apply_skill_overrides(roster_combinations: dict, rule_overrides: dict) -> dict:
+def apply_skill_overrides(
+    roster_combinations: dict,
+    rule_overrides: dict,
+    *,
+    allow_roster_exclusion_override: bool = False,
+    ignore_zero_overrides: bool = False,
+    exclude_unprocessed_weighted: bool = True,
+) -> dict:
     """
     Apply CSV rule skill_overrides to roster Skill x Modality combinations.
 
     First expands shortcuts (all, skill-only, mod-only), then applies.
 
     Priority rules:
-    - Roster -1 (hard exclude) always wins and cannot be overridden
+    - Roster -1 (hard exclude) always wins and cannot be overridden unless
+      allow_roster_exclusion_override=True and override value is 1 or w.
     - Roster 'w' (weighted/training):
-      - CSV 1 → 'w' (worker is weighted, stays weighted)
-      - CSV 0 → -1 (not assigned to team, excluded)
-      - CSV -1 → -1 (explicit exclusion)
-      - No override → -1 (not on any shift, excluded)
-    - Roster 1 or 0 → use CSV value (normal override)
+      - Override 1 → 'w' (worker stays weighted)
+      - Override 0 → -1 (not assigned to team, excluded) unless ignore_zero_overrides=True
+      - Override -1 → -1 (explicit exclusion)
+      - No override → -1 (not on any shift, excluded) unless exclude_unprocessed_weighted=False
+    - Roster 1 or 0 → use override value (normal override)
 
     Args:
         roster_combinations: Worker's baseline skill x modality combinations
         rule_overrides: CSV rule overrides (e.g., {"msk-haut_ct": 1, "all": -1})
+        allow_roster_exclusion_override: Allow overriding roster -1 with 1/w.
+        ignore_zero_overrides: Skip overrides with value 0.
+        exclude_unprocessed_weighted: Convert unprocessed roster 'w' values to -1.
 
     Returns:
         Final skill x modality combinations
@@ -417,21 +428,27 @@ def apply_skill_overrides(roster_combinations: dict, rule_overrides: dict) -> di
     for key, override_value in expanded_overrides.items():
         if key in final:
             processed_keys.add(key)
-            roster_value = final[key]
+            roster_value = normalize_skill_value(final[key])
+            override_value = normalize_skill_value(override_value)
+
+            if ignore_zero_overrides and override_value == '0':
+                continue
 
             # Roster -1 (hard exclude) always wins
-            if roster_value == -1:
+            if roster_value == '-1':
+                if allow_roster_exclusion_override and override_value in {'1', 'w'}:
+                    final[key] = override_value
                 continue  # Keep -1, ignore override
 
             # Roster 'w' (weighted/training) special handling
             if is_weighted_skill(roster_value):
-                if override_value == 1:
+                if override_value == '1':
                     # CSV assigns as specialist → keep as weighted
                     final[key] = 'w'
                 else:
                     # CSV assigns as 0 (helper) or -1 (exclude) → exclude
                     # Weighted workers are only included when explicitly assigned
-                    final[key] = -1
+                    final[key] = '-1'
                 continue
 
             # Normal override for roster 1 or 0
@@ -439,9 +456,10 @@ def apply_skill_overrides(roster_combinations: dict, rule_overrides: dict) -> di
 
     # Handle roster 'w' values that were NOT processed by any override
     # These workers are not on any shift for this skill → exclude them
-    for key, value in final.items():
-        if key not in processed_keys and is_weighted_skill(value):
-            final[key] = -1
+    if exclude_unprocessed_weighted:
+        for key, value in final.items():
+            if key not in processed_keys and is_weighted_skill(value):
+                final[key] = '-1'
 
     return final
 
