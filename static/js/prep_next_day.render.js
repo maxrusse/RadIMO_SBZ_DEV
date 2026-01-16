@@ -245,6 +245,7 @@ function renderTable(tab) {
   const isEditMode = editMode[tab];
   const filter = tableFilters[tab] || {};
   const filterActive = Boolean(filter.modality || filter.skill || filter.hideZero);
+  const filterHighlightActive = Boolean(filter.modality || filter.skill);
   const visibleGroups = [];
 
   const modCount = MODALITIES.length;
@@ -276,11 +277,6 @@ function renderTable(tab) {
 
       if (shift.is_manual) {
         tr.classList.add('row-manual');
-      }
-
-      // Add highlight class when modality or skill filter is active
-      if (filter.modality || filter.skill) {
-        tr.classList.add('filtered-highlight');
       }
 
       if (shiftIdx === 0) {
@@ -382,7 +378,16 @@ function renderTable(tab) {
             cellBg = skillBtnColor + '15';  // 15% opacity for subtle background
           }
         }
-        const cellClass = `grid-cell ${isAssigned ? '' : 'ghost'}`;
+        let isFilteredMatch = false;
+        if (filterHighlightActive) {
+          const matchesModality = !filter.modality || filter.modality === modKey;
+          const matchesSkill = !filter.skill || filter.skill === skill;
+          if (matchesModality && matchesSkill) {
+            const filterVal = modData.skills[skill];
+            isFilteredMatch = filter.hideZero ? isActiveSkillValue(filterVal) : filterVal !== undefined;
+          }
+        }
+        const cellClass = `grid-cell ${isAssigned ? '' : 'ghost'}${isFilteredMatch ? ' filtered-cell' : ''}`;
 
         const displayVal = displaySkillValue(val);
         const skillClass = getSkillClass(val);
