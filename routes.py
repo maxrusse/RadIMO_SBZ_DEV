@@ -200,6 +200,16 @@ def has_admin_access() -> bool:
     return session.get('admin_logged_in', False)
 
 
+def has_basic_access() -> bool:
+    """Determine if the current session has basic access (but not admin)."""
+    return session.get('access_granted', False) and not session.get('admin_logged_in', False)
+
+
+def is_authenticated() -> bool:
+    """Check if user has any form of authentication (admin or basic)."""
+    return session.get('admin_logged_in', False) or session.get('access_granted', False)
+
+
 def access_required(f: Callable) -> Callable:
     """Decorator that requires basic access authentication for non-admin pages.
 
@@ -241,6 +251,11 @@ def inject_modality_settings():
         'skill_definitions': SKILL_TEMPLATES,
         'skill_order': SKILL_COLUMNS,
         'skill_labels': {s['name']: s['label'] for s in SKILL_TEMPLATES},
+        # Auth state for templates
+        'is_access_protection_enabled': is_access_protection_enabled(),
+        'is_admin_protection_enabled': is_admin_protection_enabled(),
+        'has_basic_access': has_basic_access(),
+        'is_authenticated': is_authenticated(),
     }
 
 @routes.route('/')
@@ -355,7 +370,8 @@ def skill_roster_page():
     return render_template(
         'skill_roster.html',
         valid_skills_map=valid_skills_map,
-        default_w_modifier=default_w_modifier
+        default_w_modifier=default_w_modifier,
+        is_admin=True
     )
 
 @routes.route('/api/admin/skill_roster', methods=['GET', 'POST'])
@@ -395,21 +411,42 @@ def import_new_skill_roster_api():
 def login():
     modality = resolve_modality_from_request()
     error = None
-    if not is_admin_protection_enabled():
-        return redirect(url_for('routes.upload_file', modality=modality))
+    passwordless = not is_admin_protection_enabled()
+
     if request.method == 'POST':
+        if passwordless:
+            # No password required - just proceed
+            return redirect(url_for('routes.upload_file', modality=modality))
         pw = request.form.get('password', '')
         if pw == get_admin_password():
             session['admin_logged_in'] = True
             return redirect(url_for('routes.upload_file', modality=modality))
         else:
             error = "Falsches Passwort"
-    return render_template("login.html", error=error, modality=modality, login_type='admin')
+
+    return render_template("login.html", error=error, modality=modality, login_type='admin', passwordless=passwordless)
 
 @routes.route('/logout')
 def logout():
-    session.pop('admin_logged_in', None)
+    """Smart logout that handles both admin and basic auth levels.
+
+    - If admin: clears admin session, redirects to login page
+    - If basic access only: clears basic access, redirects to access-login
+    - Hierarchy: admin logout takes precedence
+    """
     modality = resolve_modality_from_request()
+
+    if session.get('admin_logged_in'):
+        # Admin logout - clear admin session, go to login page
+        session.pop('admin_logged_in', None)
+        return redirect(url_for('routes.login', modality=modality))
+
+    if session.get('access_granted'):
+        # Basic access logout - clear access, go to access-login page
+        session.pop('access_granted', None)
+        return redirect(url_for('routes.access_login', modality=modality))
+
+    # Not logged in at all - just go to index
     return redirect(url_for('routes.index', modality=modality))
 
 
@@ -420,10 +457,7 @@ def access_login():
     Uses a permanent session cookie for long-lived access.
     """
     modality = resolve_modality_from_request()
-
-    # If access protection is disabled, redirect to index
-    if not is_access_protection_enabled():
-        return redirect(url_for('routes.index', modality=modality))
+    passwordless = not is_access_protection_enabled()
 
     # If already authenticated (either as admin or with basic access), redirect to index
     if session.get('admin_logged_in') or session.get('access_granted'):
@@ -431,6 +465,9 @@ def access_login():
 
     error = None
     if request.method == 'POST':
+        if passwordless:
+            # No password required - just proceed
+            return redirect(url_for('routes.index', modality=modality))
         pw = request.form.get('password', '')
         if pw == get_access_password():
             session.permanent = True  # Use permanent session for long-lived cookie
@@ -439,7 +476,7 @@ def access_login():
         else:
             error = "Falsches Passwort"
 
-    return render_template("login.html", error=error, modality=modality, login_type='access')
+    return render_template("login.html", error=error, modality=modality, login_type='access', passwordless=passwordless)
 
 
 @routes.route('/access-logout')
@@ -629,6 +666,7 @@ def upload_file():
         modality_stats=modality_stats,
         operational_checks=checks,
         scheduler_config=APP_CONFIG.get('scheduler', {}),
+        is_admin=True
     )
 
 def _check_config_file() -> dict[str, str]:
@@ -906,7 +944,8 @@ def _render_prep_page(initial_tab):
         task_roles=task_roles,
         skill_value_colors=APP_CONFIG.get('skill_value_colors', {}),
         ui_colors=APP_CONFIG.get('ui_colors', {}),
-        quick_break=quick_break
+        quick_break=quick_break,
+        is_admin=True
     )
 
 
@@ -1359,7 +1398,8 @@ def worker_load_monitor():
         modalities=list(MODALITY_SETTINGS.keys()),
         modality_settings=MODALITY_SETTINGS,
         load_monitor_config=load_monitor_config,
-        ui_colors=APP_CONFIG.get('ui_colors', {})
+        ui_colors=APP_CONFIG.get('ui_colors', {}),
+        is_admin=True
     )
 
 

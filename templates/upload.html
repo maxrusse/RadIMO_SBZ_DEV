@@ -243,16 +243,8 @@
   {% set header_title = 'RadIMO Cortex | Admin' %}
   {% set header_subtitle = 'CSV Management & System' %}
   {% set header_mode = 'global' %}
-  {% set header_links = [
-    {'href': url_for('routes.worker_load_monitor'), 'label': 'Worker Load'},
-    {'href': url_for('routes.skill_roster_page'), 'label': 'Skill Matrix'},
-    {'href': url_for('routes.prep_today'), 'label': 'Change Today'},
-    {'href': url_for('routes.prep_tomorrow'), 'label': 'Prep Tomorrow'},
-    {'href': url_for('routes.upload_file'), 'label': 'Upload', 'active': True},
-    {'href': url_for('routes.logout'), 'label': 'Logout', 'accent': True},
-    {'href': url_for('routes.timetable', modality='all'), 'label': 'Timetable'},
-    {'href': url_for('routes.index'), 'label': 'Dashboard'}
-  ] %}
+  {% set active_page = 'upload' %}
+  {% include 'partials/header_links.html' %}
   {% include 'partials/header.html' %}
 
   <div id="message-container"></div>
