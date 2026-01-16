@@ -57,7 +57,6 @@ def check_and_perform_daily_reset() -> None:
     from data_manager.file_ops import (
         backup_dataframe,
         initialize_data_from_unified,
-        migrate_scheduled_files_to_unified,
     )
     from data_manager.state_persistence import save_state
 
@@ -98,8 +97,6 @@ def check_and_perform_daily_reset() -> None:
             d['skill_counts'] = {skill: {} for skill in SKILL_COLUMNS}
 
         scheduled_path = _state.unified_schedule_paths['scheduled']
-        if not os.path.exists(scheduled_path):
-            migrate_scheduled_files_to_unified()
 
         try:
             if os.path.exists(scheduled_path):

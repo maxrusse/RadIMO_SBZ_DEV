@@ -421,52 +421,6 @@ def _load_unified_scheduled_into_staged(file_path: str) -> bool:
     return True
 
 
-def _migrate_per_modality_backups_to_unified(use_staged: bool) -> bool:
-    """Merge per-modality backup files into a unified backup file."""
-    suffix = "_staged" if use_staged else "_live"
-    backup_dir = os.path.join(UPLOAD_FOLDER, "backups")
-    records = []
-    info_texts = {}
-    metadata = {}
-    found = False
-
-    for mod in allowed_modalities:
-        legacy_path = os.path.join(backup_dir, f"Cortex_{mod.upper()}{suffix}.json")
-        if not os.path.exists(legacy_path):
-            continue
-        found = True
-        with open(legacy_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        mod_records = data.get('working_hours', [])
-        for row in mod_records:
-            row['modality'] = mod
-        records.extend(mod_records)
-        info_texts[mod] = data.get('info_texts', [])
-        metadata[mod] = {
-            'last_modified': None,
-            'last_prepped_at': staged_modality_data.get(mod, {}).get('last_prepped_at') if use_staged else None,
-            'last_prepped_by': staged_modality_data.get(mod, {}).get('last_prepped_by') if use_staged else None,
-            'target_date': staged_modality_data.get(mod, {}).get('target_date').isoformat()
-            if use_staged and staged_modality_data.get(mod, {}).get('target_date') else None,
-        }
-
-    if not found:
-        return False
-
-    payload = {
-        'working_hours': records,
-        'info_texts': info_texts,
-        'metadata': metadata,
-    }
-
-    target_path = unified_schedule_paths['staged' if use_staged else 'live']
-    os.makedirs(os.path.dirname(target_path), exist_ok=True)
-    with open(target_path, 'w', encoding='utf-8') as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
-    selection_logger.info("Migrated legacy backups into unified %s file at %s", "staged" if use_staged else "live", target_path)
-    return True
-
-
 def backup_dataframe(modality: str, use_staged: bool = False) -> None:
     """Backup DataFrame to JSON file."""
     d = staged_modality_data[modality] if use_staged else modality_data[modality]
@@ -491,10 +445,6 @@ def load_staged_dataframe(modality: str) -> bool:
     if not _unified_load_state['staged']:
         if _load_unified_backup(unified_schedule_paths['staged'], use_staged=True):
             _unified_load_state['staged'] = True
-        elif _migrate_per_modality_backups_to_unified(use_staged=True):
-            if _load_unified_backup(unified_schedule_paths['staged'], use_staged=True):
-                _unified_load_state['staged'] = True
-
     if _unified_load_state['staged']:
         return staged_modality_data[modality].get('working_hours_df') is not None
 
@@ -503,53 +453,7 @@ def load_staged_dataframe(modality: str) -> bool:
             _unified_load_state['scheduled'] = True
             return staged_modality_data[modality].get('working_hours_df') is not None
 
-    d = staged_modality_data[modality]
-    staged_file = d['staged_file_path']
-    scheduled_file = modality_data[modality]['scheduled_file_path']
-
-    # Helper function to load JSON file and process it
-    def _load_json(file_path: str) -> bool:
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-
-            if 'working_hours' not in data:
-                selection_logger.warning(f"File {file_path} missing 'working_hours' key")
-                return False
-
-            df = _load_dataframe_from_backup_payload(data)
-
-            d['working_hours_df'] = df
-            d['total_work_hours'] = _calculate_total_work_hours(df)
-            d['info_texts'] = data.get('info_texts', [])
-
-            try:
-                d['last_modified'] = datetime.fromtimestamp(os.path.getmtime(file_path))
-            except OSError:
-                d['last_modified'] = get_local_now()
-
-            selection_logger.info(f"Loaded staged data for {modality} from {file_path}")
-            return True
-        except FileNotFoundError:
-            # File doesn't exist - caller should try fallback
-            raise
-        except Exception as e:
-            selection_logger.error(f"Error loading staged data for {modality} from {file_path}: {e}")
-            return False
-
-    # Try staged file first, fall back to scheduled file
-    try:
-        return _load_json(staged_file)
-    except FileNotFoundError:
-        pass
-
-    # Staged file not found, try scheduled file
-    try:
-        selection_logger.info(f"No staged file for {modality}, falling back to scheduled file: {scheduled_file}")
-        return _load_json(scheduled_file)
-    except FileNotFoundError:
-        selection_logger.info(f"No staged or scheduled file found for {modality}")
-        return False
+    return False
 
 
 def quarantine_file(file_path: str, reason: str) -> Optional[str]:
@@ -674,11 +578,6 @@ def load_unified_staged_data(file_path: str) -> bool:
         _unified_load_state['staged'] = True
         return True
 
-    if _migrate_per_modality_backups_to_unified(use_staged=True):
-        if _load_unified_backup(file_path, use_staged=True):
-            _unified_load_state['staged'] = True
-            return True
-
     return False
 
 
@@ -691,52 +590,12 @@ def load_unified_live_backup(file_path: str) -> bool:
         _unified_load_state['live'] = True
         return True
 
-    if _migrate_per_modality_backups_to_unified(use_staged=False):
-        if _load_unified_backup(file_path, use_staged=False):
-            _unified_load_state['live'] = True
-            return True
-
     return False
 
 
 def load_unified_scheduled_into_staged(file_path: str) -> bool:
     """Public wrapper to load unified scheduled data into staged state."""
     return _load_unified_scheduled_into_staged(file_path)
-
-
-def migrate_scheduled_files_to_unified() -> bool:
-    """Merge per-modality scheduled files into a unified scheduled file."""
-    records = []
-    info_texts = {}
-    found = False
-
-    for mod in allowed_modalities:
-        file_path = modality_data[mod]['scheduled_file_path']
-        if not os.path.exists(file_path):
-            continue
-        found = True
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        mod_records = data.get('working_hours', [])
-        for row in mod_records:
-            row['modality'] = mod
-        records.extend(mod_records)
-        info_texts[mod] = data.get('info_texts', [])
-
-    if not found:
-        return False
-
-    payload = {
-        'working_hours': records,
-        'info_texts': info_texts,
-    }
-
-    target_path = unified_schedule_paths['scheduled']
-    os.makedirs(os.path.dirname(target_path), exist_ok=True)
-    with open(target_path, 'w', encoding='utf-8') as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
-    selection_logger.info("Migrated scheduled modality files into unified schedule at %s", target_path)
-    return True
 
 
 def write_unified_scheduled_file(modality_dfs: dict, *, target_date: Optional[date] = None) -> None:
