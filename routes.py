@@ -370,7 +370,8 @@ def skill_roster_page():
     return render_template(
         'skill_roster.html',
         valid_skills_map=valid_skills_map,
-        default_w_modifier=default_w_modifier
+        default_w_modifier=default_w_modifier,
+        is_admin=True
     )
 
 @routes.route('/api/admin/skill_roster', methods=['GET', 'POST'])
@@ -665,6 +666,7 @@ def upload_file():
         modality_stats=modality_stats,
         operational_checks=checks,
         scheduler_config=APP_CONFIG.get('scheduler', {}),
+        is_admin=True
     )
 
 def _check_config_file() -> dict[str, str]:
@@ -942,7 +944,8 @@ def _render_prep_page(initial_tab):
         task_roles=task_roles,
         skill_value_colors=APP_CONFIG.get('skill_value_colors', {}),
         ui_colors=APP_CONFIG.get('ui_colors', {}),
-        quick_break=quick_break
+        quick_break=quick_break,
+        is_admin=True
     )
 
 
@@ -1395,7 +1398,8 @@ def worker_load_monitor():
         modalities=list(MODALITY_SETTINGS.keys()),
         modality_settings=MODALITY_SETTINGS,
         load_monitor_config=load_monitor_config,
-        ui_colors=APP_CONFIG.get('ui_colors', {})
+        ui_colors=APP_CONFIG.get('ui_colors', {}),
+        is_admin=True
     )
 
 
