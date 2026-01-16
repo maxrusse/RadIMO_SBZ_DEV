@@ -10,7 +10,7 @@ This module handles:
 import os
 import json
 import shutil
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 from typing import Optional
 
@@ -226,6 +226,7 @@ def _set_staged_modality_data(
     last_modified: Optional[datetime] = None,
     last_prepped_at: Optional[str] = None,
     last_prepped_by: Optional[str] = None,
+    target_date: Optional[date] = None,
 ) -> None:
     """Apply a DataFrame to staged modality data structures."""
     d = staged_modality_data[modality]
@@ -237,6 +238,8 @@ def _set_staged_modality_data(
         d['last_prepped_at'] = last_prepped_at
     if last_prepped_by is not None:
         d['last_prepped_by'] = last_prepped_by
+    if target_date is not None:
+        d['target_date'] = target_date
 
 
 def _build_unified_payload(use_staged: bool) -> dict:
@@ -254,6 +257,7 @@ def _build_unified_payload(use_staged: bool) -> dict:
                 'last_modified': None,
                 'last_prepped_at': d.get('last_prepped_at'),
                 'last_prepped_by': d.get('last_prepped_by'),
+                'target_date': d.get('target_date').isoformat() if d.get('target_date') else None,
             }
             continue
 
@@ -278,6 +282,7 @@ def _build_unified_payload(use_staged: bool) -> dict:
             'last_modified': d.get('last_modified').isoformat() if d.get('last_modified') else None,
             'last_prepped_at': d.get('last_prepped_at'),
             'last_prepped_by': d.get('last_prepped_by'),
+            'target_date': d.get('target_date').isoformat() if d.get('target_date') else None,
         }
 
     return {
@@ -340,6 +345,13 @@ def _load_unified_backup(file_path: str, use_staged: bool) -> bool:
                     parsed_modified = datetime.fromisoformat(mod_last_modified)
                 except ValueError:
                     parsed_modified = last_modified
+            target_date = None
+            raw_target_date = mod_metadata.get('target_date')
+            if raw_target_date:
+                try:
+                    target_date = date.fromisoformat(raw_target_date)
+                except ValueError:
+                    target_date = None
             _set_staged_modality_data(
                 mod,
                 mod_df,
@@ -347,6 +359,7 @@ def _load_unified_backup(file_path: str, use_staged: bool) -> bool:
                 last_modified=parsed_modified,
                 last_prepped_at=mod_metadata.get('last_prepped_at'),
                 last_prepped_by=mod_metadata.get('last_prepped_by'),
+                target_date=target_date,
             )
         else:
             _set_live_modality_data(mod, mod_df, info_texts.get(mod, []))
@@ -367,12 +380,20 @@ def _load_unified_scheduled_into_staged(file_path: str) -> bool:
 
     records = data.get('working_hours', [])
     info_texts = data.get('info_texts', {})
+    metadata = data.get('metadata', {}) if isinstance(data, dict) else {}
+    raw_target_date = metadata.get('target_date')
+    target_date = None
+    if raw_target_date:
+        try:
+            target_date = date.fromisoformat(raw_target_date)
+        except ValueError:
+            target_date = None
     df = pd.DataFrame(records)
 
-    if df.empty:
+    if df.empty and not info_texts and not target_date:
         return False
 
-    if 'modality' not in df.columns:
+    if not df.empty and 'modality' not in df.columns:
         selection_logger.error("Unified scheduled file missing modality column: %s", file_path)
         return False
 
@@ -382,11 +403,20 @@ def _load_unified_scheduled_into_staged(file_path: str) -> bool:
         last_modified = get_local_now()
 
     for mod in allowed_modalities:
-        mod_df = df[df['modality'] == mod].copy()
-        mod_df = mod_df.drop(columns=['modality'], errors='ignore')
-        mod_df = _load_dataframe_from_backup_payload({'working_hours': mod_df.to_dict(orient='records')})
-        mod_df = apply_roster_overrides_to_schedule(mod_df, mod)
-        _set_staged_modality_data(mod, mod_df, info_texts.get(mod, []), last_modified=last_modified)
+        if df.empty:
+            mod_df = pd.DataFrame()
+        else:
+            mod_df = df[df['modality'] == mod].copy()
+            mod_df = mod_df.drop(columns=['modality'], errors='ignore')
+            mod_df = _load_dataframe_from_backup_payload({'working_hours': mod_df.to_dict(orient='records')})
+            mod_df = apply_roster_overrides_to_schedule(mod_df, mod)
+        _set_staged_modality_data(
+            mod,
+            mod_df,
+            info_texts.get(mod, []),
+            last_modified=last_modified,
+            target_date=target_date,
+        )
 
     return True
 
@@ -416,6 +446,8 @@ def _migrate_per_modality_backups_to_unified(use_staged: bool) -> bool:
             'last_modified': None,
             'last_prepped_at': staged_modality_data.get(mod, {}).get('last_prepped_at') if use_staged else None,
             'last_prepped_by': staged_modality_data.get(mod, {}).get('last_prepped_by') if use_staged else None,
+            'target_date': staged_modality_data.get(mod, {}).get('target_date').isoformat()
+            if use_staged and staged_modality_data.get(mod, {}).get('target_date') else None,
         }
 
     if not found:
@@ -707,7 +739,7 @@ def migrate_scheduled_files_to_unified() -> bool:
     return True
 
 
-def write_unified_scheduled_file(modality_dfs: dict) -> None:
+def write_unified_scheduled_file(modality_dfs: dict, *, target_date: Optional[date] = None) -> None:
     """Write unified scheduled file from modality DataFrames."""
     records = []
     info_texts = {}
@@ -731,6 +763,9 @@ def write_unified_scheduled_file(modality_dfs: dict) -> None:
     payload = {
         'working_hours': records,
         'info_texts': info_texts,
+        'metadata': {
+            'target_date': target_date.isoformat() if target_date else None,
+        },
     }
 
     target_path = unified_schedule_paths['scheduled']

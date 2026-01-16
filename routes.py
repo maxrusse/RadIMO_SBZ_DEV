@@ -2,9 +2,9 @@
 import json
 import os
 import shutil
-from datetime import datetime
+from datetime import datetime, date
 from functools import wraps
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 # Flask imports
 from flask import (
@@ -41,6 +41,7 @@ from lib import usage_logger
 from lib.utils import (
     get_local_now,
     get_next_workday,
+    get_weekday_name_german,
     TIME_FORMAT,
     skill_value_to_display,
 )
@@ -165,6 +166,19 @@ def _ensure_next_workday_preloaded() -> None:
     result = preload_next_workday(MASTER_CSV_PATH, APP_CONFIG)
     if not result.get('success'):
         selection_logger.error(f"Lazy preload failed: {result.get('message')}")
+
+
+def _get_staged_target_date() -> Optional[date]:
+    for mod in allowed_modalities:
+        target_date = staged_modality_data.get(mod, {}).get('target_date')
+        if isinstance(target_date, date):
+            return target_date
+        if isinstance(target_date, str):
+            try:
+                return date.fromisoformat(target_date)
+            except ValueError:
+                continue
+    return None
 
 
 def resolve_modality_from_request() -> str:
@@ -561,7 +575,17 @@ def preload_from_master():
     if not os.path.exists(MASTER_CSV_PATH):
         return jsonify({"error": "Keine Master-CSV vorhanden. Bitte zuerst hochladen."}), 400
 
-    result = preload_next_workday(MASTER_CSV_PATH, APP_CONFIG)
+    payload = request.get_json(silent=True) or {}
+    target_date = payload.get('target_date') or request.form.get('target_date')
+    if target_date:
+        try:
+            parsed_target_date = date.fromisoformat(target_date)
+        except ValueError:
+            return jsonify({"error": "Ungültiges Datum. Bitte YYYY-MM-DD nutzen."}), 400
+        earliest_allowed = get_next_workday().date()
+        if parsed_target_date < earliest_allowed:
+            return jsonify({"error": f"Prep-Datum muss ab {earliest_allowed.isoformat()} liegen."}), 400
+    result = preload_next_workday(MASTER_CSV_PATH, APP_CONFIG, target_date=target_date)
 
     if result['success']:
         state = StateManager.get_instance()
@@ -851,10 +875,15 @@ def load_today_from_master():
         return jsonify({"error": f"Fehler: {str(e)}"}), 500
 
 def _render_prep_page(initial_tab):
-    if initial_tab == 'tomorrow':
+    staged_target_date = _get_staged_target_date()
+    if initial_tab == 'tomorrow' and staged_target_date is None:
         _ensure_next_workday_preloaded()
-
-    next_day = get_next_workday()
+    prep_min_date = get_next_workday().date()
+    next_day = staged_target_date or prep_min_date
+    next_day_dt = next_day if isinstance(next_day, datetime) else datetime.combine(next_day, datetime.min.time())
+    target_date_str = next_day_dt.strftime('%Y-%m-%d')
+    target_date_german = next_day_dt.strftime('%d.%m.%Y')
+    target_weekday_name = get_weekday_name_german(next_day_dt.date())
 
     roster = load_worker_skill_json()
     if roster is None:
@@ -901,8 +930,10 @@ def _render_prep_page(initial_tab):
 
     return render_template(
         'prep_next_day.html',
-        target_date=next_day.strftime('%Y-%m-%d'),
-        target_date_german=next_day.strftime('%d.%m.%Y'),
+        target_date=target_date_str,
+        target_date_german=target_date_german,
+        target_weekday_name=target_weekday_name,
+        prep_min_date=prep_min_date.strftime('%Y-%m-%d'),
         is_next_day=True,
         initial_tab=initial_tab,
         skills=SKILL_COLUMNS,
@@ -935,7 +966,9 @@ def prep_tomorrow():
 @admin_required
 def get_prep_data():
     result = {}
-    _ensure_next_workday_preloaded()
+    staged_target_date = _get_staged_target_date()
+    if staged_target_date is None:
+        _ensure_next_workday_preloaded()
 
     # Acquire lock to prevent race conditions when reading/writing staged data
     with lock:
@@ -951,10 +984,24 @@ def get_prep_data():
             result[modality] = _df_to_api_response(df)
 
         last_prepped_at = staged_modality_data[allowed_modalities[0]].get('last_prepped_at')
+        target_date = staged_modality_data[allowed_modalities[0]].get('target_date')
+
+    target_date_obj = None
+    if isinstance(target_date, date):
+        target_date_obj = target_date
+    elif isinstance(target_date, str):
+        try:
+            target_date_obj = date.fromisoformat(target_date)
+        except ValueError:
+            target_date_obj = None
+    if target_date_obj is None:
+        target_date_obj = get_next_workday().date()
 
     return jsonify({
         'modalities': result,
-        'last_prepped_at': last_prepped_at
+        'last_prepped_at': last_prepped_at,
+        'target_date': target_date_obj.isoformat(),
+        'target_weekday_name': get_weekday_name_german(target_date_obj),
     })
 
 @routes.route('/api/prep-next-day/update-row', methods=['POST'])

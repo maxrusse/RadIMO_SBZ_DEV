@@ -390,6 +390,38 @@ function isTabAvailable(tab) {
   return Boolean(document.getElementById(`content-${tab}`));
 }
 
+function updatePrepTargetUI() {
+  const labelEl = document.getElementById('prep-target-date-label');
+  if (labelEl && prepTargetWeekday && prepTargetDateGerman) {
+    labelEl.textContent = `${prepTargetWeekday} (${prepTargetDateGerman})`;
+  }
+  const inputEl = document.getElementById('prep-target-date');
+  if (inputEl) {
+    if (prepMinDate) {
+      inputEl.min = prepMinDate;
+    }
+    if (prepTargetDate) {
+      inputEl.value = prepTargetDate;
+    }
+  }
+}
+
+function onPrepDateInputChange() {
+  const inputEl = document.getElementById('prep-target-date');
+  if (!inputEl) return;
+  const value = inputEl.value;
+  if (!value) return;
+  if (prepMinDate && value < prepMinDate) {
+    showMessage('error', `Prep-Datum muss ab ${prepMinDate} liegen.`);
+    inputEl.value = prepMinDate;
+    setPrepTargetMeta({ dateValue: prepMinDate });
+    updatePrepTargetUI();
+    return;
+  }
+  setPrepTargetMeta({ dateValue: value });
+  updatePrepTargetUI();
+}
+
 // Load data for a specific tab (lazy loading)
 async function loadTabData(tab) {
   if (!isTabAvailable(tab)) {
@@ -424,12 +456,20 @@ async function loadTabData(tab) {
     workerCounts[tab] = result.counts;
     dataLoaded[tab] = true;
 
-    if (tab === 'tomorrow' && respData.last_prepped_at) {
+    if (tab === 'tomorrow') {
+      if (respData.target_date || respData.target_weekday_name) {
+        setPrepTargetMeta({
+          dateValue: respData.target_date,
+          weekdayName: respData.target_weekday_name,
+        });
+        updatePrepTargetUI();
+      }
       const infoEl = document.getElementById('last-prepped-info');
-      if (infoEl) infoEl.innerHTML = `Vorbereitet am: <strong>${respData.last_prepped_at}</strong>`;
-    } else if (tab === 'tomorrow') {
-      const infoEl = document.getElementById('last-prepped-info');
-      if (infoEl) infoEl.textContent = 'Noch nicht vorbereitet';
+      if (respData.last_prepped_at) {
+        if (infoEl) infoEl.innerHTML = `Vorbereitet am: <strong>${respData.last_prepped_at}</strong>`;
+      } else if (infoEl) {
+        infoEl.textContent = 'Noch nicht vorbereitet';
+      }
     }
 
     renderTable(tab);
@@ -1956,6 +1996,10 @@ async function callAddGap(endpoint, modality, rowIndex, type, start, end) {
  * Falls back to standalone gap entry if no shift exists at that time.
  */
 async function onQuickGap30(tab, gIdx, shiftIdx) {
+  if (tab === 'tomorrow') {
+    showMessage('error', 'Break NOW actions are disabled in prep mode.');
+    return;
+  }
   const group = entriesData[tab][gIdx];
   if (!group) {
     showMessage('error', 'Invalid worker group');
@@ -2079,14 +2123,24 @@ async function loadFromCSV(mode) {
   loadStatus.textContent = 'Loading...';
 
   const endpoint = mode === 'today' ? '/load-today-from-master' : '/preload-from-master';
+  const targetDate = mode === 'today' ? null : (document.getElementById('prep-target-date')?.value || prepTargetDate);
+  const payload = targetDate ? { target_date: targetDate } : null;
 
   try {
-    const response = await fetch(endpoint, { method: 'POST' });
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: payload ? { 'Content-Type': 'application/json' } : undefined,
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
     const result = await response.json();
 
     if (response.ok) {
       loadStatus.textContent = result.message || 'Loaded!';
       loadStatus.style.color = '#28a745';
+      if (mode === 'next' && result.target_date) {
+        setPrepTargetMeta({ dateValue: result.target_date });
+        updatePrepTargetUI();
+      }
       await loadData();
     } else {
       loadStatus.textContent = result.error || 'Error';

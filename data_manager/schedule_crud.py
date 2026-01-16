@@ -82,6 +82,20 @@ def _get_schedule_data_dict(modality: str, use_staged: bool) -> dict:
     return modality_data[modality]
 
 
+def _get_staged_target_date() -> date:
+    """Resolve the target date for staged prep data."""
+    for mod_data in staged_modality_data.values():
+        target_date = mod_data.get('target_date')
+        if isinstance(target_date, date):
+            return target_date
+        if isinstance(target_date, str):
+            try:
+                return date.fromisoformat(target_date)
+            except ValueError:
+                continue
+    return get_next_workday().date()
+
+
 def _get_active_worker_names(df: Optional[pd.DataFrame]) -> set:
     """Get set of active worker names from DataFrame."""
     if df is None or df.empty or 'PPL' not in df.columns:
@@ -346,8 +360,8 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
             worker_name = df.at[row_index, 'PPL']
             worker_shifts = df[df['PPL'] == worker_name]
             if len(worker_shifts) > 1:
-                # Use next workday for staged data, today for live
-                target_date = get_next_workday().date() if use_staged else datetime.today().date()
+                # Use staged target date for prep data, today for live
+                target_date = _get_staged_target_date() if use_staged else datetime.today().date()
                 resolved_df = resolve_overlapping_shifts_df(df, target_date)
                 if len(resolved_df) != len(df):
                     selection_logger.info(
@@ -430,8 +444,8 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
         original_len = len(df)
         worker_shifts = df[df['PPL'] == ppl_name]
         if len(worker_shifts) > 1:
-            # Use next workday for staged data, today for live
-            target_date = get_next_workday().date() if use_staged else datetime.today().date()
+            # Use staged target date for prep data, today for live
+            target_date = _get_staged_target_date() if use_staged else datetime.today().date()
             resolved_df = resolve_overlapping_shifts_df(df, target_date)
             if len(resolved_df) != original_len:
                 selection_logger.info(
