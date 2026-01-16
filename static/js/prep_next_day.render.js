@@ -101,6 +101,7 @@ function sortEntries(tab, column) {
 // Render table header - supports both modality-first and skill-first display orders
 function renderTableHeader(tab) {
   const thead = document.getElementById(`table-head-${tab}`);
+  if (!thead) return;
   const isEditMode = editMode[tab];
   const modalKeys = MODALITIES.map(m => m.toLowerCase());
   const sort = sortState[tab];
@@ -237,6 +238,7 @@ function renderTable(tab) {
   renderTableHeader(tab);
 
   const tbody = document.getElementById(`table-body-${tab}`);
+  if (!tbody) return;
   tbody.innerHTML = '';
 
   const groups = entriesData[tab];
