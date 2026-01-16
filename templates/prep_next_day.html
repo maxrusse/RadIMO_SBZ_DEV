@@ -1168,7 +1168,9 @@
 
     <div class="card" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
       <strong>Load Today from CSV:</strong>
-      <button class="btn btn-success" onclick="loadFromCSV('today')">Load Today</button>
+      <button class="btn btn-success" id="load-today-btn-today" onclick="loadFromCSV('today')" style="display: none;">
+        Load Today
+      </button>
       <span id="load-status-today" style="color: #666;"></span>
       <button class="btn btn-primary" onclick="openAddWorkerModal('today')" style="margin-left: auto;">+ Add
         Worker</button>
