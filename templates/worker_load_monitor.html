@@ -357,6 +357,7 @@
   {% set header_mode = 'global' %}
   {% set active_page = 'balance' %}
   {% include 'partials/header_links.html' %}
+  {% include 'partials/header.html' %}
 
 <!-- Page Config JSON -->
 <script id="page-config" type="application/json">
@@ -369,8 +370,6 @@
   "ui_colors": {{ ui_colors | tojson }}
 }
 </script>
-
-{% include 'partials/header.html' %}
 
 <div class="card">
   <!-- Controls Bar -->
