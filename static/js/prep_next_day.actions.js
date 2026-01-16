@@ -285,6 +285,7 @@ async function saveInlineChanges(tab) {
 
   const updateEndpoint = tab === 'today' ? '/api/live-schedule/update-row' : '/api/prep-next-day/update-row';
   const addEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
+  const deleteEndpoint = tab === 'today' ? '/api/live-schedule/delete-worker' : '/api/prep-next-day/delete-worker';
 
   // Collect errors instead of throwing on first failure
   const errors = [];
@@ -292,7 +293,24 @@ async function saveInlineChanges(tab) {
 
   for (const change of changes) {
     try {
-      if (change.isNew) {
+      if (change.isDelete) {
+        const response = await fetch(deleteEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modality: change.modality,
+            row_index: change.row_index,
+            verify_ppl: change.verify_ppl
+          })
+        });
+
+        if (!response.ok) {
+          const result = await response.json().catch(() => ({}));
+          errors.push(`Delete ${change.modality}: ${result.error || 'Unknown error'}`);
+        } else {
+          successCount++;
+        }
+      } else if (change.isNew) {
         // New modality addition - need to add via add-worker endpoint
         const group = entriesData[tab][change.groupIdx];
         const shift = group?.shiftsArray?.[change.shiftIdx];
@@ -810,9 +828,16 @@ function onInlineTimeChange(tab, groupIdx, shiftIdx, field, value) {
   const shift = group.shiftsArray?.[shiftIdx];
   if (!shift) return;
 
+  if (field === 'start') {
+    shift.start_time = value;
+  } else {
+    shift.end_time = value;
+  }
+
   // Update all modalities in this shift with new time
   Object.keys(shift.modalities).forEach(modKey => {
     const modData = shift.modalities[modKey];
+    if (modData.row_index === undefined || modData.row_index < 0) return;
     const key = `${modKey}-${modData.row_index}`;
     if (!pendingChanges[tab][key]) {
       pendingChanges[tab][key] = { modality: modKey, row_index: modData.row_index, updates: {} };
@@ -1045,24 +1070,24 @@ async function deleteShiftInline(tab, groupIdx, shiftIdx) {
 
   if (!confirm(`Delete this shift (${shift.start_time}-${shift.end_time})?`)) return;
 
-  const endpoint = tab === 'today' ? '/api/live-schedule/delete-worker' : '/api/prep-next-day/delete-worker';
+  // Queue delete for save, and hide shift from view immediately
+  Object.entries(shift.modalities).forEach(([modKey, modData]) => {
+    if (modData.row_index === undefined || modData.row_index < 0) return;
+    const key = `delete-${modKey}-${modData.row_index}`;
+    pendingChanges[tab][key] = {
+      modality: modKey,
+      row_index: modData.row_index,
+      verify_ppl: group.worker,
+      isDelete: true
+    };
+    const updateKey = `${modKey}-${modData.row_index}`;
+    delete pendingChanges[tab][updateKey];
+  });
 
-  try {
-    // Delete all modality entries for this shift
-    for (const [modKey, modData] of Object.entries(shift.modalities)) {
-      if (modData.row_index !== undefined && modData.row_index >= 0) {
-        await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ modality: modKey, row_index: modData.row_index, verify_ppl: group.worker })
-        });
-      }
-    }
-    showMessage('success', 'Shift deleted');
-    await loadData();
-  } catch (error) {
-    showMessage('error', error.message);
-  }
+  shift.deleted = true;
+  updateSaveButtonCount(tab);
+  renderTable(tab);
+  showMessage('success', 'Shift queued for deletion');
 }
 
 // Handle task change in modal add shift section
