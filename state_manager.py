@@ -145,7 +145,6 @@ class StateManager:
                     'total_work_hours': {},
                     'worker_modifiers': {},
                     'skill_counts': {skill: {} for skill in skill_columns},
-                    'scheduled_file_path': os.path.join(upload_folder, f"Cortex_{mod.upper()}_scheduled.json"),
                     'last_reset_date': None
                 }
 
@@ -164,7 +163,6 @@ class StateManager:
                     'info_texts': [],
                     'total_work_hours': {},
                     'worker_modifiers': {},
-                    'staged_file_path': os.path.join(upload_folder, "backups", f"Cortex_{mod.upper()}_staged.json"),
                     'last_modified': None,
                     'last_prepped_at': None,
                     'last_prepped_by': None,
@@ -315,7 +313,6 @@ class StateManager:
                         'total_work_hours': {},
                         'worker_modifiers': {},
                         'skill_counts': {skill: {} for skill in skill_columns},
-                        'scheduled_file_path': self._modality_data[mod].get('scheduled_file_path', ''),
                         'last_reset_date': None
                     }
 
@@ -325,7 +322,6 @@ class StateManager:
                         'info_texts': [],
                         'total_work_hours': {},
                         'worker_modifiers': {},
-                        'staged_file_path': self._staged_modality_data[mod].get('staged_file_path', ''),
                         'last_modified': None,
                         'last_prepped_at': None,
                         'last_prepped_by': None
