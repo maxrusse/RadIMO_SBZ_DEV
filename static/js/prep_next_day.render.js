@@ -258,7 +258,7 @@ function renderTable(tab) {
   }
 
   groups.forEach((group, gIdx) => {
-    const shifts = group.shiftsArray || [];
+    const shifts = (group.shiftsArray || []).filter(shift => !shift.deleted);
     if (shifts.length === 0) return;
 
     const shiftsToRender = filterActive ? shifts.filter(shift => shiftMatchesFilters(shift, filter)) : shifts;

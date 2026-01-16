@@ -285,7 +285,14 @@ function escapeHtml(text) {
 
 // Update the save button text to reflect pending change count
 function updateSaveButtonCount(tab) {
-  const count = Object.keys(pendingChanges[tab] || {}).length;
+  const changes = Object.values(pendingChanges[tab] || {});
+  const count = changes.reduce((total, change) => {
+    if (change.isDelete || change.isNew) {
+      return total + 1;
+    }
+    const updateCount = Object.keys(change.updates || {}).length;
+    return total + (updateCount > 0 ? updateCount : 1);
+  }, 0);
   const saveBtn = document.getElementById(`save-inline-btn-${tab}`);
   if (saveBtn) {
     saveBtn.textContent = count > 0 ? `Save ${count} change${count !== 1 ? 's' : ''}` : 'Save Changes';
