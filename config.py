@@ -336,9 +336,8 @@ def _normalize_exclude_skills(raw_exclude_skills: Dict[str, List[str]]) -> Dict[
         pair = _resolve_skill_modality_pair(key)
         if pair:
             canonical_keys.append(f"{pair[0]}_{pair[1]}")
-        elif _resolve_skill(key_lower):
+        elif (canonical_skill := _resolve_skill(key_lower)):
             # Skill only - expand to all modalities
-            canonical_skill = _resolve_skill(key_lower)
             canonical_keys = [f"{canonical_skill}_{mod}" for mod in allowed_modalities]
         elif key_lower in allowed_modalities_map:
             # Modality only - expand to all skills

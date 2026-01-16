@@ -39,12 +39,7 @@ def get_global_weighted_count(canonical_id: str) -> float:
 
 
 def get_modality_weighted_count(canonical_id: str, modality: str) -> float:
-    """
-    Compute weighted count for a worker in a specific modality.
-
-    Calculated from assignments_per_mod using skill×modality weights.
-    This replaces the broken WeightedCounts structure that was never populated.
-    """
+    """Compute weighted count for a worker in a specific modality."""
     assignments = global_worker_data['assignments_per_mod'].get(modality, {}).get(canonical_id, {})
     if not assignments:
         return 0.0
@@ -52,9 +47,10 @@ def get_modality_weighted_count(canonical_id: str, modality: str) -> float:
     total_weight = 0.0
     for skill in SKILL_COLUMNS:
         count = assignments.get(skill, 0)
-        if count > 0:
-            weight = get_skill_modality_weight(skill, modality)
-            total_weight += count * weight
+        if count <= 0:
+            continue
+        weight = get_skill_modality_weight(skill, modality)
+        total_weight += count * weight
     return total_weight
 
 
@@ -235,17 +231,12 @@ def _filter_active_rows(df: Optional[pd.DataFrame], current_dt: datetime) -> Opt
     return df.loc[active_mask]
 
 def _filter_near_shift_end(df: pd.DataFrame, current_dt: datetime, buffer_minutes: int) -> pd.DataFrame:
-    """
-    Filter out workers who are within buffer_minutes of their shift end.
-    Used to prevent overflow assignments near end of shift.
-
-    Returns a view (not a copy) for performance. Do not modify the returned DataFrame.
-    """
+    """Filter out workers within buffer_minutes of shift end."""
     if df is None or df.empty or buffer_minutes <= 0:
         return df
 
     def is_not_near_shift_end(row):
-        start_dt, end_dt = compute_shift_window(row['start_time'], row['end_time'], current_dt)
+        _, end_dt = compute_shift_window(row['start_time'], row['end_time'], current_dt)
         minutes_until_end = (end_dt - current_dt).total_seconds() / 60
         return minutes_until_end > buffer_minutes
 
@@ -253,17 +244,12 @@ def _filter_near_shift_end(df: pd.DataFrame, current_dt: datetime, buffer_minute
     return df.loc[mask]
 
 def _filter_near_shift_start(df: pd.DataFrame, current_dt: datetime, buffer_minutes: int) -> pd.DataFrame:
-    """
-    Filter out workers who are within buffer_minutes of their shift start.
-    Used to prevent overflow assignments at beginning of shift.
-
-    Returns a view (not a copy) for performance. Do not modify the returned DataFrame.
-    """
+    """Filter out workers within buffer_minutes of shift start."""
     if df is None or df.empty or buffer_minutes <= 0:
         return df
 
     def is_not_near_shift_start(row):
-        start_dt, end_dt = compute_shift_window(row['start_time'], row['end_time'], current_dt)
+        start_dt, _ = compute_shift_window(row['start_time'], row['end_time'], current_dt)
         minutes_since_start = (current_dt - start_dt).total_seconds() / 60
         return minutes_since_start > buffer_minutes
 
@@ -291,8 +277,12 @@ def _get_effective_assignment_load(
     return max(modality_weighted, global_weighted)
 
 def _apply_minimum_balancer(filtered_df: pd.DataFrame, column: str, modality: str) -> pd.DataFrame:
-    if filtered_df.empty or not BALANCER_SETTINGS.get('enabled', True):
+    """Prioritize workers below minimum assignment threshold."""
+    if filtered_df.empty:
         return filtered_df
+    if not BALANCER_SETTINGS.get('enabled', True):
+        return filtered_df
+
     min_required = BALANCER_SETTINGS.get('min_assignments_per_skill', 0)
     if min_required <= 0:
         return filtered_df

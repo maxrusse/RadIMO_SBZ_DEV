@@ -160,7 +160,6 @@ def normalize_skill_value(value: Any) -> str:
 
     if parsed is None:
         return SKILL_VALUE_PASSIVE
-
     if parsed <= -1:
         return SKILL_VALUE_EXCLUDED
     if parsed == 0:

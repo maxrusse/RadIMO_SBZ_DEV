@@ -100,12 +100,11 @@ def _parse_tasks(value: Any) -> list[str]:
 
 
 def _get_counts_for_hours(row: pd.Series, has_column: bool) -> bool:
+    """Return whether a row counts toward work hours. Defaults to True."""
     if not has_column:
         return True
     value = row.get('counts_for_hours', True)
-    if pd.isna(value):
-        return True
-    return bool(value)
+    return True if pd.isna(value) else bool(value)
 
 
 def _df_to_api_response(df: pd.DataFrame) -> list[dict[str, Any]]:
