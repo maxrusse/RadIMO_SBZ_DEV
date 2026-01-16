@@ -1257,14 +1257,17 @@
     <div class="tomorrow-banner">
       <h2>STAGING MODE - Prep for Tomorrow</h2>
       <p>Changes are saved to STAGED area for tomorrow. <strong>Counter reset happens on CSV import.</strong></p>
+      <p>Prep target: <strong id="prep-target-date-label">{{ target_weekday_name }} ({{ target_date_german }})</strong></p>
       <div style="margin-top: 0.5rem;">
         <span id="last-prepped-info" class="prep-status-badge">Prüfe Status...</span>
       </div>
     </div>
 
     <div class="card" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
-      <strong>Load Next Day from CSV:</strong>
-      <button class="btn btn-warning" onclick="loadFromCSV('next')">Load Next Day</button>
+      <strong>Load Prep Date from CSV:</strong>
+      <label for="prep-target-date" style="font-size: 0.85rem; color: #444;">Date:</label>
+      <input type="date" id="prep-target-date" value="{{ target_date }}" min="{{ prep_min_date }}" onchange="onPrepDateInputChange()" />
+      <button class="btn btn-warning" onclick="loadFromCSV('next')">Load Selected Date</button>
       <span id="load-status-tomorrow" style="color: #666;"></span>
       <button class="btn btn-primary" onclick="openAddWorkerModal('tomorrow')" style="margin-left: auto;">+ Add
         Worker</button>
@@ -1381,6 +1384,10 @@
       "skill_value_colors": {{ skill_value_colors|default ({}) | tojson }},
       "ui_colors": {{ ui_colors|default ({}) | tojson }},
       "quick_break": {{ quick_break|default ({"duration_minutes": 30, "gap_type": "Break", "mode": "split_shift"}) | tojson }},
+      "prep_target_date": {{ target_date | tojson }},
+      "prep_target_weekday_name": {{ target_weekday_name | tojson }},
+      "prep_target_date_german": {{ target_date_german | tojson }},
+      "prep_min_date": {{ prep_min_date | tojson }},
       "initial_tab": {{ page_mode | tojson }}
     }
   </script>

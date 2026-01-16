@@ -12,6 +12,11 @@ let tableFilters = { today: { modality: '', skill: '', hideZero: false }, tomorr
 let displayOrder = 'modality-first';  // 'modality-first' or 'skill-first'
 let sortState = { today: { column: 'worker', direction: 'asc' }, tomorrow: { column: 'worker', direction: 'asc' } };
 let modalMode = 'edit';
+const GERMAN_WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+let prepTargetDate = CONFIG.prep_target_date || null;
+let prepTargetWeekday = CONFIG.prep_target_weekday_name || null;
+let prepTargetDateGerman = CONFIG.prep_target_date_german || null;
+const prepMinDate = CONFIG.prep_min_date || null;
 
 // Add Worker Modal state
 let addWorkerModalState = {
@@ -128,19 +133,44 @@ function getGapTasks() {
 // For "today" tab: use current day
 // For "tomorrow" tab: use next workday (skip weekends)
 function getTargetWeekdayName(tab) {
-  const days = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
   const now = new Date();
   if (tab === 'today') {
-    return days[now.getDay()];
+    return GERMAN_WEEKDAYS[now.getDay()];
   }
-  // Tomorrow tab: calculate next workday
-  let targetDate = new Date(now);
-  targetDate.setDate(targetDate.getDate() + 1);
-  // Skip Saturday and Sunday
-  while (targetDate.getDay() === 0 || targetDate.getDay() === 6) {
-    targetDate.setDate(targetDate.getDate() + 1);
+  if (prepTargetWeekday) {
+    return prepTargetWeekday;
   }
-  return days[targetDate.getDay()];
+  if (prepTargetDate) {
+    const targetDate = new Date(`${prepTargetDate}T00:00:00`);
+    if (!Number.isNaN(targetDate.getTime())) {
+      return GERMAN_WEEKDAYS[targetDate.getDay()];
+    }
+  }
+  const fallbackDate = new Date(now);
+  fallbackDate.setDate(fallbackDate.getDate() + 1);
+  return GERMAN_WEEKDAYS[fallbackDate.getDay()];
+}
+
+function setPrepTargetMeta({ dateValue, weekdayName, dateGerman }) {
+  if (dateValue) {
+    prepTargetDate = dateValue;
+  }
+  if (weekdayName) {
+    prepTargetWeekday = weekdayName;
+  } else if (prepTargetDate) {
+    const targetDate = new Date(`${prepTargetDate}T00:00:00`);
+    if (!Number.isNaN(targetDate.getTime())) {
+      prepTargetWeekday = GERMAN_WEEKDAYS[targetDate.getDay()];
+    }
+  }
+  if (dateGerman) {
+    prepTargetDateGerman = dateGerman;
+  } else if (prepTargetDate) {
+    const targetDate = new Date(`${prepTargetDate}T00:00:00`);
+    if (!Number.isNaN(targetDate.getTime())) {
+      prepTargetDateGerman = targetDate.toLocaleDateString('de-DE');
+    }
+  }
 }
 
 // Helper: Check if a task name is a gap (using config, not string matching)

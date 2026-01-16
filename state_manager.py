@@ -167,7 +167,8 @@ class StateManager:
                     'staged_file_path': os.path.join(upload_folder, "backups", f"Cortex_{mod.upper()}_staged.json"),
                     'last_modified': None,
                     'last_prepped_at': None,
-                    'last_prepped_by': None
+                    'last_prepped_by': None,
+                    'target_date': None
                 }
 
             self._worker_skill_json_roster = {}

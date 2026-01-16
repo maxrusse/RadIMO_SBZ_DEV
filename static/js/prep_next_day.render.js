@@ -289,8 +289,10 @@ function renderTable(tab) {
         if (shift.gap_id) {
           workerHtml = `<span class="gap-linked-icon" title="Linked Split-Shift (ID: ${shift.gap_id})">🔗</span>` + workerHtml;
         }
-        // Add quick break button at worker level
-        workerHtml += `<button type="button" class="btn-quick-gap" onclick="onQuickGap30('${tab}', ${gIdx}, 0)" title="Add ${QUICK_BREAK.duration_minutes}-min break NOW">☕</button>`;
+        // Add quick break button at worker level (today tab only)
+        if (tab === 'today') {
+          workerHtml += `<button type="button" class="btn-quick-gap" onclick="onQuickGap30('${tab}', ${gIdx}, 0)" title="Add ${QUICK_BREAK.duration_minutes}-min break NOW">☕</button>`;
+        }
         tr.innerHTML += `<td rowspan="${totalRows}" style="vertical-align: middle;">${workerHtml}</td>`;
       }
 
@@ -481,11 +483,14 @@ function renderEditModalContent() {
   const borderColor = tab === 'today' ? (UI_COLORS.today_tab || '#28a745') : (UI_COLORS.tomorrow_tab || '#ffc107');
 
   // Header with worker name and quick break button
+  const quickBreakButton = tab === 'today'
+    ? `<button type="button" class="btn-quick-gap" onclick="onQuickGapFromModal()" title="Add ${QUICK_BREAK.duration_minutes}-min break at current time">☕ Break NOW</button>`
+    : '';
   html += `<div style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border-radius: 8px;">
     <div class="form-group" style="margin-bottom: 0;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
         <label style="font-weight: 600;">Worker</label>
-        <button type="button" class="btn-quick-gap" onclick="onQuickGapFromModal()" title="Add ${QUICK_BREAK.duration_minutes}-min break at current time">☕ Break NOW</button>
+        ${quickBreakButton}
       </div>
       <div style="font-size: 1rem; padding: 0.5rem; background: #e9ecef; border-radius: 4px;">
         <strong>${escapedWorker}</strong> ${duplicateBadge}

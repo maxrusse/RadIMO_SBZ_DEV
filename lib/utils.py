@@ -92,23 +92,14 @@ def get_weekday_name_german(target_date: date) -> str:
 
 def get_next_workday(from_date: Optional[Union[datetime, date]] = None) -> datetime:
     """
-    Calculate next workday.
-    - If Friday: return Monday
-    - Otherwise: return next day
-    - Skips weekends
+    Calculate next calendar day (no weekend skip).
     """
     if from_date is None:
         current_date = get_local_now().date()
     else:
         current_date = from_date.date() if hasattr(from_date, 'date') else from_date
 
-    # Calculate next day
     next_day = current_date + timedelta(days=1)
-
-    # If next day is Saturday (5) or Sunday (6), move to Monday
-    while next_day.weekday() >= 5:  # 5=Saturday, 6=Sunday
-        next_day += timedelta(days=1)
-
     return datetime.combine(next_day, time(0, 0))
 
 # -----------------------------------------------------------

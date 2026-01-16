@@ -8,8 +8,8 @@ This module handles:
 """
 import os
 import shutil
-from datetime import datetime, time
-from typing import Any, Dict, Optional
+from datetime import datetime, time, date
+from typing import Any, Dict, Optional, Union
 
 from config import (
     APP_CONFIG,
@@ -148,19 +148,35 @@ def clear_staged_data(modality: Optional[str] = None) -> Dict[str, Any]:
     return {'cleared': cleared, 'total_modalities': len(cleared)}
 
 
-def preload_next_workday(csv_path: str, config: dict) -> Dict[str, Any]:
-    """Load data from master CSV for the next workday and save to scheduled files."""
+def _parse_target_date(value: Optional[Union[str, date, datetime]]) -> Optional[date]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            return None
+    return None
+
+
+def preload_next_workday(csv_path: str, config: dict, target_date: Optional[Union[str, date, datetime]] = None) -> Dict[str, Any]:
+    """Load data from master CSV for the target date and save to scheduled files."""
     # Import here to avoid circular imports
     from data_manager.csv_parser import build_working_hours_from_medweb
     from data_manager.file_ops import write_unified_scheduled_file
 
     try:
-        next_day = get_next_workday()
-        date_str = next_day.strftime('%Y-%m-%d')
+        resolved_date = _parse_target_date(target_date) or get_next_workday().date()
+        target_dt = datetime.combine(resolved_date, datetime.min.time())
+        date_str = resolved_date.strftime('%Y-%m-%d')
 
         modality_dfs = build_working_hours_from_medweb(
             csv_path,
-            next_day,
+            target_dt,
             config
         )
 
@@ -175,20 +191,7 @@ def preload_next_workday(csv_path: str, config: dict) -> Dict[str, Any]:
                 selection_logger.warning("Could not remove old unified scheduled file: %s", e)
 
         if not modality_dfs:
-            # No staff entries found - this is OK, not all shifts have staff (balancer handles this)
-            selection_logger.info(f"No staff entries found for {date_str} - this is expected for some shifts")
-            with lock:
-                global_worker_data['last_preload_date'] = next_day.date()
-            from data_manager.state_persistence import save_state
-            save_state()
-            return {
-                'success': True,
-                'target_date': date_str,
-                'message': f'Keine Mitarbeiter für {date_str} gefunden - Schichten können leer sein',
-                'modalities_loaded': [],
-                'total_workers': 0,
-                'cleared_modalities': cleared_modalities
-            }
+            modality_dfs = {}
 
         saved_modalities = []
         total_workers = 0
@@ -201,19 +204,15 @@ def preload_next_workday(csv_path: str, config: dict) -> Dict[str, Any]:
                 saved_modalities.append(modality)
                 total_workers += len(df['PPL'].unique())
 
-            write_unified_scheduled_file(modality_dfs)
+            write_unified_scheduled_file(modality_dfs, target_date=resolved_date)
         except Exception as exc:
             selection_logger.error("Failed to save unified scheduled file: %s", exc)
 
         if not saved_modalities:
-            return {
-                'success': False,
-                'target_date': next_day.strftime('%Y-%m-%d'),
-                'message': 'Fehler beim Speichern der Preload-Dateien'
-            }
+            selection_logger.info(f"No staff entries found for {date_str} - this is expected for some shifts")
 
         with lock:
-            global_worker_data['last_preload_date'] = next_day.date()
+            global_worker_data['last_preload_date'] = resolved_date
         from data_manager.state_persistence import save_state
         save_state()
 
@@ -222,13 +221,18 @@ def preload_next_workday(csv_path: str, config: dict) -> Dict[str, Any]:
             'target_date': date_str,
             'modalities_loaded': saved_modalities,
             'total_workers': total_workers,
-            'message': f'Preload erfolgreich gespeichert (wird am {date_str} aktiviert)'
+            'message': (
+                f'Keine Mitarbeiter für {date_str} gefunden - Schichten können leer sein'
+                if not saved_modalities
+                else f'Preload erfolgreich gespeichert (wird am {date_str} aktiviert)'
+            ),
+            'cleared_modalities': cleared_modalities
         }
 
     except Exception as exc:
         selection_logger.error(f"Error in preload_next_workday: {exc}", exc_info=True)
         return {
             'success': False,
-            'target_date': get_next_workday().strftime('%Y-%m-%d'),
+            'target_date': (_parse_target_date(target_date) or get_next_workday().date()).strftime('%Y-%m-%d'),
             'message': f'Fehler beim Preload: {exc}'
         }
