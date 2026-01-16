@@ -7,7 +7,6 @@ This module handles:
 - Staged data clearing
 """
 import os
-import json
 import shutil
 from datetime import datetime, time
 from typing import Any, Dict, Optional
@@ -20,7 +19,6 @@ from config import (
     selection_logger,
 )
 from lib.utils import (
-    TIME_FORMAT,
     get_local_now,
     get_next_workday,
 )
@@ -56,7 +54,11 @@ def check_and_perform_daily_reset() -> None:
     """
     # Import here to avoid circular imports
     from data_manager.worker_management import invalidate_work_hours_cache
-    from data_manager.file_ops import attempt_initialize_data, backup_dataframe
+    from data_manager.file_ops import (
+        backup_dataframe,
+        initialize_data_from_unified,
+        migrate_scheduled_files_to_unified,
+    )
     from data_manager.state_persistence import save_state
 
     now = get_local_now()
@@ -89,44 +91,36 @@ def check_and_perform_daily_reset() -> None:
         # Reset global weighted counts
         global_worker_data['weighted_counts'] = {}
 
-        # Process all modalities in a single global reset
-        modalities_reset = []
+        # Reset per-modality tracking
         for mod, d in modality_data.items():
-            # Reset per-modality tracking
             d['last_reset_date'] = today
             global_worker_data['assignments_per_mod'][mod] = {}
             d['skill_counts'] = {skill: {} for skill in SKILL_COLUMNS}
 
-            # Try to load scheduled file for this modality
-            scheduled_path = d['scheduled_file_path']
-            try:
-                if os.path.exists(scheduled_path):
-                    context = f"daily reset {mod.upper()}"
-                    success = attempt_initialize_data(
-                        scheduled_path,
-                        mod,
-                        remove_on_failure=True,
-                        context=context,
-                    )
-                    if success:
-                        backup_dir = os.path.join(UPLOAD_FOLDER, "backups")
-                        os.makedirs(backup_dir, exist_ok=True)
-                        backup_file = os.path.join(backup_dir, os.path.basename(scheduled_path))
-                        try:
-                            shutil.move(scheduled_path, backup_file)
-                            selection_logger.info("Scheduled daily file loaded and moved to backup for modality %s.", mod)
-                        except OSError as exc:
-                            selection_logger.warning("Scheduled Datei %s konnte nicht verschoben werden: %s", scheduled_path, exc)
-                        backup_dataframe(mod)
-                        modalities_reset.append(mod)
-                    else:
-                        selection_logger.warning("Scheduled file for %s war defekt und wurde entfernt.", mod)
-                else:
-                    selection_logger.debug(f"No scheduled file found for modality {mod}. Keeping old data.")
-            except Exception as exc:
-                selection_logger.error(f"Error during daily reset for {mod}: {exc}")
+        scheduled_path = _state.unified_schedule_paths['scheduled']
+        if not os.path.exists(scheduled_path):
+            migrate_scheduled_files_to_unified()
 
-        selection_logger.info(f"Global daily reset completed. Modalities with new data: {modalities_reset or 'none'}")
+        try:
+            if os.path.exists(scheduled_path):
+                if initialize_data_from_unified(scheduled_path, context="daily reset unified"):
+                    backup_dir = os.path.join(UPLOAD_FOLDER, "backups")
+                    os.makedirs(backup_dir, exist_ok=True)
+                    backup_file = _state.unified_schedule_paths['scheduled_backup']
+                    try:
+                        shutil.move(scheduled_path, backup_file)
+                        selection_logger.info("Unified scheduled file loaded and moved to backup.")
+                    except OSError as exc:
+                        selection_logger.warning("Scheduled Datei %s konnte nicht verschoben werden: %s", scheduled_path, exc)
+                    backup_dataframe(allowed_modalities[0])
+                else:
+                    selection_logger.warning("Unified scheduled file was invalid and was not loaded.")
+            else:
+                selection_logger.debug("No unified scheduled file found. Keeping old data.")
+        except Exception as exc:
+            selection_logger.error("Error during daily reset for unified schedule: %s", exc)
+
+        selection_logger.info("Global daily reset completed.")
 
     # Save state OUTSIDE the lock to prevent blocking I/O
     save_state()
@@ -158,6 +152,7 @@ def preload_next_workday(csv_path: str, config: dict) -> Dict[str, Any]:
     """Load data from master CSV for the next workday and save to scheduled files."""
     # Import here to avoid circular imports
     from data_manager.csv_parser import build_working_hours_from_medweb
+    from data_manager.file_ops import write_unified_scheduled_file
 
     try:
         next_day = get_next_workday()
@@ -169,19 +164,15 @@ def preload_next_workday(csv_path: str, config: dict) -> Dict[str, Any]:
             config
         )
 
-        # Clear scheduled files for ALL modalities first to prevent stale data
-        # This ensures modalities with no data don't keep old scheduled files
+        # Clear unified scheduled file first to prevent stale data
         cleared_modalities = []
-        for modality in allowed_modalities:
-            d = modality_data[modality]
-            target_path = d['scheduled_file_path']
-            if os.path.exists(target_path):
-                try:
-                    os.remove(target_path)
-                    cleared_modalities.append(modality)
-                    selection_logger.info(f"Cleared old scheduled file for {modality}")
-                except OSError as e:
-                    selection_logger.warning(f"Could not remove old scheduled file for {modality}: {e}")
+        unified_scheduled_path = _state.unified_schedule_paths['scheduled']
+        if os.path.exists(unified_scheduled_path):
+            try:
+                os.remove(unified_scheduled_path)
+                selection_logger.info("Cleared old unified scheduled file")
+            except OSError as e:
+                selection_logger.warning("Could not remove old unified scheduled file: %s", e)
 
         if not modality_dfs:
             # No staff entries found - this is OK, not all shifts have staff (balancer handles this)
@@ -202,41 +193,17 @@ def preload_next_workday(csv_path: str, config: dict) -> Dict[str, Any]:
         saved_modalities = []
         total_workers = 0
 
-        for modality, df in modality_dfs.items():
-            d = modality_data[modality]
-            target_path = d['scheduled_file_path']
-
-            try:
+        try:
+            for modality, df in modality_dfs.items():
                 if df is None or df.empty:
                     selection_logger.info(f"No rows to preload for {modality} on {date_str}")
                     continue
-
-                export_df = df.copy()
-                start_times = export_df['start_time'].apply(lambda value: value.strftime(TIME_FORMAT))
-                end_times = export_df['end_time'].apply(lambda value: value.strftime(TIME_FORMAT))
-                export_df['TIME'] = start_times + '-' + end_times
-
-                # Exclude internal columns from export
-                cols_to_export = [
-                    col for col in export_df.columns
-                    if col not in ['start_time', 'end_time', 'shift_duration', 'canonical_id']
-                ]
-                export_df = export_df[cols_to_export]
-
-                # Save as JSON
-                scheduled_data = {
-                    'working_hours': export_df.to_dict(orient='records'),
-                    'info_texts': []
-                }
-                with open(target_path, 'w', encoding='utf-8') as f:
-                    json.dump(scheduled_data, f, ensure_ascii=False, indent=2, default=str)
-
-                selection_logger.info(f"Scheduled file saved for {modality} at {target_path}")
                 saved_modalities.append(modality)
                 total_workers += len(df['PPL'].unique())
 
-            except Exception as exc:
-                selection_logger.error(f"Failed to save scheduled file for {modality}: {exc}")
+            write_unified_scheduled_file(modality_dfs)
+        except Exception as exc:
+            selection_logger.error("Failed to save unified scheduled file: %s", exc)
 
         if not saved_modalities:
             return {

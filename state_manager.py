@@ -149,6 +149,13 @@ class StateManager:
                     'last_reset_date': None
                 }
 
+            self._unified_schedule_paths = {
+                'scheduled': os.path.join(upload_folder, "Cortex_ALL_scheduled.json"),
+                'staged': os.path.join(upload_folder, "backups", "Cortex_ALL_staged.json"),
+                'live': os.path.join(upload_folder, "backups", "Cortex_ALL_live.json"),
+                'scheduled_backup': os.path.join(upload_folder, "backups", "Cortex_ALL_scheduled.json"),
+            }
+
             # Staged data (Next Day Prep)
             self._staged_modality_data = {}
             for mod in allowed_modalities:
@@ -190,6 +197,11 @@ class StateManager:
     def worker_skill_json_roster(self) -> Dict[str, Any]:
         """Access worker skill JSON roster."""
         return self._worker_skill_json_roster
+
+    @property
+    def unified_schedule_paths(self) -> Dict[str, str]:
+        """Access unified schedule file paths."""
+        return self._unified_schedule_paths
 
     # NOTE: get_canonical_worker_id is intentionally NOT implemented here.
     # Use data_manager.worker_management.get_canonical_worker_id() instead
