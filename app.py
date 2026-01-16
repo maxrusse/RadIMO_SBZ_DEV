@@ -16,7 +16,9 @@ from data_manager import (
     check_and_perform_daily_reset,
     allowed_modalities,
     attempt_initialize_data,
+    load_unified_live_backup,
 )
+from state_manager import StateManager
 from lib.utils import selection_logger
 
 # -----------------------------------------------------------
@@ -60,6 +62,12 @@ def startup_initialization():
         selection_logger.info("No master CSV found.")
 
     # Initialize Modalities
+    state = StateManager.get_instance()
+    unified_live_backup = state.unified_schedule_paths['live']
+    if load_unified_live_backup(unified_live_backup):
+        selection_logger.info("Unified live backup loaded at startup.")
+        return
+
     for mod in allowed_modalities:
         backup_dir = os.path.join(app.config['UPLOAD_FOLDER'], "backups")
         live_backup = os.path.join(backup_dir, f"Cortex_{mod.upper()}_live.json")

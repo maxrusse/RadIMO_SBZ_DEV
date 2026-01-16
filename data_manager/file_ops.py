@@ -46,6 +46,13 @@ lock = _state.lock
 global_worker_data = _state.global_worker_data
 modality_data = _state.modality_data
 staged_modality_data = _state.staged_modality_data
+unified_schedule_paths = _state.unified_schedule_paths
+
+_unified_load_state = {
+    'live': False,
+    'staged': False,
+    'scheduled': False,
+}
 
 
 def _format_time_value(value: object) -> str:
@@ -115,44 +122,328 @@ def _calculate_total_work_hours(df: pd.DataFrame) -> dict[str, float]:
     return hours_df.groupby('PPL')['shift_duration'].sum().to_dict()
 
 
+def _load_dataframe_from_backup_payload(data: dict) -> pd.DataFrame:
+    """Load a DataFrame from backup payload data."""
+    df = pd.DataFrame(data.get('working_hours', []))
+
+    if df.empty:
+        return df
+
+    if 'TIME' in df.columns:
+        time_data = df['TIME'].apply(parse_time_range)
+        df['start_time'] = time_data.apply(lambda x: x[0])
+        df['end_time'] = time_data.apply(lambda x: x[1])
+        df['shift_duration'] = df.apply(
+            lambda row: calculate_shift_duration_hours(row['start_time'], row['end_time']),
+            axis=1
+        )
+
+    if 'counts_for_hours' not in df.columns:
+        df['counts_for_hours'] = True
+
+    return df
+
+
+def _build_dataframe_from_records(records: list[dict], modality: str, *, validate: bool) -> pd.DataFrame:
+    """Build a schedule DataFrame from raw records."""
+    df = pd.DataFrame(records)
+
+    if df.empty:
+        return df
+
+    required_columns = ['PPL', 'TIME']
+    if validate:
+        valid, error_msg = validate_excel_structure(df, required_columns, SKILL_COLUMNS)
+        if not valid:
+            raise ValueError(error_msg)
+
+    if 'Modifier' not in df.columns:
+        df['Modifier'] = 1.0
+    else:
+        df['Modifier'] = (
+            df['Modifier']
+            .fillna(1.0)
+            .astype(str)
+            .str.replace(',', '.')
+            .astype(float)
+        )
+
+    df['start_time'], df['end_time'] = zip(*df['TIME'].map(parse_time_range))
+
+    for skill in SKILL_COLUMNS:
+        if skill not in df.columns:
+            df[skill] = 0
+        df[skill] = df[skill].fillna(0).apply(normalize_skill_value)
+
+    df = apply_roster_overrides_to_schedule(df, modality)
+
+    df['shift_duration'] = df.apply(
+        lambda row: calculate_shift_duration_hours(row['start_time'], row['end_time']),
+        axis=1
+    )
+
+    col_order = ['PPL', 'Modifier', 'TIME', 'start_time', 'end_time', 'shift_duration', 'tasks', 'counts_for_hours']
+    skill_cols = [skill for skill in SKILL_COLUMNS if skill in df.columns]
+    col_order = col_order[:3] + skill_cols + col_order[3:]
+
+    if 'tasks' not in df.columns:
+        df['tasks'] = ''
+    if 'counts_for_hours' not in df.columns:
+        df['counts_for_hours'] = True
+
+    return df[[col for col in col_order if col in df.columns]]
+
+
+def _set_live_modality_data(modality: str, df: pd.DataFrame, info_texts: list) -> None:
+    """Apply a DataFrame to live modality data structures."""
+    from data_manager.worker_management import invalidate_work_hours_cache, auto_populate_skill_roster
+
+    d = modality_data[modality]
+    d['working_hours_df'] = df
+    invalidate_work_hours_cache(modality)
+    d['worker_modifiers'] = df.groupby('PPL')['Modifier'].first().to_dict() if not df.empty else {}
+    d['total_work_hours'] = _calculate_total_work_hours(df)
+
+    unique_workers = df['PPL'].unique() if not df.empty else []
+    d['skill_counts'] = {}
+    for skill in SKILL_COLUMNS:
+        if skill in df.columns:
+            d['skill_counts'][skill] = {w: 0 for w in unique_workers}
+        else:
+            d['skill_counts'][skill] = {}
+
+    d['info_texts'] = info_texts or []
+
+    if SKILL_ROSTER_AUTO_IMPORT and not df.empty:
+        auto_populate_skill_roster({modality: df})
+
+
+def _set_staged_modality_data(
+    modality: str,
+    df: pd.DataFrame,
+    info_texts: list,
+    *,
+    last_modified: Optional[datetime] = None,
+    last_prepped_at: Optional[str] = None,
+    last_prepped_by: Optional[str] = None,
+) -> None:
+    """Apply a DataFrame to staged modality data structures."""
+    d = staged_modality_data[modality]
+    d['working_hours_df'] = df
+    d['total_work_hours'] = _calculate_total_work_hours(df)
+    d['info_texts'] = info_texts or []
+    d['last_modified'] = last_modified
+    if last_prepped_at is not None:
+        d['last_prepped_at'] = last_prepped_at
+    if last_prepped_by is not None:
+        d['last_prepped_by'] = last_prepped_by
+
+
+def _build_unified_payload(use_staged: bool) -> dict:
+    """Build a unified backup payload for all modalities."""
+    source = staged_modality_data if use_staged else modality_data
+    working_hours = []
+    info_texts = {}
+    metadata = {}
+
+    for mod, d in source.items():
+        df = d.get('working_hours_df')
+        if df is None or df.empty:
+            info_texts[mod] = d.get('info_texts', [])
+            metadata[mod] = {
+                'last_modified': None,
+                'last_prepped_at': d.get('last_prepped_at'),
+                'last_prepped_by': d.get('last_prepped_by'),
+            }
+            continue
+
+        export_df = df.copy()
+        if 'TIME' not in export_df.columns and {'start_time', 'end_time'}.issubset(export_df.columns):
+            export_df['TIME'] = (
+                export_df['start_time'].apply(_format_time_value) +
+                '-' +
+                export_df['end_time'].apply(_format_time_value)
+            )
+
+        cols_to_backup = [
+            col for col in export_df.columns
+            if col not in ['start_time', 'end_time', 'shift_duration', 'canonical_id']
+        ]
+        export_df = export_df[cols_to_backup].copy()
+        export_df['modality'] = mod
+
+        working_hours.extend(export_df.to_dict(orient='records'))
+        info_texts[mod] = d.get('info_texts', [])
+        metadata[mod] = {
+            'last_modified': d.get('last_modified').isoformat() if d.get('last_modified') else None,
+            'last_prepped_at': d.get('last_prepped_at'),
+            'last_prepped_by': d.get('last_prepped_by'),
+        }
+
+    return {
+        'working_hours': working_hours,
+        'info_texts': info_texts,
+        'metadata': metadata,
+    }
+
+
+def _write_unified_backup(use_staged: bool) -> None:
+    """Write unified schedule backup for all modalities."""
+    backup_dir = os.path.join(UPLOAD_FOLDER, "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+    target_path = unified_schedule_paths['staged' if use_staged else 'live']
+
+    payload = _build_unified_payload(use_staged)
+    with open(target_path, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
+
+    mode_label = "staged" if use_staged else "live"
+    selection_logger.info("Unified %s backup updated at %s", mode_label, target_path)
+
+
+def _load_unified_backup(file_path: str, use_staged: bool) -> bool:
+    """Load a unified backup file into per-modality state."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return False
+
+    records = data.get('working_hours', [])
+    info_texts = data.get('info_texts', {})
+    metadata = data.get('metadata', {})
+    df = pd.DataFrame(records)
+
+    if df.empty and not info_texts:
+        return False
+
+    if 'modality' not in df.columns and not df.empty:
+        raise ValueError(f"Unified schedule file missing modality column: {file_path}")
+
+    last_modified = None
+    try:
+        last_modified = datetime.fromtimestamp(os.path.getmtime(file_path))
+    except OSError:
+        last_modified = get_local_now()
+
+    for mod in modality_data.keys():
+        mod_df = df[df['modality'] == mod].copy() if not df.empty else pd.DataFrame()
+        if not mod_df.empty:
+            mod_df = mod_df.drop(columns=['modality'], errors='ignore')
+            mod_df = _load_dataframe_from_backup_payload({'working_hours': mod_df.to_dict(orient='records')})
+        if use_staged:
+            mod_metadata = metadata.get(mod, {}) if isinstance(metadata, dict) else {}
+            mod_last_modified = mod_metadata.get('last_modified')
+            parsed_modified = last_modified
+            if mod_last_modified:
+                try:
+                    parsed_modified = datetime.fromisoformat(mod_last_modified)
+                except ValueError:
+                    parsed_modified = last_modified
+            _set_staged_modality_data(
+                mod,
+                mod_df,
+                info_texts.get(mod, []),
+                last_modified=parsed_modified,
+                last_prepped_at=mod_metadata.get('last_prepped_at'),
+                last_prepped_by=mod_metadata.get('last_prepped_by'),
+            )
+        else:
+            _set_live_modality_data(mod, mod_df, info_texts.get(mod, []))
+
+    return True
+
+
+def _load_unified_scheduled_into_staged(file_path: str) -> bool:
+    """Load unified scheduled file into staged modality data."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return False
+    except Exception as exc:
+        selection_logger.error("Error reading unified scheduled file for staged load: %s", exc)
+        return False
+
+    records = data.get('working_hours', [])
+    info_texts = data.get('info_texts', {})
+    df = pd.DataFrame(records)
+
+    if df.empty:
+        return False
+
+    if 'modality' not in df.columns:
+        selection_logger.error("Unified scheduled file missing modality column: %s", file_path)
+        return False
+
+    try:
+        last_modified = datetime.fromtimestamp(os.path.getmtime(file_path))
+    except OSError:
+        last_modified = get_local_now()
+
+    for mod in allowed_modalities:
+        mod_df = df[df['modality'] == mod].copy()
+        mod_df = mod_df.drop(columns=['modality'], errors='ignore')
+        mod_df = _load_dataframe_from_backup_payload({'working_hours': mod_df.to_dict(orient='records')})
+        mod_df = apply_roster_overrides_to_schedule(mod_df, mod)
+        _set_staged_modality_data(mod, mod_df, info_texts.get(mod, []), last_modified=last_modified)
+
+    return True
+
+
+def _migrate_per_modality_backups_to_unified(use_staged: bool) -> bool:
+    """Merge per-modality backup files into a unified backup file."""
+    suffix = "_staged" if use_staged else "_live"
+    backup_dir = os.path.join(UPLOAD_FOLDER, "backups")
+    records = []
+    info_texts = {}
+    metadata = {}
+    found = False
+
+    for mod in allowed_modalities:
+        legacy_path = os.path.join(backup_dir, f"Cortex_{mod.upper()}{suffix}.json")
+        if not os.path.exists(legacy_path):
+            continue
+        found = True
+        with open(legacy_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        mod_records = data.get('working_hours', [])
+        for row in mod_records:
+            row['modality'] = mod
+        records.extend(mod_records)
+        info_texts[mod] = data.get('info_texts', [])
+        metadata[mod] = {
+            'last_modified': None,
+            'last_prepped_at': staged_modality_data.get(mod, {}).get('last_prepped_at') if use_staged else None,
+            'last_prepped_by': staged_modality_data.get(mod, {}).get('last_prepped_by') if use_staged else None,
+        }
+
+    if not found:
+        return False
+
+    payload = {
+        'working_hours': records,
+        'info_texts': info_texts,
+        'metadata': metadata,
+    }
+
+    target_path = unified_schedule_paths['staged' if use_staged else 'live']
+    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+    with open(target_path, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
+    selection_logger.info("Migrated legacy backups into unified %s file at %s", "staged" if use_staged else "live", target_path)
+    return True
+
+
 def backup_dataframe(modality: str, use_staged: bool = False) -> None:
     """Backup DataFrame to JSON file."""
     d = staged_modality_data[modality] if use_staged else modality_data[modality]
     if d['working_hours_df'] is not None:
-        backup_dir = os.path.join(UPLOAD_FOLDER, "backups")
-        os.makedirs(backup_dir, exist_ok=True)
-        suffix = "_staged" if use_staged else "_live"
-        backup_file = os.path.join(backup_dir, f"Cortex_{modality.upper()}{suffix}.json")
         try:
-            df_backup = d['working_hours_df'].copy()
-
-            if 'TIME' not in df_backup.columns and {'start_time', 'end_time'}.issubset(df_backup.columns):
-                df_backup['TIME'] = (
-                    df_backup['start_time'].apply(_format_time_value) +
-                    '-' +
-                    df_backup['end_time'].apply(_format_time_value)
-                )
-
-            cols_to_backup = [
-                col for col in df_backup.columns
-                if col not in ['start_time', 'end_time', 'shift_duration', 'canonical_id']
-            ]
-            df_backup = df_backup[cols_to_backup].copy()
-
-            # Convert DataFrame to JSON-serializable format
-            backup_data = {
-                'working_hours': df_backup.to_dict(orient='records'),
-                'info_texts': d.get('info_texts', [])
-            }
-            with open(backup_file, 'w', encoding='utf-8') as f:
-                json.dump(backup_data, f, ensure_ascii=False, indent=2, default=str)
-
-            mode_label = "staged" if use_staged else "live"
-            selection_logger.info(f"{mode_label.capitalize()} backup updated for modality {modality} at {backup_file}")
-
             if use_staged:
                 d['last_modified'] = get_local_now()
                 d['last_prepped_at'] = d['last_modified'].strftime('%d.%m.%Y %H:%M')
+            _write_unified_backup(use_staged)
         except Exception as e:
             mode_label = "staged" if use_staged else "live"
             selection_logger.error(f"Error backing up {mode_label} DataFrame for modality {modality}: {e}")
@@ -165,6 +456,21 @@ def load_staged_dataframe(modality: str) -> bool:
     Uses try/except instead of os.path.exists to prevent TOCTOU race conditions
     (file could be deleted between check and open).
     """
+    if not _unified_load_state['staged']:
+        if _load_unified_backup(unified_schedule_paths['staged'], use_staged=True):
+            _unified_load_state['staged'] = True
+        elif _migrate_per_modality_backups_to_unified(use_staged=True):
+            if _load_unified_backup(unified_schedule_paths['staged'], use_staged=True):
+                _unified_load_state['staged'] = True
+
+    if _unified_load_state['staged']:
+        return staged_modality_data[modality].get('working_hours_df') is not None
+
+    if not _unified_load_state['scheduled']:
+        if _load_unified_scheduled_into_staged(unified_schedule_paths['scheduled']):
+            _unified_load_state['scheduled'] = True
+            return staged_modality_data[modality].get('working_hours_df') is not None
+
     d = staged_modality_data[modality]
     staged_file = d['staged_file_path']
     scheduled_file = modality_data[modality]['scheduled_file_path']
@@ -179,19 +485,7 @@ def load_staged_dataframe(modality: str) -> bool:
                 selection_logger.warning(f"File {file_path} missing 'working_hours' key")
                 return False
 
-            df = pd.DataFrame(data['working_hours'])
-
-            if 'TIME' in df.columns:
-                time_data = df['TIME'].apply(parse_time_range)
-                df['start_time'] = time_data.apply(lambda x: x[0])
-                df['end_time'] = time_data.apply(lambda x: x[1])
-                df['shift_duration'] = df.apply(
-                    lambda row: calculate_shift_duration_hours(row['start_time'], row['end_time']),
-                    axis=1
-                )
-
-            if 'counts_for_hours' not in df.columns:
-                df['counts_for_hours'] = True
+            df = _load_dataframe_from_backup_payload(data)
 
             d['working_hours_df'] = df
             d['total_work_hours'] = _calculate_total_work_hours(df)
@@ -275,54 +569,14 @@ def initialize_data(file_path: str, modality: str) -> None:
             if 'working_hours' not in data:
                 raise ValueError("'working_hours' key not found in JSON")
 
-            df = pd.DataFrame(data['working_hours'])
-            required_columns = ['PPL', 'TIME']
-            valid, error_msg = validate_excel_structure(df, required_columns, SKILL_COLUMNS)
-            if not valid:
-                raise ValueError(error_msg)
-
-            if 'Modifier' not in df.columns:
-                df['Modifier'] = 1.0
-            else:
-                df['Modifier'] = (
-                    df['Modifier']
-                    .fillna(1.0)
-                    .astype(str)
-                    .str.replace(',', '.')
-                    .astype(float)
-                )
-
-            df['start_time'], df['end_time'] = zip(*df['TIME'].map(parse_time_range))
-
-            for skill in SKILL_COLUMNS:
-                if skill not in df.columns:
-                    df[skill] = 0
-                df[skill] = df[skill].fillna(0).apply(normalize_skill_value)
-
-            df = apply_roster_overrides_to_schedule(df, modality)
-
-            df['shift_duration'] = df.apply(
-                lambda row: calculate_shift_duration_hours(row['start_time'], row['end_time']),
-                axis=1
-            )
-
-            col_order = ['PPL', 'Modifier', 'TIME', 'start_time', 'end_time', 'shift_duration', 'tasks', 'counts_for_hours']
-            skill_cols = [skill for skill in SKILL_COLUMNS if skill in df.columns]
-            col_order = col_order[:3] + skill_cols + col_order[3:]
-
-            if 'tasks' not in df.columns:
-                df['tasks'] = ''
-            if 'counts_for_hours' not in df.columns:
-                df['counts_for_hours'] = True
-
-            df = df[[col for col in col_order if col in df.columns]]
+            df = _build_dataframe_from_records(data['working_hours'], modality, validate=True)
 
             d['working_hours_df'] = df
             # Invalidate work hours cache when data changes
             invalidate_work_hours_cache(modality)
-            d['worker_modifiers'] = df.groupby('PPL')['Modifier'].first().to_dict()
+            d['worker_modifiers'] = df.groupby('PPL')['Modifier'].first().to_dict() if not df.empty else {}
             d['total_work_hours'] = _calculate_total_work_hours(df)
-            unique_workers = df['PPL'].unique()
+            unique_workers = df['PPL'].unique() if not df.empty else []
 
             d['skill_counts'] = {}
             for skill in SKILL_COLUMNS:
@@ -333,7 +587,7 @@ def initialize_data(file_path: str, modality: str) -> None:
 
             d['info_texts'] = data.get('info_texts', [])
 
-            if SKILL_ROSTER_AUTO_IMPORT:
+            if SKILL_ROSTER_AUTO_IMPORT and not df.empty:
                 auto_populate_skill_roster({modality: df})  # Returns tuple, ignore here
 
         except Exception as e:
@@ -341,6 +595,149 @@ def initialize_data(file_path: str, modality: str) -> None:
             selection_logger.error(error_message)
             selection_logger.exception("Stack trace:")
             raise ValueError(error_message)
+
+
+def initialize_data_from_unified(file_path: str, *, context: str = '') -> bool:
+    """Initialize all modalities from a unified schedule JSON file."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return False
+    except Exception as exc:
+        selection_logger.error("Failed to read unified schedule file %s (%s): %s", file_path, context, exc)
+        return False
+
+    records = data.get('working_hours', [])
+    info_texts = data.get('info_texts', {})
+
+    df = pd.DataFrame(records)
+    if df.empty and not info_texts:
+        return False
+
+    if 'modality' not in df.columns and not df.empty:
+        selection_logger.error("Unified schedule missing modality column (%s)", file_path)
+        return False
+
+    with lock:
+        for mod in allowed_modalities:
+            mod_records = df[df['modality'] == mod].drop(columns=['modality'], errors='ignore')
+            records_list = mod_records.to_dict(orient='records')
+            try:
+                mod_df = _build_dataframe_from_records(records_list, mod, validate=True)
+            except Exception as exc:
+                selection_logger.error("Failed to initialize modality %s from unified file (%s): %s", mod, context, exc)
+                continue
+            _set_live_modality_data(mod, mod_df, info_texts.get(mod, []))
+
+    return True
+
+
+def load_unified_staged_data(file_path: str) -> bool:
+    """Load staged data from unified backup file."""
+    if _unified_load_state['staged']:
+        return True
+
+    if _load_unified_backup(file_path, use_staged=True):
+        _unified_load_state['staged'] = True
+        return True
+
+    if _migrate_per_modality_backups_to_unified(use_staged=True):
+        if _load_unified_backup(file_path, use_staged=True):
+            _unified_load_state['staged'] = True
+            return True
+
+    return False
+
+
+def load_unified_live_backup(file_path: str) -> bool:
+    """Load live data from unified backup file (with migration fallback)."""
+    if _unified_load_state['live']:
+        return True
+
+    if _load_unified_backup(file_path, use_staged=False):
+        _unified_load_state['live'] = True
+        return True
+
+    if _migrate_per_modality_backups_to_unified(use_staged=False):
+        if _load_unified_backup(file_path, use_staged=False):
+            _unified_load_state['live'] = True
+            return True
+
+    return False
+
+
+def load_unified_scheduled_into_staged(file_path: str) -> bool:
+    """Public wrapper to load unified scheduled data into staged state."""
+    return _load_unified_scheduled_into_staged(file_path)
+
+
+def migrate_scheduled_files_to_unified() -> bool:
+    """Merge per-modality scheduled files into a unified scheduled file."""
+    records = []
+    info_texts = {}
+    found = False
+
+    for mod in allowed_modalities:
+        file_path = modality_data[mod]['scheduled_file_path']
+        if not os.path.exists(file_path):
+            continue
+        found = True
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        mod_records = data.get('working_hours', [])
+        for row in mod_records:
+            row['modality'] = mod
+        records.extend(mod_records)
+        info_texts[mod] = data.get('info_texts', [])
+
+    if not found:
+        return False
+
+    payload = {
+        'working_hours': records,
+        'info_texts': info_texts,
+    }
+
+    target_path = unified_schedule_paths['scheduled']
+    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+    with open(target_path, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
+    selection_logger.info("Migrated scheduled modality files into unified schedule at %s", target_path)
+    return True
+
+
+def write_unified_scheduled_file(modality_dfs: dict) -> None:
+    """Write unified scheduled file from modality DataFrames."""
+    records = []
+    info_texts = {}
+    for mod, df in modality_dfs.items():
+        if df is None or df.empty:
+            continue
+        export_df = df.copy()
+        start_times = export_df['start_time'].apply(lambda value: value.strftime(TIME_FORMAT))
+        end_times = export_df['end_time'].apply(lambda value: value.strftime(TIME_FORMAT))
+        export_df['TIME'] = start_times + '-' + end_times
+
+        cols_to_export = [
+            col for col in export_df.columns
+            if col not in ['start_time', 'end_time', 'shift_duration', 'canonical_id']
+        ]
+        export_df = export_df[cols_to_export]
+        export_df['modality'] = mod
+        records.extend(export_df.to_dict(orient='records'))
+        info_texts[mod] = []
+
+    payload = {
+        'working_hours': records,
+        'info_texts': info_texts,
+    }
+
+    target_path = unified_schedule_paths['scheduled']
+    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+    with open(target_path, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
+    selection_logger.info("Unified scheduled file saved at %s", target_path)
 
 
 def attempt_initialize_data(

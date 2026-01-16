@@ -41,10 +41,8 @@ from lib import usage_logger
 from lib.utils import (
     get_local_now,
     get_next_workday,
-    parse_time_range,
     TIME_FORMAT,
     skill_value_to_display,
-    calculate_shift_duration_hours
 )
 from data_manager import (
     modality_data,
@@ -66,10 +64,10 @@ from data_manager import (
     _delete_worker_from_schedule,
     _add_gap_to_schedule,
     preload_next_workday,
-    _calculate_total_work_hours,
-    apply_roster_overrides_to_schedule,
     extract_modalities_from_skill_overrides,
+    load_unified_scheduled_into_staged,
 )
+from state_manager import StateManager
 from balancer import (
     get_next_available_worker,
     update_global_assignment,
@@ -566,43 +564,16 @@ def preload_from_master():
     result = preload_next_workday(MASTER_CSV_PATH, APP_CONFIG)
 
     if result['success']:
-        modalities_loaded = result.get('modalities_loaded', [])
-        for modality in modalities_loaded:
-            d = modality_data[modality]
-            scheduled_path = d['scheduled_file_path']
-
-            if os.path.exists(scheduled_path):
-                try:
-                    with open(scheduled_path, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-
-                    if 'working_hours' in data:
-                        df = pd.DataFrame(data['working_hours'])
-
-                        if 'TIME' in df.columns:
-                            time_data = df['TIME'].apply(parse_time_range)
-                            df['start_time'] = time_data.apply(lambda x: x[0])
-                            df['end_time'] = time_data.apply(lambda x: x[1])
-                            df['shift_duration'] = df.apply(
-                                lambda row: calculate_shift_duration_hours(row['start_time'], row['end_time']),
-                                axis=1
-                            )
-
-                        if 'counts_for_hours' not in df.columns:
-                            df['counts_for_hours'] = True
-
-                        df = apply_roster_overrides_to_schedule(df, modality)
-
-                        staged_modality_data[modality]['working_hours_df'] = df
-                        staged_modality_data[modality]['info_texts'] = data.get('info_texts', [])
-                        staged_modality_data[modality]['total_work_hours'] = _calculate_total_work_hours(df)
-                        staged_modality_data[modality]['last_modified'] = get_local_now()
-
+        state = StateManager.get_instance()
+        scheduled_path = state.unified_schedule_paths['scheduled']
+        if os.path.exists(scheduled_path):
+            try:
+                if load_unified_scheduled_into_staged(scheduled_path):
+                    for modality in allowed_modalities:
                         backup_dataframe(modality, use_staged=True)
-                        selection_logger.info(f"Staged data updated for {modality} from scheduled file after preload")
-
-                except Exception as e:
-                    selection_logger.error(f"Error loading staged data for {modality} after preload: {e}")
+                    selection_logger.info("Staged data updated from unified scheduled file after preload")
+            except Exception as e:
+                selection_logger.error(f"Error loading staged data from unified schedule after preload: {e}")
 
         return jsonify(result)
     return jsonify(result), 400
