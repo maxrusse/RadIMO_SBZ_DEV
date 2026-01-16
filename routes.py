@@ -427,8 +427,25 @@ def login():
 
 @routes.route('/logout')
 def logout():
-    session.pop('admin_logged_in', None)
+    """Smart logout that handles both admin and basic auth levels.
+
+    - If admin: clears admin session, redirects to login page
+    - If basic access only: clears basic access, redirects to access-login
+    - Hierarchy: admin logout takes precedence
+    """
     modality = resolve_modality_from_request()
+
+    if session.get('admin_logged_in'):
+        # Admin logout - clear admin session, go to login page
+        session.pop('admin_logged_in', None)
+        return redirect(url_for('routes.login', modality=modality))
+
+    if session.get('access_granted'):
+        # Basic access logout - clear access, go to access-login page
+        session.pop('access_granted', None)
+        return redirect(url_for('routes.access_login', modality=modality))
+
+    # Not logged in at all - just go to index
     return redirect(url_for('routes.index', modality=modality))
 
 

@@ -8,7 +8,7 @@
     </div>
     <div class="app-header__actions">
       {% if is_access_protection_enabled and has_basic_access %}
-      <a href="{{ url_for('routes.access_logout', modality=modality|default('ct')) }}" class="basic-auth-logout" title="Abmelden">×</a>
+      <a href="{{ url_for('routes.logout', modality=modality|default('ct')) }}" class="basic-auth-logout" title="Abmelden">×</a>
       {% endif %}
       {% if header_links %}
       <nav class="app-nav">
