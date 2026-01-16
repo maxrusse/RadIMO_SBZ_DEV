@@ -356,7 +356,9 @@
   {% set header_subtitle = 'Real-time load tracking' %}
   {% set header_mode = 'global' %}
   {% set active_page = 'balance' %}
+  {% set header_nav = namespace(links=[]) %}
   {% include 'partials/header_links.html' %}
+  {% set header_links = header_nav.links %}
   {% include 'partials/header.html' %}
 
 <!-- Page Config JSON -->

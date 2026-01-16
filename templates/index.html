@@ -330,7 +330,9 @@
   {% set header_subtitle = 'Intelligent Radiology Orchestration' %}
   {% set header_mode = 'scoped' %}
   {% set active_page = 'dashboard' %}
+  {% set header_nav = namespace(links=[]) %}
   {% include 'partials/header_links.html' %}
+  {% set header_links = header_nav.links %}
   {% set view_toggle_label = 'View by:' %}
   {% set view_toggle_items = [
     {'href': url_for('routes.index', modality=modality), 'label': 'Modality', 'active': True},
