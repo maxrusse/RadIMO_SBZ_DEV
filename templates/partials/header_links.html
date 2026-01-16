@@ -1,17 +1,22 @@
 {# Standard header links partial - reduces duplication across templates #}
 {#
   Usage:
+    {% set header_nav = namespace(links=[]) %}
     {% set active_page = 'dashboard' %}
     {% include 'partials/header_links.html' %}
+    {% set header_links = header_nav.links %}
 
   active_page options: 'dashboard', 'balance', 'skill_matrix', 'change_today',
                        'prep_tomorrow', 'upload', 'timetable'
 
   For prep pages, use page_mode instead:
+    {% set header_nav = namespace(links=[]) %}
     {% set page_mode = 'today' %}  (or 'tomorrow')
     {% include 'partials/header_links.html' %}
+    {% set header_links = header_nav.links %}
 
   Required context: is_admin, modality (optional, defaults to 'ct')
+  Required namespace: header_nav
 #}
 
 {% set _mod = modality|default('ct') %}
@@ -19,7 +24,7 @@
 {% set _prep_tomorrow_active = active_page == 'prep_tomorrow' or page_mode == 'tomorrow' %}
 
 {% if is_admin %}
-  {% set header_links = [
+  {% set header_nav.links = [
     {'href': url_for('routes.logout', modality=_mod), 'label': 'Logout', 'accent': True},
     {'href': url_for('routes.worker_load_monitor'), 'label': 'Balance', 'active': active_page == 'balance'},
     {'href': url_for('routes.skill_roster_page'), 'label': 'Skill Matrix', 'active': active_page == 'skill_matrix'},
@@ -30,7 +35,7 @@
     {'href': url_for('routes.index', modality=_mod), 'label': 'Dashboard', 'active': active_page == 'dashboard'}
   ] %}
 {% else %}
-  {% set header_links = [
+  {% set header_nav.links = [
     {'href': url_for('routes.login', modality=_mod), 'label': 'Admin', 'accent': True},
     {'href': url_for('routes.timetable', modality='all'), 'label': 'Timetable', 'active': active_page == 'timetable'},
     {'href': url_for('routes.index', modality=_mod), 'label': 'Dashboard', 'active': active_page == 'dashboard'}

@@ -244,7 +244,9 @@
   {% set header_subtitle = 'CSV Management & System' %}
   {% set header_mode = 'global' %}
   {% set active_page = 'upload' %}
+  {% set header_nav = namespace(links=[]) %}
   {% include 'partials/header_links.html' %}
+  {% set header_links = header_nav.links %}
   {% include 'partials/header.html' %}
 
   <div id="message-container"></div>

@@ -297,7 +297,9 @@
   {% set header_subtitle = 'Worker skill × modality configuration' %}
   {% set header_mode = 'global' %}
   {% set active_page = 'skill_matrix' %}
+  {% set header_nav = namespace(links=[]) %}
   {% include 'partials/header_links.html' %}
+  {% set header_links = header_nav.links %}
   {% include 'partials/header.html' %}
 
   <div class="toolbar">

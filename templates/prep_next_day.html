@@ -1156,7 +1156,9 @@
     {% set header_subtitle = "Manage current schedule or prepare tomorrow's schedule" %}
   {% endif %}
   {% set header_mode = 'global' %}
+  {% set header_nav = namespace(links=[]) %}
   {% include 'partials/header_links.html' %}
+  {% set header_links = header_nav.links %}
   {% include 'partials/header.html' %}
 
   <div id="message-container"></div>
