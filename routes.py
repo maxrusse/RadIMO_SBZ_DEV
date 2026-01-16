@@ -410,16 +410,20 @@ def import_new_skill_roster_api():
 def login():
     modality = resolve_modality_from_request()
     error = None
-    if not is_admin_protection_enabled():
-        return redirect(url_for('routes.upload_file', modality=modality))
+    passwordless = not is_admin_protection_enabled()
+
     if request.method == 'POST':
+        if passwordless:
+            # No password required - just proceed
+            return redirect(url_for('routes.upload_file', modality=modality))
         pw = request.form.get('password', '')
         if pw == get_admin_password():
             session['admin_logged_in'] = True
             return redirect(url_for('routes.upload_file', modality=modality))
         else:
             error = "Falsches Passwort"
-    return render_template("login.html", error=error, modality=modality, login_type='admin')
+
+    return render_template("login.html", error=error, modality=modality, login_type='admin', passwordless=passwordless)
 
 @routes.route('/logout')
 def logout():
@@ -435,10 +439,7 @@ def access_login():
     Uses a permanent session cookie for long-lived access.
     """
     modality = resolve_modality_from_request()
-
-    # If access protection is disabled, redirect to index
-    if not is_access_protection_enabled():
-        return redirect(url_for('routes.index', modality=modality))
+    passwordless = not is_access_protection_enabled()
 
     # If already authenticated (either as admin or with basic access), redirect to index
     if session.get('admin_logged_in') or session.get('access_granted'):
@@ -446,6 +447,9 @@ def access_login():
 
     error = None
     if request.method == 'POST':
+        if passwordless:
+            # No password required - just proceed
+            return redirect(url_for('routes.index', modality=modality))
         pw = request.form.get('password', '')
         if pw == get_access_password():
             session.permanent = True  # Use permanent session for long-lived cookie
@@ -454,7 +458,7 @@ def access_login():
         else:
             error = "Falsches Passwort"
 
-    return render_template("login.html", error=error, modality=modality, login_type='access')
+    return render_template("login.html", error=error, modality=modality, login_type='access', passwordless=passwordless)
 
 
 @routes.route('/access-logout')
@@ -463,26 +467,6 @@ def access_logout():
     session.pop('access_granted', None)
     modality = resolve_modality_from_request()
     return redirect(url_for('routes.access_login', modality=modality))
-
-
-@routes.route('/demo-login')
-def demo_login():
-    """Demo admin login page - shows login UI even when protection is disabled.
-
-    Use this to preview/test the login page design without enabling protection.
-    """
-    modality = resolve_modality_from_request()
-    return render_template("login.html", error=None, modality=modality, login_type='admin', demo_mode=True)
-
-
-@routes.route('/demo-access-login')
-def demo_access_login():
-    """Demo basic access login page - shows login UI even when protection is disabled.
-
-    Use this to preview/test the access login page design without enabling protection.
-    """
-    modality = resolve_modality_from_request()
-    return render_template("login.html", error=None, modality=modality, login_type='access', demo_mode=True)
 
 
 @routes.route('/api/edit_info', methods=['POST'])
