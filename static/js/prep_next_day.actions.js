@@ -386,8 +386,15 @@ function updateHoursToggleLabel(checkbox) {
   }
 }
 
+function isTabAvailable(tab) {
+  return Boolean(document.getElementById(`content-${tab}`));
+}
+
 // Load data for a specific tab (lazy loading)
 async function loadTabData(tab) {
+  if (!isTabAvailable(tab)) {
+    return;
+  }
   try {
     const endpoint = tab === 'today' ? '/api/live-schedule/data' : '/api/prep-next-day/data';
     const response = await fetch(endpoint);
@@ -445,7 +452,9 @@ async function loadData() {
 
   // Load other tab in background
   const otherTab = currentTab === 'today' ? 'tomorrow' : 'today';
-  loadTabData(otherTab);  // Don't await - load in background
+  if (isTabAvailable(otherTab)) {
+    loadTabData(otherTab);  // Don't await - load in background
+  }
 }
 
 // Build grouped entries list: worker -> shifts (time-based) -> modality×skills matrix
