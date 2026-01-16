@@ -6,16 +6,21 @@
       <p class="app-header__subtitle">{{ header_subtitle }}</p>
       {% endif %}
     </div>
-    {% if header_links %}
-    <nav class="app-nav">
-      {% for link in header_links %}
-      <a href="{{ link.href }}"
-        class="nav-link{% if link.active %} nav-link--active{% endif %}{% if link.pill %} nav-link--pill{% endif %}{% if link.accent %} nav-link--accent{% endif %}">
-        {{ link.label }}
-      </a>
-      {% endfor %}
-    </nav>
-    {% endif %}
+    <div class="app-header__actions">
+      {% if header_links %}
+      <nav class="app-nav">
+        {% for link in header_links %}
+        <a href="{{ link.href }}"
+          class="nav-link{% if link.active %} nav-link--active{% endif %}{% if link.pill %} nav-link--pill{% endif %}{% if link.accent %} nav-link--accent{% endif %}">
+          {{ link.label }}
+        </a>
+        {% endfor %}
+      </nav>
+      {% endif %}
+      {% if is_access_protection_enabled and has_basic_access %}
+      <a href="{{ url_for('routes.access_logout', modality=modality|default('ct')) }}" class="basic-auth-logout" title="Abmelden">×</a>
+      {% endif %}
+    </div>
   </div>
   {% if header_mode == 'scoped' and (selector_links or view_toggle_items) %}
   <div class="app-header__subheader">

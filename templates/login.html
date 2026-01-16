@@ -105,18 +105,31 @@
 
   <div class="card login-container">
     <h2>{% if login_type == 'admin' %}Admin Login{% else %}Zugang{% endif %}</h2>
+    {% if demo_mode %}
+    <p class="demo-notice">Demo-Modus: Dies ist eine Vorschau der Login-Seite.</p>
+    <style>
+      .demo-notice {
+        background: #e3f2fd;
+        border: 1px solid #2196f3;
+        border-radius: 4px;
+        padding: 0.75rem;
+        color: #1565c0;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+      }
+    </style>
+    {% endif %}
     {% if login_type != 'admin' %}
     <p class="info-text">Bitte geben Sie das Zugangspasswort ein.</p>
     {% endif %}
     {% if error %}
     <p class="error">{{ error }}</p>
     {% endif %}
-    <form method="post">
-      <input type="password" name="password" placeholder="Passwort" autofocus required>
+    <form method="post" {% if demo_mode %}onsubmit="return false;"{% endif %}>
+      <input type="password" name="password" placeholder="Passwort" autofocus required {% if demo_mode %}disabled{% endif %}>
       <div class="button-group">
-        <button type="submit" class="modality-button">{% if login_type == 'admin' %}Login{% else %}Zugang{% endif
-          %}</button>
-        {% if login_type == 'admin' %}
+        <button type="submit" class="modality-button" {% if demo_mode %}disabled{% endif %}>{% if login_type == 'admin' %}Login{% else %}Zugang{% endif %}</button>
+        {% if login_type == 'admin' or demo_mode %}
         <a href="{{ url_for('routes.index', modality=modality) }}" class="modality-button">Zurück</a>
         {% endif %}
       </div>

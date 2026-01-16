@@ -200,6 +200,16 @@ def has_admin_access() -> bool:
     return session.get('admin_logged_in', False)
 
 
+def has_basic_access() -> bool:
+    """Determine if the current session has basic access (but not admin)."""
+    return session.get('access_granted', False) and not session.get('admin_logged_in', False)
+
+
+def is_authenticated() -> bool:
+    """Check if user has any form of authentication (admin or basic)."""
+    return session.get('admin_logged_in', False) or session.get('access_granted', False)
+
+
 def access_required(f: Callable) -> Callable:
     """Decorator that requires basic access authentication for non-admin pages.
 
@@ -241,6 +251,11 @@ def inject_modality_settings():
         'skill_definitions': SKILL_TEMPLATES,
         'skill_order': SKILL_COLUMNS,
         'skill_labels': {s['name']: s['label'] for s in SKILL_TEMPLATES},
+        # Auth state for templates
+        'is_access_protection_enabled': is_access_protection_enabled(),
+        'is_admin_protection_enabled': is_admin_protection_enabled(),
+        'has_basic_access': has_basic_access(),
+        'is_authenticated': is_authenticated(),
     }
 
 @routes.route('/')
@@ -448,6 +463,26 @@ def access_logout():
     session.pop('access_granted', None)
     modality = resolve_modality_from_request()
     return redirect(url_for('routes.access_login', modality=modality))
+
+
+@routes.route('/demo-login')
+def demo_login():
+    """Demo admin login page - shows login UI even when protection is disabled.
+
+    Use this to preview/test the login page design without enabling protection.
+    """
+    modality = resolve_modality_from_request()
+    return render_template("login.html", error=None, modality=modality, login_type='admin', demo_mode=True)
+
+
+@routes.route('/demo-access-login')
+def demo_access_login():
+    """Demo basic access login page - shows login UI even when protection is disabled.
+
+    Use this to preview/test the access login page design without enabling protection.
+    """
+    modality = resolve_modality_from_request()
+    return render_template("login.html", error=None, modality=modality, login_type='access', demo_mode=True)
 
 
 @routes.route('/api/edit_info', methods=['POST'])

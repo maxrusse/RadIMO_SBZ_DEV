@@ -36,13 +36,42 @@
       font-size: 0.9rem;
     }
 
-    .app-nav {
+    .app-header__actions {
       display: flex;
       gap: 0.75rem;
       align-items: center;
       flex-wrap: wrap;
       margin-left: auto;
       justify-content: flex-end;
+    }
+
+    .app-nav {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .basic-auth-logout {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--basic-auth-logout-bg, rgba(0, 0, 0, 0.1));
+      color: var(--app-header-text, #333);
+      text-decoration: none;
+      font-size: 1.25rem;
+      font-weight: bold;
+      line-height: 1;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .basic-auth-logout:hover {
+      background: var(--basic-auth-logout-hover-bg, rgba(220, 53, 69, 0.15));
+      color: var(--basic-auth-logout-hover-color, #dc3545);
     }
 
     .nav-link {
