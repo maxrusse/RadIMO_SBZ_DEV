@@ -948,6 +948,64 @@
       justify-content: flex-end;
     }
 
+    /* Break Duration Popup */
+    .break-popup-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1100;
+      justify-content: center;
+      align-items: center;
+    }
+    .break-popup-overlay.show {
+      display: flex;
+    }
+    .break-popup {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      min-width: 300px;
+    }
+    .break-popup h4 {
+      margin: 0 0 1rem 0;
+    }
+    .break-presets {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .break-presets button {
+      flex: 1;
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #f8f9fa;
+      cursor: pointer;
+    }
+    .break-presets button.selected {
+      background: #007bff;
+      color: white;
+      border-color: #007bff;
+    }
+    .break-custom {
+      margin-bottom: 1rem;
+    }
+    .break-custom input {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .break-popup-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+    }
+
     /* Worker group separator in table */
     .worker-group-first td {
       border-top: 2px solid #004892;
@@ -1399,6 +1457,26 @@
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
         <button class="btn btn-primary" id="modal-save-button" onclick="saveModalAction()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Break Duration Popup -->
+  <div class="break-popup-overlay" id="break-popup">
+    <div class="break-popup">
+      <h4>☕ Break Duration</h4>
+      <div class="break-presets">
+        <button type="button" onclick="selectBreakPreset(15)">15 min</button>
+        <button type="button" onclick="selectBreakPreset(30)">30 min</button>
+        <button type="button" onclick="selectBreakPreset(45)">45 min</button>
+        <button type="button" onclick="selectBreakPreset(60)">60 min</button>
+      </div>
+      <div class="break-custom">
+        <input type="number" id="break-custom-minutes" placeholder="Custom minutes" min="1" max="480" oninput="clearBreakPresets()">
+      </div>
+      <div class="break-popup-actions">
+        <button class="btn btn-secondary" onclick="closeBreakPopup()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmBreakDuration()">OK</button>
       </div>
     </div>
   </div>

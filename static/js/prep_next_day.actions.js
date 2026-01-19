@@ -2036,8 +2036,12 @@ async function callAddGap(endpoint, modality, rowIndex, type, start, end) {
  * Add a break (gap) starting NOW for a worker.
  * Uses add-gap API to split existing shifts at the break time.
  * Falls back to standalone gap entry if no shift exists at that time.
+ * @param {string} tab - 'today' or 'tomorrow'
+ * @param {number} gIdx - Group index
+ * @param {number} shiftIdx - Shift index (unused, for compatibility)
+ * @param {number} [durationMinutes] - Duration in minutes (optional, defaults to QUICK_BREAK.duration_minutes)
  */
-async function onQuickGap30(tab, gIdx, shiftIdx) {
+async function onQuickGap30(tab, gIdx, shiftIdx, durationMinutes) {
   if (tab === 'tomorrow') {
     showMessage('error', 'Break NOW actions are disabled in prep mode.');
     return;
@@ -2052,7 +2056,8 @@ async function onQuickGap30(tab, gIdx, shiftIdx) {
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const gapStart = formatMinutesToTime(currentMinutes);
-  const gapEnd = addMinutes(gapStart, QUICK_BREAK.duration_minutes);
+  const duration = durationMinutes || QUICK_BREAK.duration_minutes;
+  const gapEnd = addMinutes(gapStart, duration);
   const gapType = QUICK_BREAK.gap_type || 'Break';
 
   // Find shifts that overlap with the gap time
@@ -2065,7 +2070,7 @@ async function onQuickGap30(tab, gIdx, shiftIdx) {
 
   // If not in edit mode, show confirmation popup
   if (!editMode[tab]) {
-    let msg = `Add ${QUICK_BREAK.duration_minutes}-min break for ${group.worker}?\n\nTime: ${gapStart} - ${gapEnd}`;
+    let msg = `Add ${duration}-min break for ${group.worker}?\n\nTime: ${gapStart} - ${gapEnd}`;
     if (overlappingShifts.length > 0) {
       msg += `\n\nWill split shift(s) at break time.`;
     } else {
@@ -2141,16 +2146,69 @@ function addMinutes(timeStr, minutes) {
   return formatMinutesToTime(hours * 60 + mins + minutes);
 }
 
-/** Called from edit modal - uses currentEditEntry context */
-async function onQuickGapFromModal() {
+/** Called from edit modal - shows duration popup */
+function onQuickGapFromModal() {
   if (!currentEditEntry) {
     showMessage('error', 'No entry selected');
     return;
   }
+  // Show break duration popup
+  document.getElementById('break-popup').classList.add('show');
+  document.getElementById('break-custom-minutes').value = '';
+  clearBreakPresets();
+  // Pre-select 30 min as default
+  selectBreakPreset(30);
+}
+
+/** Track selected break duration */
+let selectedBreakDuration = null;
+
+/** Select a preset duration button */
+function selectBreakPreset(minutes) {
+  selectedBreakDuration = minutes;
+  document.getElementById('break-custom-minutes').value = '';
+  // Update button styles
+  document.querySelectorAll('.break-presets button').forEach(btn => {
+    btn.classList.toggle('selected', btn.textContent.includes(minutes + ' min'));
+  });
+}
+
+/** Clear preset selection when custom input is used */
+function clearBreakPresets() {
+  document.querySelectorAll('.break-presets button').forEach(btn => {
+    btn.classList.remove('selected');
+  });
+  selectedBreakDuration = null;
+}
+
+/** Close the break duration popup */
+function closeBreakPopup() {
+  document.getElementById('break-popup').classList.remove('show');
+  selectedBreakDuration = null;
+}
+
+/** Confirm break duration and execute */
+async function confirmBreakDuration() {
+  // Get duration from custom input or preset
+  const customInput = document.getElementById('break-custom-minutes').value;
+  const duration = customInput ? parseInt(customInput, 10) : selectedBreakDuration;
+
+  if (!duration || duration < 1) {
+    showMessage('error', 'Please select or enter a break duration');
+    return;
+  }
+
+  if (!currentEditEntry) {
+    showMessage('error', 'No entry selected');
+    closeBreakPopup();
+    return;
+  }
+
   const { tab, groupIdx } = currentEditEntry;
-  // Close modal first, then add gap
+  // Close popup and modal, then add gap
+  closeBreakPopup();
   closeModal();
-  await onQuickGap30(tab, groupIdx, 0);
+  await onQuickGap30(tab, groupIdx, 0, duration);
 }
 
 // =============================================
