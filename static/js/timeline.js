@@ -473,6 +473,15 @@ const TimelineChart = (function() {
           bar.style.zIndex = '1';
           bar.dataset.skills = activeSkills.join(',');
 
+          // Store modality data for filtering
+          let modList = [];
+          if (entry.modalities && entry.modalities.size > 0) {
+            modList = Array.from(entry.modalities).map(m => m.toLowerCase());
+          } else if (entry._modality || entry.modality) {
+            modList = [(entry._modality || entry.modality).toLowerCase()];
+          }
+          bar.dataset.modalities = modList.join(',');
+
           // Tooltip
           const timeDisplay = entry.TIME || `${entry.start_time}-${entry.end_time}`;
           bar.title = `${worker}\n${tooltipMods}${taskTooltip}${gapTooltip}Zeit: ${timeDisplay}\nSkills: ${activeSkills.join(', ')}`;
@@ -546,10 +555,42 @@ const TimelineChart = (function() {
     });
   }
 
+  // Filter rows by modality
+  function filterByModality(gridEl, modality) {
+    const rows = gridEl.querySelectorAll('.worker-row');
+    const mod = (modality || '').toLowerCase();
+
+    rows.forEach(row => {
+      const bars = Array.from(row.querySelectorAll('.shift-bar'));
+
+      // Show all bars when filter is cleared
+      if (mod === 'all' || mod === '' || !mod) {
+        bars.forEach(bar => bar.style.display = '');
+        row.style.display = '';
+        return;
+      }
+
+      const matchingBars = bars.filter(bar => {
+        const barMods = (bar.dataset.modalities || '').split(',').filter(m => m);
+        return barMods.includes(mod);
+      });
+
+      // Show matching bars, hide the rest
+      bars.forEach(bar => {
+        const barMods = (bar.dataset.modalities || '').split(',').filter(m => m);
+        bar.style.display = barMods.includes(mod) ? '' : 'none';
+      });
+
+      // Hide row if no matching bars
+      row.style.display = matchingBars.length > 0 ? '' : 'none';
+    });
+  }
+
   // Public API
   return {
     render,
     filterBySkill,
+    filterByModality,
     updateCurrentTimeLine,
     timeToMinutes,
     timeToPercent,

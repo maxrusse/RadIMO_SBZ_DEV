@@ -43,6 +43,12 @@ function filterByModality(tab, modality) {
     hideZero
   };
   renderTable(tab);
+
+  // Also filter the timeline (like skill filter does)
+  const gridEl = document.getElementById(`timeline-grid-${tab}`);
+  if (gridEl && typeof TimelineChart !== 'undefined') {
+    TimelineChart.filterByModality(gridEl, modality || 'all');
+  }
 }
 
 function filterBySkill(tab, skill) {
