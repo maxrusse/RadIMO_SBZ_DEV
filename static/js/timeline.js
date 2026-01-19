@@ -43,10 +43,12 @@ const TimelineChart = (function() {
 
   // Check if any skill in entry is active
   function hasAnyActiveSkill(entry, skillColumns) {
-    return skillColumns.some(s => {
+    const hasSkills = skillColumns.some(s => {
       const val = entry[s];
       return isSkillActive(val);
     });
+    if (hasSkills) return true;
+    return parseGapList(entry.gaps).length > 0;
   }
 
   // Escape HTML for XSS protection
@@ -424,18 +426,20 @@ const TimelineChart = (function() {
           gapTooltip = `Gaps: ${gapList}\n`;
         }
 
-        const bar = document.createElement('div');
-        bar.className = 'shift-bar';
-        bar.style.left = `${left}%`;
-        bar.style.width = `${width}%`;
-        bar.style.background = buildSkillGradient(activeSkills, skillColorMap);
-        bar.dataset.skills = activeSkills.join(',');
+        if (activeSkills.length > 0) {
+          const bar = document.createElement('div');
+          bar.className = 'shift-bar';
+          bar.style.left = `${left}%`;
+          bar.style.width = `${width}%`;
+          bar.style.background = buildSkillGradient(activeSkills, skillColorMap);
+          bar.dataset.skills = activeSkills.join(',');
 
-        // Tooltip
-        const timeDisplay = entry.TIME || `${entry.start_time}-${entry.end_time}`;
-        bar.title = `${worker}\n${tooltipMods}${gapTooltip}Zeit: ${timeDisplay}\nSkills: ${activeSkills.join(', ')}`;
+          // Tooltip
+          const timeDisplay = entry.TIME || `${entry.start_time}-${entry.end_time}`;
+          bar.title = `${worker}\n${tooltipMods}${gapTooltip}Zeit: ${timeDisplay}\nSkills: ${activeSkills.join(', ')}`;
 
-        timelineCell.appendChild(bar);
+          timelineCell.appendChild(bar);
+        }
 
         // Render gap bars for this entry
         gaps.forEach(gap => {
