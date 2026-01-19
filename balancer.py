@@ -25,6 +25,7 @@ from lib.utils import (
 from data_manager import (
     get_canonical_worker_id,
     get_roster_modifier,
+    get_global_modifier,
     global_worker_data,
     modality_data,
 )
@@ -93,16 +94,21 @@ def update_global_assignment(person: str, role: str, modality: str, is_weighted:
         person: Worker name (PPL field)
         role: Skill/role assigned (e.g., 'Notfall', 'MSK')
         modality: Modality assigned (e.g., 'ct', 'mr')
-        is_weighted: If True (skill='w'), apply worker's personal modifier.
-                     If False (skill=1 or 0), use modifier=1.0 (no adjustment).
+        is_weighted: If True (skill='w'), also apply worker's 'w' modifier.
+                     If False (skill=1 or 0), only apply global_modifier.
 
     Returns:
         Canonical worker ID
     """
     canonical_id = get_canonical_worker_id(person)
 
-    # Only apply personal modifier for weighted ('w') assignments
-    # skill=1 (regular specialist) and skill=0 (generalist) use modifier=1.0
+    # Always apply global_modifier to ALL assignments (0, w, 1)
+    # Higher global_modifier = less work (e.g., 1.5 = ~33% less work)
+    global_modifier = get_global_modifier(canonical_id)
+    global_modifier = global_modifier if global_modifier > 0 else 1.0
+
+    # For weighted ('w') assignments, also apply the 'w' modifier
+    # skill=1 (regular specialist) and skill=0 (generalist) only use global_modifier
     if is_weighted:
         # Priority: shift modifier (if != 1.0) > roster modifier > default_w_modifier
         # Shift modifier of 1.0 is treated as "not explicitly set"
@@ -111,16 +117,18 @@ def update_global_assignment(person: str, role: str, modality: str, is_weighted:
 
         if shift_modifier != 1.0:
             # Shift explicitly set a non-default modifier
-            modifier = shift_modifier
+            w_modifier = shift_modifier
         else:
             # Fallback to roster modifier (for trainees without shift-specific modifier)
-            modifier = get_roster_modifier(canonical_id)
+            w_modifier = get_roster_modifier(canonical_id)
 
-        modifier = modifier if modifier > 0 else 1.0
+        w_modifier = w_modifier if w_modifier > 0 else 1.0
     else:
-        modifier = 1.0
+        w_modifier = 1.0
 
-    weight = get_skill_modality_weight(role, modality) * (1.0 / modifier)
+    # Combined modifier: global_modifier applies to all, w_modifier only for 'w'
+    combined_modifier = global_modifier * w_modifier
+    weight = get_skill_modality_weight(role, modality) * (1.0 / combined_modifier)
 
     # Update single global weighted count (consolidated across all modalities)
     global_worker_data['weighted_counts'][canonical_id] = \
