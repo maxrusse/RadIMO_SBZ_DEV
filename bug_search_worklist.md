@@ -8,7 +8,7 @@
 - [x] Timetable view filters + API data (templates/timetable.html, static/js/timetable.js).
 - [x] Worker load monitor (templates/index_by_skill.html, static/js/worker_load_monitor.js).
 - [x] Data ingest + modality handling (routes.py, data_manager/*, state_manager.py).
-- [ ] Background workers + scheduling (balancer.py, app.py, scripts/*).
+- [x] Background workers + scheduling (balancer.py, app.py, scripts/*).
 
 ## Notes
 - Initial pass focused on newest Quick Break NOW changes and break popup wiring.
