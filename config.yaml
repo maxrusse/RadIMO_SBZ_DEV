@@ -195,7 +195,11 @@ skill_modality_overrides:
 # Examples:
 #   - card-thor_ct    # Cardiac CT - specialists only
 #   - card-thor_mr    # Cardiac MR - specialists only
-no_overflow: []
+no_overflow:
+  - privat_ct
+  - privat_mr
+  - privat_xray
+  - privat_mammo
 
 # =============================================================================
 # SKILL VALUE DISPLAY COLORS
@@ -310,9 +314,9 @@ balancer:
 #   - match: "Activity Name"           # Substring to match in CSV activity
 #     type: "shift"
 #     times:                           # REQUIRED: Day-specific times
-#       default: "07:00-15:00"         # Default time (Mon-Thu unless overridden)
+#       default: "07:30-15:45"         # Default time (Mon-Thu unless overridden)
 #       Montag: "08:00-16:00"          # Optional: Monday override
-#       Freitag: "07:00-13:00"         # Optional: Friday override
+#       Freitag: "07:30-15:45"         # Optional: Friday override
 #     skill_overrides:                 # REQUIRED: Defines skills & modalities
 #       notfall_ct: 1                  # Skill_Modality: value (1, 0, -1, w)
 #     modifier: 1.0                    # OPTIONAL: Workload modifier (0.5-1.5)
@@ -394,6 +398,42 @@ vendor_mappings:
         uro_xray: 1
         kopf-hals_xray: 1
 
+    - match: "Spätdienst SBZ"
+      type: "shift"
+      times:
+        default: "11:30-20:00"
+      skill_overrides:
+        # CT modality - all skills active
+        notfall_ct: 1
+        privat_ct: 1
+        gyn_ct: 1
+        paed_ct: 1
+        msk-haut_ct: 1
+        abd-onco_ct: 1
+        card-thor_ct: 1
+        uro_ct: 1
+        kopf-hals_ct: 1
+        # MR modality - all skills active
+        notfall_mr: 1
+        privat_mr: 1
+        gyn_mr: 1
+        paed_mr: 1
+        msk-haut_mr: 1
+        abd-onco_mr: 1
+        card-thor_mr: 1
+        uro_mr: 1
+        kopf-hals_mr: 1
+        # X-ray modality - all skills active
+        notfall_xray: 1
+        privat_xray: 1
+        gyn_xray: 1
+        paed_xray: 1
+        msk-haut_xray: 1
+        abd-onco_xray: 1
+        card-thor_xray: 1
+        uro_xray: 1
+        kopf-hals_xray: 1
+
     # =========================================================================
     # COMMENTED OUT: Individual CT/MR Früh/Spätdienst rules
     # =========================================================================
@@ -421,8 +461,8 @@ vendor_mappings:
     # - match: "CT Assistent"
     #   type: "shift"
     #   times:
-    #     default: "07:00-15:00"
-    #     Freitag: "07:00-13:00"
+    #     default: "07:30-15:45"
+    #     Freitag: "07:30-15:45"
     #   skill_overrides:
     #     notfall_ct: 1
     #     privat_ct: 1
@@ -438,11 +478,23 @@ vendor_mappings:
     - match: "CT privatpatienten"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
+        all: -1
         privat_ct: 1         # Primary: private patients
-        notfall_ct: 0        # Fallback: can help with emergencies
+
+    - match: "CT Assistent 1. Monat"
+      label: "1. Monat"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
+      modifier: 0.5  # Beginner: counts double toward their load
+      skill_overrides:
+        all: -1
+        notfall_ct: w      # Weighted: supervised, receives less work
+        privat_ct: 0       # Fallback only
 
     # # MR Shifts (INACTIVE)
     # - match: "MRT Spätdienst"
@@ -464,8 +516,8 @@ vendor_mappings:
     # - match: "MR Assistent 1. Monat"
     #   type: "shift"
     #   times:
-    #     default: "07:00-15:00"
-    #     Freitag: "07:00-13:00"
+    #     default: "07:30-15:45"
+    #     Freitag: "07:30-15:45"
     #   modifier: 0.5  # Beginner: counts double toward their load
     #   skill_overrides:
     #     notfall_mr: w      # Weighted: supervised, receives less work
@@ -474,8 +526,8 @@ vendor_mappings:
     # - match: "MR Assistent"
     #   type: "shift"
     #   times:
-    #     default: "07:00-15:00"
-    #     Freitag: "07:00-13:00"
+    #     default: "07:30-15:45"
+    #     Freitag: "07:30-15:45"
     #   skill_overrides:
     #     notfall_mr: 1
     #     privat_mr: 1
@@ -491,8 +543,8 @@ vendor_mappings:
     - match: "MRT-OA"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
         notfall_mr: 1
         privat_mr: 1
@@ -513,8 +565,8 @@ vendor_mappings:
     - match: "Chir Assistent"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
         notfall_xray: 1
         privat_xray: 1
@@ -524,26 +576,37 @@ vendor_mappings:
     - match: "OA / FA Chir"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
         notfall_xray: 1
         privat_xray: 1
         msk-haut_xray: 1     # Full MSK coverage
         paed_xray: 1          # Full pediatric coverage
 
+    - match: "3. Dienst"
+      label: "Röntgendienst"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
+      skill_overrides:
+        notfall_xray: 1
+        privat_xray: 1
+        msk-haut_xray: 0     # Fallback for MSK
+        paed_xray: 0         # Fallback for pediatrics
+
     # =========================================================================
     # MAMMO SHIFTS
     # =========================================================================
     # Mammography - specialized breast imaging
-    # Only notfall and gyn skills apply (no private patients)
     # =========================================================================
 
     - match: "Mammo Assistent"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
         notfall_mammo: 1
         gyn_mammo: 0         # Fallback for gynecology cases
@@ -551,11 +614,20 @@ vendor_mappings:
     - match: "Mammo OA"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
         notfall_mammo: 1
         gyn_mammo: 1         # Full gyn coverage
+
+    - match: "gyn_oa"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
+      skill_overrides:
+        all: -1
+        privat_mammo: 1
 
     # =========================================================================
     # TEAM SHIFTS - Subspecialty teams across multiple modalities
@@ -567,8 +639,8 @@ vendor_mappings:
     # - match: "msk-haut Assistent"
     #   type: "shift"
     #   times:
-    #     default: "07:00-15:00"
-    #     Freitag: "07:00-13:00"
+    #     default: "07:30-15:45"
+    #     Freitag: "07:30-15:45"
     #   skill_overrides:
     #     msk-haut_ct: 1
     #     msk-haut_mr: 1
@@ -577,8 +649,8 @@ vendor_mappings:
     - match: "msk-haut Team"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
         msk-haut_ct: 1
         msk-haut_mr: 1
@@ -587,8 +659,8 @@ vendor_mappings:
     # - match: "msk-haut Anfänger"
     #   type: "shift"
     #   times:
-    #     default: "07:00-15:00"
-    #     Freitag: "07:00-13:00"
+    #     default: "07:30-15:45"
+    #     Freitag: "07:30-15:45"
     #   modifier: 0.5          # Beginner: counts double toward their load
     #   skill_overrides:
     #     msk-haut_ct: w       # Weighted: supervised
@@ -597,8 +669,8 @@ vendor_mappings:
     # - match: "CT Anfänger"
     #   type: "shift"
     #   times:
-    #     default: "07:00-15:00"
-    #     Freitag: "07:00-13:00"
+    #     default: "07:30-15:45"
+    #     Freitag: "07:30-15:45"
     #   modifier: 0.5          # Beginner: counts double toward their load
     #   skill_overrides:
     #     notfall_ct: w        # Weighted: supervised, receives less work
@@ -606,8 +678,8 @@ vendor_mappings:
     - match: "card-thor Team"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
         card-thor_ct: 1       # Cardiac CT
         card-thor_mr: 1       # Cardiac MR
@@ -615,8 +687,8 @@ vendor_mappings:
     - match: "abd-onco Team"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
         abd-onco_ct: 1
         abd-onco_mr: 1
@@ -624,8 +696,8 @@ vendor_mappings:
     - match: "uro Team"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
         uro_ct: 1
         uro_mr: 1
@@ -633,8 +705,8 @@ vendor_mappings:
     - match: "gyn Team"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
         gyn_ct: 1
         gyn_mr: 1
@@ -643,8 +715,8 @@ vendor_mappings:
     - match: "paed Team"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
         paed_ct: 1
         paed_mr: 1
@@ -653,8 +725,8 @@ vendor_mappings:
     - match: "kopf-hals Team"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
         kopf-hals_ct: 1
         kopf-hals_mr: 1
@@ -665,8 +737,8 @@ vendor_mappings:
     - match: "notfall Team"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
         notfall_ct: 1
         notfall_mr: 1
@@ -679,25 +751,52 @@ vendor_mappings:
     - match: "privat Allgemein"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
+        all: -1
         privat_ct: 1
         privat_mr: 1
+        privat_xray: 1
+
+    - match: "privat CT"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
+      skill_overrides:
+        all: -1
+        privat_ct: 1
+
+    - match: "privat MR"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
+      skill_overrides:
+        all: -1
+        privat_mr: 1
+
+    - match: "privat Röntgen"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
+      skill_overrides:
+        all: -1
         privat_xray: 1
 
     # privat gyn: private gyn patients only (ct, mr, mammo)
     - match: "privat gyn"
       type: "shift"
       times:
-        default: "13:00-17:00"
-        Freitag: "13:00-15:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
+        all: -1
         gyn_ct: 1
         gyn_mr: 1
         gyn_mammo: 1
-        privat_ct: 0        # Fallback for general private if needed
-        privat_mr: 0
 
     # =========================================================================
     # FACHARZT FOKUS - Senior physician covering all subspecialties
@@ -707,8 +806,8 @@ vendor_mappings:
     - match: "Facharzt Fokus"
       type: "shift"
       times:
-        default: "07:00-15:00"
-        Freitag: "07:00-13:00"
+        default: "07:30-15:45"
+        Freitag: "07:30-15:45"
       skill_overrides:
         # Explicitly exclude gyn and notfall
         gyn_ct: -1
@@ -746,8 +845,8 @@ vendor_mappings:
     # - match: "Aufklärung Shift"
     #   type: "shift"
     #   times:
-    #     default: "07:00-15:00"
-    #     Freitag: "07:00-13:00"
+    #     default: "07:30-15:45"
+    #     Freitag: "07:30-15:45"
     #   label: "Aufklärung"
     #   counts_for_hours: false  # Administrative task - doesn't count for load
     #   skill_overrides:
@@ -765,53 +864,228 @@ vendor_mappings:
     #   ct: 1          → all *_ct combos = 1
     # =========================================================================
 
-    - match: "Kopf-Hals-Board"
+    - match: "SBZ Geräteassistenz"
+      label: "Aufklärung"
       type: "gap"
       times:
-        Montag:
-          - "15:30-17:00"      # Monday afternoon board meeting
-      skill_overrides:
-        all: -1                # Excluded from all assignments
-
-    - match: "Board"
-      type: "gap"
-      times:
-        Dienstag:
-          - "15:00-17:00"      # Tuesday afternoon
-        Mittwoch:
-          - "10:00-12:00"      # Wednesday morning
-        Donnerstag:
-          - "14:00-16:00"      # Thursday afternoon
+        default: "07:30-15:45"
       skill_overrides:
         all: -1
 
-    - match: "Besprechung"
+    - match: "Mult. Myelom Board (Mo 15:30)"
+      label: "Myelom-Board"
       type: "gap"
       times:
         Montag:
-          - "09:00-10:00"      # Monday morning meeting
+          - "13:30-16:30"
+      skill_overrides:
+        all: -1
+
+    - match: "Medizin-Demo (Mo Nephro 13 Uhr/Di Gastro 14 Uhr/Mi Onko 12:30)"
+      label: "Medizin-Demo"
+      type: "gap"
+      times:
+        Montag:
+          - "11:00-14:00"
+        Dienstag:
+          - "12:00-15:00"
         Mittwoch:
-          - "14:00-15:00"      # Wednesday afternoon meeting
+          - "10:30-13:30"
+      skill_overrides:
+        all: -1
+
+    - match: "Rheuma-Demo (Do 13:30 Uhr, kl. Hörsaal Medizin)"
+      label: "Rheuma-Demo"
+      type: "gap"
+      times:
+        Donnerstag:
+          - "11:30-14:30"
+      skill_overrides:
+        all: -1
+
+    - match: "Emphysem-Board, Di 16:00 Uhr"
+      label: "Emphysem-Board"
+      type: "gap"
+      times:
+        Dienstag:
+          - "14:00-17:00"
+      skill_overrides:
+        all: -1
+
+    - match: "ILD-Board (Mi 15:00, 14-tägig)"
+      label: "ILD-Board"
+      type: "gap"
+      times:
+        Mittwoch:
+          - "13:00-16:00"
+      skill_overrides:
+        all: -1
+
+    - match: "Thoraxdemo ZTT (Di 14:30)"
+      label: "Thoraxdemo"
+      type: "gap"
+      times:
+        Dienstag:
+          - "12:30-15:30"
+      skill_overrides:
+        all: -1
+
+    - match: "Kopf-Hals-Board (Mo 15:30)"
+      label: "Kopf-Hals-Board"
+      type: "gap"
+      times:
+        Montag:
+          - "13:30-16:30"
+      skill_overrides:
+        all: -1
+
+    - match: "CCCF-Leber (Mo 16:00)"
+      label: "CCCF-Leber"
+      type: "gap"
+      times:
+        Montag:
+          - "14:00-17:00"
+      skill_overrides:
+        all: -1
+
+    - match: "Lymphom-Board (Di 14:30)"
+      label: "Lymphom-Board"
+      type: "gap"
+      times:
+        Dienstag:
+          - "12:30-15:30"
+      skill_overrides:
+        all: -1
+
+    - match: "Sarkom/Haut/Knochen-Board (Mi 14:30)"
+      label: "Sarkom-Board"
+      type: "gap"
+      times:
+        Mittwoch:
+          - "12:30-15:30"
+      skill_overrides:
+        all: -1
+
+    - match: "Uro-Board (Do 14:30)"
+      label: "Uro-Board"
+      type: "gap"
+      times:
+        Donnerstag:
+          - "12:30-15:30"
+      skill_overrides:
+        all: -1
+
+    - match: "Leukämie-Board (Do 14:30)"
+      label: "Leukämie-Board"
+      type: "gap"
+      times:
+        Donnerstag:
+          - "12:30-15:30"
+      skill_overrides:
+        all: -1
+
+    - match: "ZGT/NET-Board (ehem. CCCF) (Do 07:30)"
+      label: "ZGT"
+      type: "gap"
+      times:
+        Mittwoch:
+          - "09:00-15:45"
+        Donnerstag:
+          - "05:30-08:30"
+      skill_overrides:
+        all: -1
+
+    - match: "ZGT Fallbesprechung (Mo 14:30)"
+      label: "ZGT-Fallbesprechung"
+      type: "gap"
+      times:
+        Montag:
+          - "12:30-15:30"
+      skill_overrides:
+        all: -1
+
+    - match: "Gyn Tumorboard (Di 14:30-16:00, Fr 07:30)"
+      label: "Gyn-Tumorboard"
+      type: "gap"
+      times:
+        Dienstag:
+          - "12:30-15:30"
+        Donnerstag:
+          - "14:00-15:45"
         Freitag:
-          - "13:00-14:00"      # Friday lunch meeting
+          - "05:30-08:30"
       skill_overrides:
         all: -1
 
-    - match: "Fortbildung"
+    - match: "BB (Mi 16 Uhr, am letzten Mi des Monats)"
+      label: "Beckenboden-Konferenz"
+      type: "gap"
+      times:
+        Mittwoch:
+          - "14:00-17:00"
+      skill_overrides:
+        all: -1
+
+    - match: "TB: Immunvermittelte NW (Mi 14:00, jeden 1. Mittwoch im Monat)"
+      label: "Immunvermittelte NW"
+      type: "gap"
+      times:
+        Mittwoch:
+          - "12:00-15:00"
+      skill_overrides:
+        all: -1
+
+    - match: "Gefäßchir-Angiol-Kolloq (Mi 15:30)"
+      label: "Gefäßchir-Kolloq"
+      type: "gap"
+      times:
+        Mittwoch:
+          - "13:30-16:30"
+      skill_overrides:
+        all: -1
+
+    - match: "EmaH (Do 15:30 Uhr, Konf.raum 8)"
+      label: "EmaH"
       type: "gap"
       times:
         Donnerstag:
-          - "13:00-15:00"      # Thursday education/training
+          - "13:30-16:30"
       skill_overrides:
         all: -1
 
-    - match: "Aufklärung"
+    - match: "VasMuT (Do 16 Uhr, Konf.raum 5)"
+      label: "VasMuT"
+      type: "gap"
+      times:
+        Donnerstag:
+          - "14:00-17:00"
+      skill_overrides:
+        all: -1
+
+    - match: "IPOK (Fr 13 Uhr, Konf.raum 5)"
+      label: "IPOK"
+      type: "gap"
+      times:
+        Freitag:
+          - "11:00-14:00"
+      skill_overrides:
+        all: -1
+
+    - match: "PRIS (Di 14:15 Uhr, 0_117 OA Büro)"
+      label: "PRIS"
       type: "gap"
       times:
         Dienstag:
-          - "10:00-11:00"      # Tuesday patient consultations
-        Donnerstag:
-          - "10:00-11:00"      # Thursday patient consultations
+          - "12:15-15:15"
+      skill_overrides:
+        all: -1
+
+    - match: "Nephr/urol. Kolloq. (Mi 15:30 Uhr, Konf.raum 6)"
+      label: "Nephr-Kolloq"
+      type: "gap"
+      times:
+        Mittwoch:
+          - "13:30-16:30"
       skill_overrides:
         all: -1
 
