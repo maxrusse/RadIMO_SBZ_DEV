@@ -45,7 +45,6 @@ DEFAULT_BALANCER = {
     'enabled': True,
     'min_assignments_per_skill': 3,
     'imbalance_threshold_pct': 30,
-    'allow_overflow_on_imbalance': True,
     'disable_overflow_at_shift_start_minutes': 0,  # 0 = disabled
     'disable_overflow_at_shift_end_minutes': 0,  # 0 = disabled
     'default_w_modifier': 0.5,
@@ -139,11 +138,9 @@ def _build_app_config() -> Dict[str, Any]:
         values.setdefault('text_color', '#ffffff')
         values['weight'] = coerce_float(values.get('weight', 1.0))
         values.setdefault('special', False)
-        values.setdefault('always_visible', True)  # Default: always visible
         values['display_order'] = coerce_int(values.get('display_order', 0))
         slug = values.get('slug') or _slugify(key)
         values['slug'] = slug
-        values.setdefault('form_key', slug)
 
     config['skills'] = merged_skills
 
@@ -233,7 +230,6 @@ def _build_skill_metadata(skills_config: Dict[str, Dict[str, Any]]) -> Tuple[Lis
             'button_color': data.get('button_color', '#004892'),
             'text_color': data.get('text_color', '#ffffff'),
             'special': bool(data.get('special', False)),
-            'always_visible': bool(data.get('always_visible', True)),
         })
 
     return columns, slug_map, templates, weights

@@ -207,16 +207,12 @@ no_overflow: []
 skill_value_colors:
   active:     # skill = 1 (primary assignment - actively receives work)
     color: '#2f8c7a'
-    label: 'Active'
   passive:    # skill = 0 (fallback only - receives work if no active workers)
     color: '#8a8f98'
-    label: 'Passive'
   excluded:   # skill = -1 (never assign - worker explicitly excluded)
     color: '#dc3545'
-    label: 'Excluded'
   weighted:   # skill = 'w' (assisted/weighted - receives less work, supervised)
     color: '#3d6aa8'
-    label: 'Weighted'
 
 # =============================================================================
 # UI THEME COLORS
@@ -229,8 +225,6 @@ ui_colors:
   tomorrow_tab: '#f2c94c'     # Golden for "Prep Tomorrow" tab
   success: '#2f8c7a'          # Success messages
   error: '#dc3545'            # Error messages
-  warning: '#f2c94c'          # Warning messages
-  info: '#3d6aa8'             # Info messages
 
 # =============================================================================
 # WORKER LOAD MONITOR
@@ -270,7 +264,6 @@ balancer:
   enabled: true                              # Enable/disable load balancing
   min_assignments_per_skill: 3               # Minimum workers per skill before rebalancing
   imbalance_threshold_pct: 30                # Percentage threshold to trigger rebalancing
-  allow_overflow_on_imbalance: true          # Allow overflow to generalists when imbalanced
   disable_overflow_at_shift_start_minutes: 15  # Don't assign overflow in first X minutes
   disable_overflow_at_shift_end_minutes: 30    # Don't assign overflow in last X minutes
   default_w_modifier: 0.5                   # Default modifier for weighted ('w') skills
@@ -351,7 +344,7 @@ vendor_mappings:
       activity: "Beschreibung der Aktivität"  # Activity description (matched against rules)
       employee_name: "Name des Mitarbeiters"  # Worker name
       employee_code: "Code des Mitarbeiters"  # Worker ID code
-      day_part: "Tageszeit"                   # Optional: VM/NM for time heuristics
+      day_part: "Tageszeit"                   # Optional: VM/NM for time heuristics (TODO: future granular shifts)
 
     # Rules for mapping activities to shifts/gaps
     # Rules are evaluated in order; first match wins
