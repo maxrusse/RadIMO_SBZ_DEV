@@ -299,9 +299,26 @@ Manual edits in the prep page can change any value:
 only edited values of `1` or `w` overwrite roster exclusions. Edited `0`
 values do not override roster entries, so roster defaults remain in place.
 
-### Modifier Priority
+### Modifiers
 
-When a worker has skill=`w`, the system uses their personal modifier to reduce their workload:
+The system supports two types of workload modifiers:
+
+#### Global Modifier (applies to ALL assignments)
+
+The `global_modifier` adjusts workload for ALL assignments (skill = 0, 1, or 'w'). Use this for senior staff (Fachärzte) who should receive more or less work overall.
+
+| Value | Effect |
+|-------|--------|
+| `1.0` | Normal workload (default) |
+| `1.5` | ~33% less work |
+| `2.0` | ~50% less work |
+| `0.8` | ~25% more work |
+
+**Roster setup:** In the Skill Roster page, set the "Global Modifier" field for each worker.
+
+#### W Modifier (applies only to 'w' assignments)
+
+The `modifier` field (W Modifier) only affects workers with skill=`w` (weighted/training). Use this for trainees who need reduced workload while learning.
 
 ```
 Priority: Shift Modifier > Roster Modifier > Default (balancer.default_w_modifier)
@@ -313,19 +330,19 @@ Priority: Shift Modifier > Roster Modifier > Default (balancer.default_w_modifie
 | **Roster Modifier** | If shift modifier is default (1.0), use roster's `modifier` field |
 | **Default** | If neither is set, use `balancer.default_w_modifier` |
 
-**Roster modifier setup:**
+**Roster setup:** In the Skill Roster page, set the "W Modifier" field for workers with 'w' skills.
 
-In the Skill Roster page, each worker has a global `modifier` field:
-- `1.0` = normal workload
-- `0.5` = 50% workload (trainee, default)
-- `0.75` = 75% workload (experienced but supported)
+#### Combined Effect
 
-The modifier affects weighted (`w`) assignments by adjusting the workload calculation:
+When both modifiers apply (worker has skill='w'), they multiply:
 ```
-weight = base_weight × (1.0 / modifier)
+weight = base_weight × (1.0 / global_modifier) × (1.0 / w_modifier)
 ```
 
-Example: modifier=0.5 means each assignment counts double toward the worker's total, effectively halving their workload.
+**Example:**
+- Worker with `global_modifier: 1.5` and `w_modifier: 2.0`
+- Each assignment counts: `base × (1/1.5) × (1/2.0) = base × 0.33`
+- Worker receives ~33% of normal workload
 
 ---
 
@@ -592,6 +609,7 @@ Both `"skill_modality"` and `"modality_skill"` formats are accepted and normaliz
 ```json
 {
   "AA": {
+    "global_modifier": 1.0,
     "msk-haut_ct": 1,
     "msk-haut_mr": 1,
     "msk-haut_xray": 1,
@@ -602,6 +620,7 @@ Both `"skill_modality"` and `"modality_skill"` formats are accepted and normaliz
     "notfall_mammo": 0
   },
   "DEMO1": {
+    "global_modifier": 1.5,
     "card-thor_ct": 1,
     "card-thor_mr": 1,
     "notfall_ct": 1,
@@ -611,6 +630,8 @@ Both `"skill_modality"` and `"modality_skill"` formats are accepted and normaliz
     "kopf-hals_ct": -1
   },
   "MSK_ANFAENGER": {
+    "global_modifier": 1.0,
+    "modifier": 2.0,
     "msk-haut_ct": "w",
     "msk-haut_xray": "w",
     "msk-haut_mr": 0

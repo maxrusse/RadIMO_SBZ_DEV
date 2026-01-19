@@ -205,10 +205,11 @@ def build_disabled_worker_entry() -> Dict[str, Any]:
 
 def get_roster_modifier(canonical_id: str) -> float:
     """
-    Get worker's global modifier from skill roster.
+    Get worker's 'w' modifier from skill roster.
 
     Returns the 'modifier' field from the worker's roster entry.
-    Defaults to 1.0 if not set or worker not in roster.
+    This modifier is only applied to 'w' (weighted/training) assignments.
+    Defaults to balancer default_w_modifier if not set.
 
     Args:
         canonical_id: Worker's canonical ID
@@ -230,6 +231,38 @@ def get_roster_modifier(canonical_id: str) -> float:
             modifier = default_modifier
     except (TypeError, ValueError):
         modifier = default_modifier
+
+    return modifier
+
+
+def get_global_modifier(canonical_id: str) -> float:
+    """
+    Get worker's global modifier from skill roster.
+
+    Returns the 'global_modifier' field from the worker's roster entry.
+    This modifier is applied to ALL assignments (0, w, 1) for this worker.
+    Higher value = less work (e.g., 1.5 = ~33% less work).
+    Defaults to 1.0 (no adjustment).
+
+    Args:
+        canonical_id: Worker's canonical ID
+
+    Returns:
+        Global modifier value (float), defaults to 1.0
+    """
+    # Ensure roster is loaded
+    if not worker_skill_json_roster:
+        load_worker_skill_json()
+
+    worker_data = worker_skill_json_roster.get(canonical_id, {})
+    modifier = worker_data.get('global_modifier', 1.0)
+
+    try:
+        modifier = float(modifier)
+        if modifier <= 0:
+            modifier = 1.0
+    except (TypeError, ValueError):
+        modifier = 1.0
 
     return modifier
 
