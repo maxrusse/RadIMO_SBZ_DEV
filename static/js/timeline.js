@@ -88,6 +88,18 @@ const TimelineChart = (function() {
     return `repeating-linear-gradient(90deg, ${stops.join(', ')})`;
   }
 
+  // Deduplicate gaps by start-end key
+  function deduplicateGaps(gaps) {
+    const seen = new Map();
+    gaps.filter(Boolean).forEach(gap => {
+      const key = `${gap.start || ''}-${gap.end || ''}`;
+      if (!seen.has(key)) {
+        seen.set(key, gap);
+      }
+    });
+    return Array.from(seen.values());
+  }
+
   // Merge entries across modalities and time
   function mergeEntriesByTime(entries, skillColumns) {
     if (!entries || entries.length === 0) return [];
@@ -140,6 +152,8 @@ const TimelineChart = (function() {
     });
 
     merged.TIME = `${merged.start_time}-${merged.end_time}`;
+    // Deduplicate gaps to avoid rendering same gap multiple times
+    merged.gaps = deduplicateGaps(merged.gaps);
 
     return [merged];
   }
@@ -208,6 +222,8 @@ const TimelineChart = (function() {
         });
         modalities.forEach(m => last.modalities.add(m));
         gaps.forEach(gap => last.gaps.push(gap));
+        // Deduplicate gaps after merging
+        last.gaps = deduplicateGaps(last.gaps);
         return;
       }
 

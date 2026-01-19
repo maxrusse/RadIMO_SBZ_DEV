@@ -939,7 +939,7 @@ function renderTimeline(tab) {
 
   // Build legend
   if (legendEl) {
-    legendEl.innerHTML = SKILLS.map(skill => {
+    let legendHtml = SKILLS.map(skill => {
       const settings = SKILL_SETTINGS[skill] || {};
       const color = settings.button_color || '#6c757d';
       return `<div class="legend-item">
@@ -947,5 +947,11 @@ function renderTimeline(tab) {
         <span>${escapeHtml(skill)}</span>
       </div>`;
     }).join('');
+    // Add gap legend entry
+    legendHtml += `<div class="legend-item">
+      <div class="legend-box legend-gap"></div>
+      <span>Pause/Gap</span>
+    </div>`;
+    legendEl.innerHTML = legendHtml;
   }
 }
