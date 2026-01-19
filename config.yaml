@@ -76,7 +76,7 @@ modalities:
     # Visibility filters (both optional, can combine):
     # - valid_skills: positive filter - only show these skills
     # - hidden_skills: negative filter - hide these skills
-    valid_skills: [notfall, gyn]  # Only emergency and gyn for mammography
+    valid_skills: [gyn, privat]  # Only gyn and privat for mammography
 
 # =============================================================================
 # SKILLS
@@ -111,7 +111,6 @@ skills:
     text_color: '#333333'
     weight: 1.2
     special: false
-    hidden_modalities: [mammo]  # Mammography has no private patients
     display_order: 1
     slug: privat
   gyn:
@@ -267,7 +266,7 @@ scheduler:
 balancer:
   enabled: true                              # Enable/disable load balancing
   min_assignments_per_skill: 3               # Minimum workers per skill before rebalancing
-  imbalance_threshold_pct: 30                # Percentage threshold to trigger rebalancing
+  imbalance_threshold_pct: 20                # Percentage threshold to trigger rebalancing
   disable_overflow_at_shift_start_minutes: 15  # Don't assign overflow in first X minutes
   disable_overflow_at_shift_end_minutes: 30    # Don't assign overflow in last X minutes
   default_w_modifier: 0.5                   # Default modifier for weighted ('w') skills
@@ -293,7 +292,7 @@ balancer:
   #   skill: [skill1]              # Exclude workers with skill1=1
   #   skill: [skill1, skill2]      # Exclude workers with skill1=1 OR skill2=1
   exclude_skills:
-    notfall: []      # No exclusions - anyone can get emergency work
+    notfall: [gyn, paed]      # gyn and paed can not get emergency work
     privat: []       # No exclusions - anyone can get private patients
     gyn: []
     paed: []
@@ -434,45 +433,6 @@ vendor_mappings:
         uro_xray: 1
         kopf-hals_xray: 1
 
-    # =========================================================================
-    # COMMENTED OUT: Individual CT/MR Früh/Spätdienst rules
-    # =========================================================================
-    # These rules were replaced by the unified Diag-Spätdienst above.
-    # Kept for reference in case individual modality shifts are needed again.
-    # =========================================================================
-
-    # # CT Shifts (INACTIVE)
-    # - match: "CT Spätdienst"
-    #   type: "shift"
-    #   times:
-    #     default: "13:00-21:00"
-    #     Freitag: "13:00-19:00"
-    #   skill_overrides:
-    #     notfall_ct: 1
-    #     privat_ct: 1
-    #     msk-haut_ct: 0
-    #     abd-onco_ct: 0
-    #     card-thor_ct: 0
-    #     uro_ct: 0
-    #     gyn_ct: 0
-    #     paed_ct: 0
-    #     kopf-hals_ct: 0
-
-    # - match: "CT Assistent"
-    #   type: "shift"
-    #   times:
-    #     default: "07:30-15:45"
-    #     Freitag: "07:30-15:45"
-    #   skill_overrides:
-    #     notfall_ct: 1
-    #     privat_ct: 1
-    #     msk-haut_ct: 0
-    #     abd-onco_ct: 0
-    #     card-thor_ct: 0
-    #     uro_ct: 0
-    #     gyn_ct: 0
-    #     paed_ct: 0
-    #     kopf-hals_ct: 0
 
     # CT private patients shift - specialized assignment
     - match: "CT privatpatienten"
@@ -496,48 +456,6 @@ vendor_mappings:
         notfall_ct: w      # Weighted: supervised, receives less work
         privat_ct: 0       # Fallback only
 
-    # # MR Shifts (INACTIVE)
-    # - match: "MRT Spätdienst"
-    #   type: "shift"
-    #   times:
-    #     default: "13:00-21:00"
-    #     Freitag: "13:00-19:00"
-    #   skill_overrides:
-    #     notfall_mr: 1
-    #     privat_mr: 1
-    #     msk-haut_mr: 0
-    #     abd-onco_mr: 0
-    #     card-thor_mr: 0
-    #     uro_mr: 0
-    #     gyn_mr: 0
-    #     paed_mr: 0
-    #     kopf-hals_mr: 0
-
-    # - match: "MR Assistent 1. Monat"
-    #   type: "shift"
-    #   times:
-    #     default: "07:30-15:45"
-    #     Freitag: "07:30-15:45"
-    #   modifier: 0.5  # Beginner: counts double toward their load
-    #   skill_overrides:
-    #     notfall_mr: w      # Weighted: supervised, receives less work
-    #     privat_mr: 0       # Fallback only
-
-    # - match: "MR Assistent"
-    #   type: "shift"
-    #   times:
-    #     default: "07:30-15:45"
-    #     Freitag: "07:30-15:45"
-    #   skill_overrides:
-    #     notfall_mr: 1
-    #     privat_mr: 1
-    #     msk-haut_mr: 0
-    #     abd-onco_mr: 0
-    #     card-thor_mr: 0
-    #     uro_mr: 0
-    #     gyn_mr: 0
-    #     paed_mr: 0
-    #     kopf-hals_mr: 0
 
     # MR senior physician shift - full skill coverage
     - match: "MRT-OA"
@@ -786,7 +704,7 @@ vendor_mappings:
         all: -1
         privat_xray: 1
 
-    # privat gyn: private gyn patients only (ct, mr, mammo)
+    # privat gyn: private mammo patients only 
     - match: "privat gyn"
       type: "shift"
       times:
@@ -794,9 +712,7 @@ vendor_mappings:
         Freitag: "07:30-15:45"
       skill_overrides:
         all: -1
-        gyn_ct: 1
-        gyn_mr: 1
-        gyn_mammo: 1
+        privat_mammo: 1
 
     # =========================================================================
     # FACHARZT FOKUS - Senior physician covering all subspecialties
