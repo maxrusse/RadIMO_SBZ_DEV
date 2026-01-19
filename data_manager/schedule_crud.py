@@ -523,9 +523,10 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
 
     if df is not None:
         if 'gaps' not in df.columns:
-            df['gaps'] = None
+            # Use object dtype to preserve None values (avoid NaN conversion)
+            df['gaps'] = pd.array([None] * len(df), dtype=object)
         if 'gap_id' not in df.columns:
-            df['gap_id'] = None
+            df['gap_id'] = pd.array([None] * len(df), dtype=object)
         if use_staged and 'is_manual' not in df.columns:
             df['is_manual'] = False
 
