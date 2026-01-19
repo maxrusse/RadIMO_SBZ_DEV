@@ -923,18 +923,26 @@
       background: white;
       padding: 1.5rem;
       border-radius: 8px;
-      max-width: 1200px;
-      width: 95%;
-      max-height: 85vh;
-      overflow-y: auto;
+      width: 75vw;
+      height: 75vh;
+      display: flex;
+      flex-direction: column;
     }
 
     .modal h3 {
+      order: -2;
       margin: 0 0 1rem 0;
     }
 
+    .modal #modal-content {
+      order: 0;
+      overflow-y: auto;
+      flex: 1;
+    }
+
     .modal-actions {
-      margin-top: 1rem;
+      order: -1;
+      margin-bottom: 1rem;
       display: flex;
       gap: 0.5rem;
       justify-content: flex-end;
