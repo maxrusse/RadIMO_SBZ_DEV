@@ -523,26 +523,37 @@ function buildEntriesByWorker(data, tab = 'today') {
   const targetDay = getTargetWeekdayName(tab);
 
   function mergeUniqueGaps(list) {
-    const seen = new Set();
-    const result = [];
+    const merged = new Map();
     list.filter(Boolean).forEach(gap => {
-      const key = `${gap.start || ''}-${gap.end || ''}-${gap.activity || ''}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        result.push(gap);
+      const key = `${gap.start || ''}-${gap.end || ''}`;
+      const existing = merged.get(key);
+      if (!existing) {
+        merged.set(key, gap);
+        return;
+      }
+      const existingActivity = existing.activity || '';
+      const nextActivity = gap.activity || '';
+      if (!existingActivity && nextActivity) {
+        merged.set(key, gap);
       }
     });
-    return result;
+    return Array.from(merged.values());
   }
 
-  function deriveGapsFromSegments(segments) {
+  function deriveGapsFromSegments(segments, existingGaps = []) {
+    const existingKeys = new Set(
+      existingGaps.filter(Boolean).map(gap => `${gap.start || ''}-${gap.end || ''}`)
+    );
     const sorted = [...segments].sort((a, b) => (a.start || '').localeCompare(b.start || ''));
     const derived = [];
     for (let i = 1; i < sorted.length; i++) {
       const prev = sorted[i - 1];
       const curr = sorted[i];
       if (prev?.end && curr?.start && prev.end < curr.start) {
-        derived.push({ start: prev.end, end: curr.start, activity: 'Gap' });
+        const key = `${prev.end}-${curr.start}`;
+        if (!existingKeys.has(key)) {
+          derived.push({ start: prev.end, end: curr.start, activity: 'Gap' });
+        }
       }
     }
     return derived;
@@ -802,7 +813,7 @@ function buildEntriesByWorker(data, tab = 'today') {
           const clippedEnd = gapEnd > (lastEnd || '') ? lastEnd : gapEnd;
           return { ...g, start: clippedStart, end: clippedEnd };
         });
-      const derivedGaps = deriveGapsFromSegments(segments);
+      const derivedGaps = deriveGapsFromSegments(segments, [...(shift.gaps || []), ...gapsInRange]);
       const combinedGaps = mergeUniqueGaps([...(shift.gaps || []), ...gapsInRange, ...derivedGaps]);
 
       return {
