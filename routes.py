@@ -908,7 +908,7 @@ def _render_prep_page(initial_tab):
         modalities_list = extract_modalities_from_skill_overrides(skill_overrides)
 
         task_role = {
-            'name': rule.get('match', ''),
+            'name': rule.get('label', rule.get('match', '')),
             'type': rule_type,
             'modalities': modalities_list,
             'times': rule.get('times', {}),
