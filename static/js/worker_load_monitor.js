@@ -131,15 +131,6 @@ function sortTable(tableType, column) {
     state.direction = column === 'name' ? 'asc' : 'desc';
   }
 
-  // Update header classes
-  const tableId = `table-${tableType}`;
-  document.querySelectorAll(`#${tableId} th`).forEach(function(th) {
-    th.classList.remove('sort-asc', 'sort-desc');
-    if (th.dataset.sort === column) {
-      th.classList.add(state.direction === 'asc' ? 'sort-asc' : 'sort-desc');
-    }
-  });
-
   renderAllTables();
 }
 
@@ -398,8 +389,12 @@ function renderAllTables() {
     renderGlobalTable();
     renderModalityTable();
     renderSkillTable();
+    updateSortIndicators('global');
+    updateSortIndicators('modality');
+    updateSortIndicators('skill');
   } else {
     renderAdvancedTable();
+    updateSortIndicators('advanced');
   }
 
   // Show/hide no data message
@@ -407,6 +402,17 @@ function renderAllTables() {
   if (noDataMsg) {
     noDataMsg.style.display = workersData.length === 0 ? 'block' : 'none';
   }
+}
+
+function updateSortIndicators(tableType) {
+  const state = sortState[tableType];
+  const tableId = `table-${tableType}`;
+  document.querySelectorAll(`#${tableId} th`).forEach(function(th) {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (th.dataset.sort === state.column) {
+      th.classList.add(state.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+    }
+  });
 }
 
 // Auto-refresh
@@ -459,6 +465,7 @@ function escapeHtml(text) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
+  setColorMode(colorMode);
   setMode(currentMode);
   loadData();
 });
