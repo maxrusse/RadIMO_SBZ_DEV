@@ -874,7 +874,7 @@ function convertToTimelineData(tab) {
 
   groups.forEach(group => {
     const worker = group.worker;
-    const shifts = group.shiftsArray || [];
+    const shifts = (group.shiftsArray || []).filter(shift => !shift.deleted);
 
     shifts.forEach(shift => {
       // For each modality in the shift, create an entry
