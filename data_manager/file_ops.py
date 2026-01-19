@@ -183,7 +183,7 @@ def _build_dataframe_from_records(records: list[dict], modality: str, *, validat
         axis=1
     )
 
-    col_order = ['PPL', 'Modifier', 'TIME', 'start_time', 'end_time', 'shift_duration', 'tasks', 'counts_for_hours']
+    col_order = ['PPL', 'Modifier', 'TIME', 'start_time', 'end_time', 'shift_duration', 'tasks', 'counts_for_hours', 'gaps', 'gap_id', 'is_manual']
     skill_cols = [skill for skill in SKILL_COLUMNS if skill in df.columns]
     col_order = col_order[:3] + skill_cols + col_order[3:]
 
