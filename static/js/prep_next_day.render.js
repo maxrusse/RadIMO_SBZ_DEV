@@ -890,7 +890,8 @@ function convertToTimelineData(tab) {
           TIME: `${shift.start_time}-${shift.end_time}`,
           _modality: modKey,
           modality: modKey,
-          gaps: shift.gaps || []
+          gaps: shift.gaps || [],
+          tasks: shift.task ? [shift.task] : []
         };
 
         // Add skill values
