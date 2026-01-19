@@ -73,6 +73,17 @@ const TimelineChart = (function() {
     }
   }
 
+  function normalizeTasks(rawTasks) {
+    if (!rawTasks) return [];
+    if (Array.isArray(rawTasks)) {
+      return rawTasks.map(String).filter(t => t.trim() !== '');
+    }
+    if (typeof rawTasks === 'string') {
+      return rawTasks.split(',').map(t => t.trim()).filter(Boolean);
+    }
+    return [String(rawTasks)].filter(t => t.trim() !== '');
+  }
+
   // Build gradient for skill stripes
   function buildSkillGradient(skills, skillColorMap) {
     if (!skills || skills.length === 0) return '#ddd';
@@ -112,7 +123,8 @@ const TimelineChart = (function() {
       TIME: sorted[0].TIME,
       modalities: new Set(),
       skillValues: {},
-      gaps: []
+      gaps: [],
+      tasks: new Set()
     };
 
     let lastEndMinutes = timeToMinutes(sorted[0].end_time);
@@ -131,6 +143,7 @@ const TimelineChart = (function() {
 
       // Preserve explicit gap metadata
       parseGapList(entry.gaps).forEach(gap => merged.gaps.push(gap));
+      normalizeTasks(entry.tasks || entry.task).forEach(task => merged.tasks.add(task));
 
       const startMin = timeToMinutes(entry.start_time);
       const endMin = timeToMinutes(entry.end_time);
@@ -154,6 +167,7 @@ const TimelineChart = (function() {
     merged.TIME = `${merged.start_time}-${merged.end_time}`;
     // Deduplicate gaps to avoid rendering same gap multiple times
     merged.gaps = deduplicateGaps(merged.gaps);
+    merged.tasks = Array.from(merged.tasks);
 
     return [merged];
   }
@@ -197,6 +211,7 @@ const TimelineChart = (function() {
       }
 
       const gaps = parseGapList(entry.gaps);
+      const tasks = normalizeTasks(entry.tasks || entry.task);
 
       const last = merged[merged.length - 1];
       if (!last) {
@@ -206,7 +221,8 @@ const TimelineChart = (function() {
           TIME: entry.TIME,
           skillValues: { ...skillValues },
           modalities,
-          gaps: [...gaps]
+          gaps: [...gaps],
+          tasks: [...tasks]
         });
         return;
       }
@@ -222,8 +238,10 @@ const TimelineChart = (function() {
         });
         modalities.forEach(m => last.modalities.add(m));
         gaps.forEach(gap => last.gaps.push(gap));
+        tasks.forEach(task => last.tasks.push(task));
         // Deduplicate gaps after merging
         last.gaps = deduplicateGaps(last.gaps);
+        last.tasks = Array.from(new Set(last.tasks));
         return;
       }
 
@@ -233,7 +251,8 @@ const TimelineChart = (function() {
         TIME: entry.TIME,
         skillValues: { ...skillValues },
         modalities,
-        gaps: [...gaps]
+        gaps: [...gaps],
+        tasks: [...tasks]
       });
     });
 
@@ -429,6 +448,9 @@ const TimelineChart = (function() {
           tooltipMods = `Modality: ${(entry._modality || entry.modality).toUpperCase()}\n`;
         }
 
+        const tasks = normalizeTasks(entry.tasks || entry.task);
+        const taskTooltip = tasks.length ? `Shifts: ${tasks.join(', ')}\n` : '';
+
         const gaps = parseGapList(entry.gaps);
         if (gaps.length) {
           const gapList = gaps
@@ -448,11 +470,12 @@ const TimelineChart = (function() {
           bar.style.left = `${left}%`;
           bar.style.width = `${width}%`;
           bar.style.background = buildSkillGradient(activeSkills, skillColorMap);
+          bar.style.zIndex = '1';
           bar.dataset.skills = activeSkills.join(',');
 
           // Tooltip
           const timeDisplay = entry.TIME || `${entry.start_time}-${entry.end_time}`;
-          bar.title = `${worker}\n${tooltipMods}${gapTooltip}Zeit: ${timeDisplay}\nSkills: ${activeSkills.join(', ')}`;
+          bar.title = `${worker}\n${tooltipMods}${taskTooltip}${gapTooltip}Zeit: ${timeDisplay}\nSkills: ${activeSkills.join(', ')}`;
 
           timelineCell.appendChild(bar);
         }
@@ -473,6 +496,7 @@ const TimelineChart = (function() {
           gapBar.className = 'gap-bar';
           gapBar.style.left = `${gapLeft}%`;
           gapBar.style.width = `${gapWidth}%`;
+          gapBar.style.zIndex = '2';
 
           // Gap tooltip
           const activity = gap.activity || 'Gap';
