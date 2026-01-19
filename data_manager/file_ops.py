@@ -63,26 +63,6 @@ def _format_time_value(value: object) -> str:
     return str(value)
 
 
-def _clean_nan_values(records: list[dict]) -> list[dict]:
-    """
-    Replace NaN/None values with JSON-serializable equivalents.
-
-    pandas DataFrame.to_dict(orient='records') converts None/NaN to float('nan'),
-    which json.dump() serializes as invalid 'NaN' literal.
-    This function converts such values to None (which becomes JSON 'null').
-    """
-    import math
-
-    def clean_value(val):
-        if val is None:
-            return None
-        if isinstance(val, float) and math.isnan(val):
-            return None
-        return val
-
-    return [{k: clean_value(v) for k, v in record.items()} for record in records]
-
-
 def apply_roster_overrides_to_schedule(df: pd.DataFrame, modality: str) -> pd.DataFrame:
     """Reapply roster skill constraints to a schedule DataFrame."""
     if df is None or df.empty or 'PPL' not in df.columns:
@@ -297,7 +277,7 @@ def _build_unified_payload(use_staged: bool) -> dict:
         export_df = export_df[cols_to_backup].copy()
         export_df['modality'] = mod
 
-        working_hours.extend(_clean_nan_values(export_df.to_dict(orient='records')))
+        working_hours.extend(export_df.to_dict(orient='records'))
         info_texts[mod] = d.get('info_texts', [])
         metadata[mod] = {
             'last_modified': d.get('last_modified').isoformat() if d.get('last_modified') else None,
@@ -637,7 +617,7 @@ def write_unified_scheduled_file(modality_dfs: dict, *, target_date: Optional[da
         ]
         export_df = export_df[cols_to_export]
         export_df['modality'] = mod
-        records.extend(_clean_nan_values(export_df.to_dict(orient='records')))
+        records.extend(export_df.to_dict(orient='records'))
         info_texts[mod] = []
 
     payload = {

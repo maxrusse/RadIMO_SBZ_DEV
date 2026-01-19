@@ -128,8 +128,7 @@ def _df_to_api_response(df: pd.DataFrame) -> list[dict[str, Any]]:
         }
 
         if has_gaps:
-            gaps_value = row.get('gaps', None)
-            worker_data['gaps'] = None if pd.isna(gaps_value) else gaps_value
+            worker_data['gaps'] = row.get('gaps', None)
 
         for skill in SKILL_COLUMNS:
             worker_data[skill] = skill_value_to_display(row.get(skill, None))
@@ -140,8 +139,7 @@ def _df_to_api_response(df: pd.DataFrame) -> list[dict[str, Any]]:
         if has_manual:
             worker_data['is_manual'] = bool(row.get('is_manual', False))
         if has_gap_id:
-            gap_id_value = row.get('gap_id')
-            worker_data['gap_id'] = None if pd.isna(gap_id_value) else gap_id_value
+            worker_data['gap_id'] = row.get('gap_id')
 
         data.append(worker_data)
 
