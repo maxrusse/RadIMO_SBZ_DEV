@@ -146,7 +146,6 @@ skills:
     text_color: '#ffffff'
     weight: 1.0
     special: true
-    always_visible: true  # If true, button stays even if no worker available
     display_order: 5
     slug: abd-onco
 
@@ -242,16 +241,12 @@ How skill values appear in the prep page table.
 skill_value_colors:
   active:     # skill = 1 (primary assignment)
     color: '#28a745'
-    label: 'Active'
   passive:    # skill = 0 (fallback only)
     color: '#6c757d'
-    label: 'Passive'
   excluded:   # skill = -1 (never assign)
     color: '#dc3545'
-    label: 'Excluded'
   weighted:   # skill = 'w' (assisted/weighted)
     color: '#17a2b8'
-    label: 'Weighted'
 ```
 
 ---
@@ -344,8 +339,6 @@ ui_colors:
   tomorrow_tab: '#ffc107'     # Yellow for "Prep Tomorrow"
   success: '#28a745'
   error: '#dc3545'
-  warning: '#ffc107'
-  info: '#17a2b8'
 ```
 
 ---
@@ -359,7 +352,6 @@ balancer:
   enabled: true
   min_assignments_per_skill: 5    # Minimum weighted assignments
   imbalance_threshold_pct: 30     # Trigger overflow at 30% imbalance
-  allow_overflow_on_imbalance: true
   disable_overflow_at_shift_end_minutes: 30  # Don't assign overflow in last X minutes
 
   # Hours counting for workload calculation
@@ -697,7 +689,6 @@ balancer:
   enabled: true
   min_assignments_per_skill: 3
   imbalance_threshold_pct: 30
-  allow_overflow_on_imbalance: true
   disable_overflow_at_shift_start_minutes: 15
   disable_overflow_at_shift_end_minutes: 30
   hours_counting:
