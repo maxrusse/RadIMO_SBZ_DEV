@@ -502,6 +502,9 @@ def build_working_hours_from_medweb(
                 else:
                     counts_for_hours = hours_counting_config.get('shift_default', True)
 
+                # Use label for task name (shorter, cleaner than raw CSV text)
+                task_label = rule.get('label', activity_desc)
+
                 rows_per_modality[modality].append({
                     'PPL': ppl_str,
                     'canonical_id': canonical_id,
@@ -509,7 +512,7 @@ def build_working_hours_from_medweb(
                     'end_time': end_time,
                     'shift_duration': duration_hours,
                     'Modifier': rule_modifier,
-                    'tasks': activity_desc,
+                    'tasks': task_label,
                     'counts_for_hours': counts_for_hours,
                     **modality_skills
                 })
