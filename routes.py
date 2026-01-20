@@ -1145,11 +1145,20 @@ def add_live_gap():
     gap_type = data.get('gap_type', 'custom')
     gap_start = data.get('gap_start')
     gap_end = data.get('gap_end')
+    gap_counts_for_hours = data.get('gap_counts_for_hours')
 
     if modality not in modality_data:
         return jsonify({'error': 'Invalid modality'}), 400
 
-    success, action, error = _add_gap_to_schedule(modality, row_index, gap_type, gap_start, gap_end, use_staged=False)
+    success, action, error = _add_gap_to_schedule(
+        modality,
+        row_index,
+        gap_type,
+        gap_start,
+        gap_end,
+        use_staged=False,
+        gap_counts_for_hours=gap_counts_for_hours
+    )
 
     if success:
         return jsonify({'success': True, 'action': action})
@@ -1164,11 +1173,20 @@ def add_staged_gap():
     gap_type = data.get('gap_type', 'custom')
     gap_start = data.get('gap_start')
     gap_end = data.get('gap_end')
+    gap_counts_for_hours = data.get('gap_counts_for_hours')
 
     if modality not in staged_modality_data:
         return jsonify({'error': 'Invalid modality'}), 400
 
-    success, action, error = _add_gap_to_schedule(modality, row_index, gap_type, gap_start, gap_end, use_staged=True)
+    success, action, error = _add_gap_to_schedule(
+        modality,
+        row_index,
+        gap_type,
+        gap_start,
+        gap_end,
+        use_staged=True,
+        gap_counts_for_hours=gap_counts_for_hours
+    )
 
     if success:
         return jsonify({'success': True, 'action': action})
@@ -1178,21 +1196,35 @@ def add_staged_gap():
 @routes.route('/api/live-schedule/remove-gap', methods=['POST'])
 @admin_required
 def remove_live_gap():
-    """Remove a gap from a live schedule shift by index."""
+    """Remove a gap from a live schedule shift."""
     from data_manager.schedule_crud import _remove_gap_from_schedule
 
     data = request.json
     modality = data.get('modality')
     row_index = data.get('row_index')
     gap_index = data.get('gap_index')
+    gap_start = data.get('gap_start')
+    gap_end = data.get('gap_end')
+    gap_activity = data.get('gap_activity')
 
     if modality not in modality_data:
         return jsonify({'error': 'Invalid modality'}), 400
 
-    if gap_index is None:
-        return jsonify({'error': 'gap_index is required'}), 400
+    if gap_index is None and (gap_start is None or gap_end is None):
+        return jsonify({'error': 'gap_start and gap_end are required when gap_index is missing'}), 400
 
-    success, action, error = _remove_gap_from_schedule(modality, row_index, gap_index, use_staged=False)
+    gap_match = {
+        'start': gap_start,
+        'end': gap_end,
+        'activity': gap_activity
+    }
+    success, action, error = _remove_gap_from_schedule(
+        modality,
+        row_index,
+        gap_index,
+        use_staged=False,
+        gap_match=gap_match if gap_index is None else None
+    )
 
     if success:
         return jsonify({'success': True, 'action': action})
@@ -1202,21 +1234,35 @@ def remove_live_gap():
 @routes.route('/api/prep-next-day/remove-gap', methods=['POST'])
 @admin_required
 def remove_staged_gap():
-    """Remove a gap from a staged schedule shift by index."""
+    """Remove a gap from a staged schedule shift."""
     from data_manager.schedule_crud import _remove_gap_from_schedule
 
     data = request.json
     modality = data.get('modality')
     row_index = data.get('row_index')
     gap_index = data.get('gap_index')
+    gap_start = data.get('gap_start')
+    gap_end = data.get('gap_end')
+    gap_activity = data.get('gap_activity')
 
     if modality not in staged_modality_data:
         return jsonify({'error': 'Invalid modality'}), 400
 
-    if gap_index is None:
-        return jsonify({'error': 'gap_index is required'}), 400
+    if gap_index is None and (gap_start is None or gap_end is None):
+        return jsonify({'error': 'gap_start and gap_end are required when gap_index is missing'}), 400
 
-    success, action, error = _remove_gap_from_schedule(modality, row_index, gap_index, use_staged=True)
+    gap_match = {
+        'start': gap_start,
+        'end': gap_end,
+        'activity': gap_activity
+    }
+    success, action, error = _remove_gap_from_schedule(
+        modality,
+        row_index,
+        gap_index,
+        use_staged=True,
+        gap_match=gap_match if gap_index is None else None
+    )
 
     if success:
         return jsonify({'success': True, 'action': action})
@@ -1233,18 +1279,31 @@ def update_live_gap():
     modality = data.get('modality')
     row_index = data.get('row_index')
     gap_index = data.get('gap_index')
+    gap_start = data.get('gap_start')
+    gap_end = data.get('gap_end')
+    gap_activity = data.get('gap_activity')
     new_start = data.get('new_start')
     new_end = data.get('new_end')
     new_activity = data.get('new_activity')
+    new_counts_for_hours = data.get('new_counts_for_hours')
 
     if modality not in modality_data:
         return jsonify({'error': 'Invalid modality'}), 400
 
-    if gap_index is None:
-        return jsonify({'error': 'gap_index is required'}), 400
+    if gap_index is None and (gap_start is None or gap_end is None):
+        return jsonify({'error': 'gap_start and gap_end are required when gap_index is missing'}), 400
 
     success, action, error = _update_gap_in_schedule(
-        modality, row_index, gap_index, new_start, new_end, new_activity, use_staged=False
+        modality,
+        row_index,
+        gap_index,
+        new_start,
+        new_end,
+        new_activity,
+        use_staged=False,
+        new_counts_for_hours=new_counts_for_hours,
+        gap_match={'start': gap_start, 'end': gap_end, 'activity': gap_activity}
+        if gap_index is None else None
     )
 
     if success:
@@ -1262,18 +1321,31 @@ def update_staged_gap():
     modality = data.get('modality')
     row_index = data.get('row_index')
     gap_index = data.get('gap_index')
+    gap_start = data.get('gap_start')
+    gap_end = data.get('gap_end')
+    gap_activity = data.get('gap_activity')
     new_start = data.get('new_start')
     new_end = data.get('new_end')
     new_activity = data.get('new_activity')
+    new_counts_for_hours = data.get('new_counts_for_hours')
 
     if modality not in staged_modality_data:
         return jsonify({'error': 'Invalid modality'}), 400
 
-    if gap_index is None:
-        return jsonify({'error': 'gap_index is required'}), 400
+    if gap_index is None and (gap_start is None or gap_end is None):
+        return jsonify({'error': 'gap_start and gap_end are required when gap_index is missing'}), 400
 
     success, action, error = _update_gap_in_schedule(
-        modality, row_index, gap_index, new_start, new_end, new_activity, use_staged=True
+        modality,
+        row_index,
+        gap_index,
+        new_start,
+        new_end,
+        new_activity,
+        use_staged=True,
+        new_counts_for_hours=new_counts_for_hours,
+        gap_match={'start': gap_start, 'end': gap_end, 'activity': gap_activity}
+        if gap_index is None else None
     )
 
     if success:

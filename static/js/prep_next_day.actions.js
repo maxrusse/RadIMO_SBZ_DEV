@@ -522,7 +522,7 @@ async function loadData() {
 }
 
 // Build grouped entries list: worker -> shifts (time-based) -> modality×skills matrix
-// Merges split shifts back into connected work periods with gaps shown inline
+// Merges shifts with explicit gaps for display
 function buildEntriesByWorker(data, tab = 'today') {
   const counts = {};
   const grouped = {};
@@ -539,30 +539,17 @@ function buildEntriesByWorker(data, tab = 'today') {
       }
       const existingActivity = existing.activity || '';
       const nextActivity = gap.activity || '';
+      const existingCounts = existing.counts_for_hours === true;
+      const nextCounts = gap.counts_for_hours === true;
       if (!existingActivity && nextActivity) {
+        merged.set(key, gap);
+        return;
+      }
+      if (existingCounts && !nextCounts) {
         merged.set(key, gap);
       }
     });
     return Array.from(merged.values());
-  }
-
-  function deriveGapsFromSegments(segments, existingGaps = []) {
-    const existingKeys = new Set(
-      existingGaps.filter(Boolean).map(gap => `${gap.start || ''}-${gap.end || ''}`)
-    );
-    const sorted = [...segments].sort((a, b) => (a.start || '').localeCompare(b.start || ''));
-    const derived = [];
-    for (let i = 1; i < sorted.length; i++) {
-      const prev = sorted[i - 1];
-      const curr = sorted[i];
-      if (prev?.end && curr?.start && prev.end < curr.start) {
-        const key = `${prev.end}-${curr.start}`;
-        if (!existingKeys.has(key)) {
-          derived.push({ start: prev.end, end: curr.start, activity: 'Gap' });
-        }
-      }
-    }
-    return derived;
   }
 
   // First pass: collect all entries
@@ -585,6 +572,10 @@ function buildEntriesByWorker(data, tab = 'today') {
           gaps = typeof row.gaps === 'string' ? JSON.parse(row.gaps) : row.gaps;
         } catch (e) { gaps = []; }
       }
+      gaps = gaps.map(gap => ({
+        ...gap,
+        counts_for_hours: gap.counts_for_hours === true
+      }));
 
       // Check if this is a gap row using config (not string matching)
       const isGapRow = isGapTask(taskStr);
@@ -657,7 +648,12 @@ function buildEntriesByWorker(data, tab = 'today') {
       grouped[workerName].allEntries.push(entry);
       const gapCandidates = [...gaps];
       if (isGapRow) {
-        gapCandidates.push({ start: startTime, end: endTime, activity: taskStr });
+        gapCandidates.push({
+          start: startTime,
+          end: endTime,
+          activity: taskStr,
+          counts_for_hours: roleConfig?.counts_for_hours === true
+        });
       }
       grouped[workerName].allGaps = mergeUniqueGaps([...(grouped[workerName].allGaps || []), ...gapCandidates]);
 
@@ -798,7 +794,7 @@ function buildEntriesByWorker(data, tab = 'today') {
     });
     if (currentMerged) mergedShifts.push(currentMerged);
 
-    // Attach only the gaps that live inside each merged shift and derive implicit ones between segments
+    // Attach only the gaps that live inside each merged shift
     group.shiftsArray = mergedShifts.map(shift => {
       const segments = (shift.timeSegments || []).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
       const firstStart = segments[0]?.start || shift.start_time;
@@ -817,8 +813,7 @@ function buildEntriesByWorker(data, tab = 'today') {
           const clippedEnd = gapEnd > (lastEnd || '') ? lastEnd : gapEnd;
           return { ...g, start: clippedStart, end: clippedEnd };
         });
-      const derivedGaps = deriveGapsFromSegments(segments, [...(shift.gaps || []), ...gapsInRange]);
-      const combinedGaps = mergeUniqueGaps([...(shift.gaps || []), ...gapsInRange, ...derivedGaps]);
+      const combinedGaps = mergeUniqueGaps([...(shift.gaps || []), ...gapsInRange]);
 
       return {
         ...shift,
@@ -1096,7 +1091,13 @@ async function removeGapFromModal(shiftIdx, gapIdx) {
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ modality: modKey, row_index: modData.row_index, gap_index: gapIdx })
+          body: JSON.stringify({
+            modality: modKey,
+            row_index: modData.row_index,
+            gap_start: gap.start,
+            gap_end: gap.end,
+            gap_activity: gap.activity || null
+          })
         });
         if (response.ok) {
           anySuccess = true;
@@ -1117,6 +1118,61 @@ async function removeGapFromModal(shiftIdx, gapIdx) {
   } catch (error) {
     showMessage('error', error.message);
   }
+}
+
+async function updateGapDetailsFromModal(shiftIdx, gapIdx, updates) {
+  const { tab, groupIdx } = currentEditEntry || {};
+  const group = entriesData[tab]?.[groupIdx];
+  if (!group) return;
+
+  const shifts = getModalShifts(group);
+  const shift = shifts[shiftIdx];
+  if (!shift) return;
+
+  const gaps = shift.gaps || [];
+  const gap = gaps[gapIdx];
+  if (!gap) return;
+
+  const endpoint = tab === 'today' ? '/api/live-schedule/update-gap' : '/api/prep-next-day/update-gap';
+
+  try {
+    let anySuccess = false;
+    for (const [modKey, modData] of Object.entries(shift.modalities)) {
+      if (modData.row_index !== undefined && modData.row_index >= 0) {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modality: modKey,
+            row_index: modData.row_index,
+            gap_start: gap.start,
+            gap_end: gap.end,
+            gap_activity: gap.activity || null,
+            ...updates
+          })
+        });
+        if (response.ok) {
+          anySuccess = true;
+        }
+      }
+    }
+    if (anySuccess) {
+      await loadData();
+      if (entriesData[tab] && entriesData[tab][groupIdx]) {
+        currentEditEntry = { tab, groupIdx };
+        renderEditModalContent();
+      }
+    } else {
+      showMessage('error', 'Failed to update gap hours flag');
+    }
+  } catch (error) {
+    showMessage('error', error.message);
+  }
+}
+
+// Update a gap's counts_for_hours flag via edit modal
+async function updateGapCountsForHours(shiftIdx, gapIdx, countsForHours) {
+  await updateGapDetailsFromModal(shiftIdx, gapIdx, { new_counts_for_hours: countsForHours });
 }
 
 // Delete shift inline from quick edit mode
@@ -1192,7 +1248,7 @@ function onModalTaskChange() {
   // Update hours count checkbox based on task type
   const countsEl = document.getElementById('modal-add-counts-hours');
   if (countsEl) {
-    countsEl.checked = isGap ? false : (taskConfig?.counts_for_hours !== false);
+    countsEl.checked = taskConfig?.counts_for_hours !== false;
     updateHoursToggleLabel(countsEl);
   }
 
@@ -1294,6 +1350,7 @@ async function addShiftFromModal() {
   const countsHoursEl = document.getElementById('modal-add-counts-hours');
   const countsForHours = countsHoursEl ? countsHoursEl.checked : true;
   const isGap = isGapTask(taskName);
+  const gapCountsForHours = getGapCountsForHours(taskName);
 
   const workerEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
   const gapEndpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
@@ -1325,7 +1382,8 @@ async function addShiftFromModal() {
                 row_index: modData.row_index,
                 gap_type: taskName,
                 gap_start: startTime,
-                gap_end: endTime
+                gap_end: endTime,
+                gap_counts_for_hours: gapCountsForHours
               })
             });
 
@@ -1347,6 +1405,12 @@ async function addShiftFromModal() {
           const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
           skills[skill] = normalizeSkillValueJS(el ? el.value : 0);
         });
+        const gapEntries = isGap ? [{
+          start: startTime,
+          end: endTime,
+          activity: taskName,
+          counts_for_hours: countsForHours
+        }] : undefined;
 
         const response = await fetch(workerEndpoint, {
           method: 'POST',
@@ -1360,6 +1424,7 @@ async function addShiftFromModal() {
               Modifier: modifier,
               counts_for_hours: countsForHours,
               tasks: taskName,
+              gaps: gapEntries,
               ...skills
             }
           })
@@ -2043,7 +2108,8 @@ async function callAddGap(endpoint, modality, rowIndex, type, start, end) {
       row_index: rowIndex,
       gap_type: type,
       gap_start: start,
-      gap_end: end
+      gap_end: end,
+      gap_counts_for_hours: getGapCountsForHours(type)
     })
   });
   if (!response.ok) {
@@ -2052,6 +2118,11 @@ async function callAddGap(endpoint, modality, rowIndex, type, start, end) {
     console.error('Gap add failed:', res.error);
     throw new Error(res.error || 'Failed to add overlapping gap');
   }
+}
+
+function getGapCountsForHours(taskName) {
+  const taskConfig = TASK_ROLES.find(t => t.name === taskName);
+  return taskConfig?.counts_for_hours === true;
 }
 
 // =============================================
@@ -2140,13 +2211,21 @@ async function onQuickGap30(tab, gIdx, shiftIdx, durationMinutes) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           modality: MODALITIES[0].toLowerCase(),
-          ppl_name: group.worker,
-          start_time: gapStart,
-          end_time: gapEnd,
-          modifier: 1.0,
-          counts_for_hours: false,
-          tasks: gapType,
-          ...skills
+          worker_data: {
+            PPL: group.worker,
+            start_time: gapStart,
+            end_time: gapEnd,
+            Modifier: 1.0,
+            counts_for_hours: getGapCountsForHours(gapType),
+            tasks: gapType,
+            gaps: [{
+              start: gapStart,
+              end: gapEnd,
+              activity: gapType,
+              counts_for_hours: getGapCountsForHours(gapType)
+            }],
+            ...skills
+          }
         })
       });
 

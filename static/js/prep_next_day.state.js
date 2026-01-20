@@ -222,6 +222,16 @@ function renderTaskOptionsWithGroups(selectedValue = '', includeGaps = false, au
   return html;
 }
 
+function renderGapOptions(selectedValue = '') {
+  const gaps = getGapTasks();
+  let html = '<option value="">-- Select --</option>';
+  gaps.forEach(t => {
+    const selected = t.name === selectedValue ? 'selected' : '';
+    html += `<option value="${escapeHtml(t.name)}" ${selected}>${escapeHtml(t.name)}</option>`;
+  });
+  return html;
+}
+
 // Get CSS class for skill value display
 function getSkillClass(value) {
   const v = normalizeSkillValueJS(value);
