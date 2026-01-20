@@ -25,7 +25,7 @@ from lib.utils import (
     get_next_workday,
 )
 from state_manager import StateManager
-from data_manager.file_ops import _calculate_total_work_hours
+from data_manager.file_ops import _calculate_total_work_hours, backup_dataframe
 
 # Get state references
 _state = StateManager.get_instance()
@@ -136,6 +136,36 @@ def _coerce_bool(value: Optional[object]) -> Optional[bool]:
     if isinstance(value, str):
         return value.strip().lower() in {'true', '1', 'yes', 'y'}
     return bool(value)
+
+
+def _find_gap_index_by_match(gaps: list, gap_match: Optional[dict]) -> Tuple[Optional[int], Optional[str]]:
+    """
+    Find a gap index by matching start, end, and optionally activity.
+
+    Args:
+        gaps: List of gap dicts
+        gap_match: Dict with 'start', 'end', and optional 'activity' to match
+
+    Returns:
+        (gap_index, error_message) - gap_index is None on error
+    """
+    if gap_match is None:
+        return None, 'Gap match criteria required'
+
+    match_start = gap_match.get('start')
+    match_end = gap_match.get('end')
+    match_activity = gap_match.get('activity')
+
+    if not match_start or not match_end:
+        return None, 'Gap start and end are required'
+
+    for idx, gap in enumerate(gaps):
+        if (gap.get('start') == match_start and
+            gap.get('end') == match_end and
+            (match_activity is None or gap.get('activity') == match_activity)):
+            return idx, None
+
+    return None, 'Gap not found'
 
 
 def _get_schedule_data_dict(modality: str, use_staged: bool) -> dict:
@@ -369,9 +399,6 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
         On success: (True, {'reindexed': bool}) - reindexed=True if DataFrame was rebuilt
         On failure: (False, error_message)
     """
-    # Import here to avoid circular imports
-    from data_manager.file_ops import backup_dataframe
-
     data_dict = _get_schedule_data_dict(modality, use_staged)
     df = data_dict['working_hours_df']
 
@@ -451,9 +478,6 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
         On success: (True, {'row_index': int, 'reindexed': bool}, None)
         On failure: (False, None, error_message)
     """
-    # Import here to avoid circular imports
-    from data_manager.file_ops import backup_dataframe
-
     data_dict = _get_schedule_data_dict(modality, use_staged)
     df = data_dict['working_hours_df']
 
@@ -552,9 +576,6 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
 
 def _delete_worker_from_schedule(modality: str, row_index: int, use_staged: bool, verify_ppl: Optional[str] = None) -> tuple:
     """Delete a worker row from the schedule."""
-    # Import here to avoid circular imports
-    from data_manager.file_ops import backup_dataframe
-
     data_dict = _get_schedule_data_dict(modality, use_staged)
     df = data_dict['working_hours_df']
 
@@ -602,9 +623,6 @@ def _add_gap_to_schedule(
     3. Gap at end - adjust end time
     4. Gap in middle - store as child entity in gaps JSON (no row split)
     """
-    # Import here to avoid circular imports
-    from data_manager.file_ops import backup_dataframe
-
     data_dict = _get_schedule_data_dict(modality, use_staged)
     df = data_dict['working_hours_df']
 
@@ -745,9 +763,6 @@ def _remove_gap_from_schedule(
     Returns:
         (success: bool, action_or_None: str, error_or_None: str)
     """
-    # Import here to avoid circular imports
-    from data_manager.file_ops import backup_dataframe
-
     data_dict = _get_schedule_data_dict(modality, use_staged)
     df = data_dict['working_hours_df']
 
@@ -763,22 +778,9 @@ def _remove_gap_from_schedule(
             return False, None, 'No gaps to remove'
 
         if gap_index is None:
-            match_start = (gap_match or {}).get('start')
-            match_end = (gap_match or {}).get('end')
-            match_activity = (gap_match or {}).get('activity')
-            if not match_start or not match_end:
-                return False, None, 'Gap start and end are required'
-            gap_index = next(
-                (
-                    idx for idx, gap in enumerate(gaps)
-                    if gap.get('start') == match_start
-                    and gap.get('end') == match_end
-                    and (match_activity is None or gap.get('activity') == match_activity)
-                ),
-                None
-            )
+            gap_index, error = _find_gap_index_by_match(gaps, gap_match)
             if gap_index is None:
-                return False, None, 'Gap not found for removal'
+                return False, None, error or 'Gap not found for removal'
 
         if gap_index < 0 or gap_index >= len(gaps):
             return False, None, f'Invalid gap index: {gap_index}'
@@ -843,9 +845,6 @@ def _update_gap_in_schedule(
     Returns:
         (success: bool, action_or_None: str, error_or_None: str)
     """
-    # Import here to avoid circular imports
-    from data_manager.file_ops import backup_dataframe
-
     data_dict = _get_schedule_data_dict(modality, use_staged)
     df = data_dict['working_hours_df']
 
@@ -861,22 +860,9 @@ def _update_gap_in_schedule(
             return False, None, 'No gaps to update'
 
         if gap_index is None:
-            match_start = (gap_match or {}).get('start')
-            match_end = (gap_match or {}).get('end')
-            match_activity = (gap_match or {}).get('activity')
-            if not match_start or not match_end:
-                return False, None, 'Gap start and end are required'
-            gap_index = next(
-                (
-                    idx for idx, gap_item in enumerate(gaps)
-                    if gap_item.get('start') == match_start
-                    and gap_item.get('end') == match_end
-                    and (match_activity is None or gap_item.get('activity') == match_activity)
-                ),
-                None
-            )
+            gap_index, error = _find_gap_index_by_match(gaps, gap_match)
             if gap_index is None:
-                return False, None, 'Gap not found for update'
+                return False, None, error or 'Gap not found for update'
 
         if gap_index < 0 or gap_index >= len(gaps):
             return False, None, f'Invalid gap index: {gap_index}'
