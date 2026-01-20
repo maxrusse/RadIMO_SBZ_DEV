@@ -49,8 +49,8 @@ Admins can adjust "Today" (Live) or plan "Tomorrow" (Staged) via separate pages.
 
 **Features:**
 - **Manual highlighting**: Any shifts added or edited manually by an admin are highlighted (subtle yellow) to distinguish them from auto-loaded Master CSV data.
-- **Split shift (GAP)**: Add a meeting (e.g., "Board 15:00-16:00") and the system automatically splits the worker's shift into two active segments.
-- **Linked gaps**: Split shifts are linked via `gap_id`. Deleting one segment removes the entire linked chain.
+- **Gaps as child entities**: Add a meeting (e.g., "Board 15:00-16:00") and the system stores it as a gap within the shift's `gaps` JSON array. The shift remains a single row with its original times preserved.
+- **Effective duration**: Shift duration is automatically calculated as total time minus gap durations.
 
 ---
 

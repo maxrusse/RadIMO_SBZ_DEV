@@ -1078,6 +1078,55 @@ async function deleteShiftFromModal(shiftIdx) {
   }
 }
 
+// Remove a gap from a shift via edit modal
+async function removeGapFromModal(shiftIdx, gapIdx) {
+  const { tab, groupIdx } = currentEditEntry || {};
+  const group = entriesData[tab]?.[groupIdx];
+  if (!group) return;
+
+  const shifts = getModalShifts(group);
+  const shift = shifts[shiftIdx];
+  if (!shift) return;
+
+  const gaps = shift.gaps || [];
+  const gap = gaps[gapIdx];
+  if (!gap) return;
+
+  if (!confirm(`Remove gap ${gap.start}-${gap.end} (${gap.activity || 'Gap'})?`)) return;
+
+  const endpoint = tab === 'today' ? '/api/live-schedule/remove-gap' : '/api/prep-next-day/remove-gap';
+
+  try {
+    // Remove gap from all modality entries for this shift
+    let anySuccess = false;
+    for (const [modKey, modData] of Object.entries(shift.modalities)) {
+      if (modData.row_index !== undefined && modData.row_index >= 0) {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ modality: modKey, row_index: modData.row_index, gap_index: gapIdx })
+        });
+        if (response.ok) {
+          anySuccess = true;
+        }
+      }
+    }
+    if (anySuccess) {
+      showMessage('success', 'Gap removed');
+      await loadData();
+      // Re-open modal to show updated data
+      if (entriesData[tab] && entriesData[tab][groupIdx]) {
+        currentEditEntry = { tab, groupIdx };
+        renderEditModalContent();
+      }
+    } else {
+      showMessage('error', 'Failed to remove gap');
+    }
+  } catch (error) {
+    showMessage('error', error.message);
+  }
+}
+
 // Delete shift inline from quick edit mode
 async function deleteShiftInline(tab, groupIdx, shiftIdx) {
   const group = entriesData[tab]?.[groupIdx];
@@ -2024,7 +2073,7 @@ async function callAddGap(endpoint, modality, rowIndex, type, start, end) {
 
 /**
  * Add a break (gap) starting NOW for a worker.
- * Uses add-gap API to split existing shifts at the break time.
+ * Uses add-gap API to add gap to existing shifts.
  * Falls back to standalone gap entry if no shift exists at that time.
  * @param {string} tab - 'today' or 'tomorrow'
  * @param {number} gIdx - Group index
@@ -2062,7 +2111,7 @@ async function onQuickGap30(tab, gIdx, shiftIdx, durationMinutes) {
   if (!editMode[tab]) {
     let msg = `Add ${duration}-min break for ${group.worker}?\n\nTime: ${gapStart} - ${gapEnd}`;
     if (overlappingShifts.length > 0) {
-      msg += `\n\nWill split shift(s) at break time.`;
+      msg += `\n\nWill add gap to shift(s).`;
     } else {
       msg += `\n\nNo shift at this time - will create gap entry.`;
     }
@@ -2071,7 +2120,7 @@ async function onQuickGap30(tab, gIdx, shiftIdx, durationMinutes) {
 
   try {
     if (overlappingShifts.length > 0) {
-      // Use add-gap API to split existing shifts
+      // Use add-gap API to add gap to existing shifts
       const gapEndpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
 
       for (const shift of overlappingShifts) {
@@ -2087,7 +2136,7 @@ async function onQuickGap30(tab, gIdx, shiftIdx, durationMinutes) {
         }
       }
 
-      showMessage('success', `Added break (${gapStart}-${gapEnd}) for ${group.worker} - shift split`);
+      showMessage('success', `Added break (${gapStart}-${gapEnd}) for ${group.worker}`);
     } else {
       // No overlapping shift - create standalone gap entry
       const addEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
