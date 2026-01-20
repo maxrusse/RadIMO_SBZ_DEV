@@ -290,9 +290,6 @@ function renderTable(tab) {
       if (shiftIdx === 0) {
         tr.classList.add('worker-group-first');
         let workerHtml = `<span class="worker-name ${isDuplicate ? 'duplicate' : ''}">${escapedWorker}</span>${duplicateBadge}`;
-        if (shift.gap_id) {
-          workerHtml = `<span class="gap-linked-icon" title="Linked Split-Shift (ID: ${shift.gap_id})">🔗</span>` + workerHtml;
-        }
         // Add quick break button at worker level (today tab only)
         if (tab === 'today') {
           workerHtml += `<button type="button" class="btn-quick-gap" onclick="onQuickGap30('${tab}', ${gIdx}, 0)" title="Add ${QUICK_BREAK.duration_minutes}-min break NOW">☕</button>`;

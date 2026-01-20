@@ -510,17 +510,11 @@ def _delete_worker_from_schedule(modality: str, row_index: int, use_staged: bool
 
     try:
         worker_name = df.loc[row_index_int, 'PPL']
-        gap_id = df.loc[row_index_int, 'gap_id'] if 'gap_id' in df.columns else None
 
         if verify_ppl and str(worker_name) != str(verify_ppl):
             return False, None, 'Row mismatch: Schedule has changed. Please reload.'
 
-        if gap_id and pd.notnull(gap_id):
-            # Delete all rows sharing the same gap_id
-            data_dict['working_hours_df'] = df[df['gap_id'] != gap_id].reset_index(drop=True)
-            selection_logger.info(f"Deleted linked gap rows for ID {gap_id}")
-        else:
-            data_dict['working_hours_df'] = df.drop(index=row_index_int).reset_index(drop=True)
+        data_dict['working_hours_df'] = df.drop(index=row_index_int).reset_index(drop=True)
 
         if not use_staged:
             reconcile_live_worker_tracking(modality)
@@ -534,13 +528,13 @@ def _delete_worker_from_schedule(modality: str, row_index: int, use_staged: bool
 
 def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start: str, gap_end: str, use_staged: bool) -> tuple:
     """
-    Add a gap to a worker's schedule.
+    Add a gap to a worker's schedule as a child entity.
 
     Handles 4 cases:
-    1. Gap covers entire shift - delete row(s)
+    1. Gap covers entire shift - mark as full-shift gap (counts_for_hours=False)
     2. Gap at start - adjust start time
     3. Gap at end - adjust end time
-    4. Gap in middle - split into two rows
+    4. Gap in middle - store as child entity in gaps JSON (no row split)
     """
     # Import here to avoid circular imports
     from data_manager.file_ops import backup_dataframe
@@ -552,8 +546,6 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
         if 'gaps' not in df.columns:
             # Use object dtype to preserve None values (avoid NaN conversion)
             df['gaps'] = pd.array([None] * len(df), dtype=object)
-        if 'gap_id' not in df.columns:
-            df['gap_id'] = pd.array([None] * len(df), dtype=object)
         if use_staged and 'is_manual' not in df.columns:
             df['is_manual'] = False
 

@@ -632,7 +632,6 @@ function buildEntriesByWorker(data, tab = 'today') {
         modifier: row.Modifier !== undefined ? row.Modifier : 1.0,
         counts_for_hours: countsForHours !== false,  // Default true
         is_manual: Boolean(row.is_manual),
-        gap_id: row.gap_id || null,
         gaps: gaps,
         skills: SKILLS.reduce((acc, skill) => {
           if (isGapRow) { acc[skill] = -1; return acc; }
@@ -675,8 +674,7 @@ function buildEntriesByWorker(data, tab = 'today') {
           modalities: {},
           timeSegments: [{ start: entry.start_time, end: entry.end_time }],
           originalShifts: [entry],
-          is_manual: entry.is_manual,
-          gap_id: entry.gap_id
+          is_manual: entry.is_manual
         };
       }
 
@@ -747,7 +745,7 @@ function buildEntriesByWorker(data, tab = 'today') {
       });
     };
 
-    // Merge consecutive shifts with same task or same gap_id (split shifts due to gaps)
+    // Merge consecutive shifts with same task and gap between
     const mergedShifts = [];
     let currentMerged = null;
 
@@ -758,10 +756,7 @@ function buildEntriesByWorker(data, tab = 'today') {
         hasWorkerGapBetween(currentMerged.end_time, shift.start_time)
       );
 
-      // Check if shifts should be merged:
-      // 1. Same gap_id (CSV-split shifts) - always merge
-      // 2. Same task with gap between - merge into one work period
-      const sameGapId = currentMerged && shift.gap_id && currentMerged.gap_id && shift.gap_id === currentMerged.gap_id;
+      // Merge shifts with same task and gap between into one work period
       const sameTaskWithGap = currentMerged && currentMerged.task === shift.task && hasGapBetween;
 
       if (!currentMerged) {
@@ -770,17 +765,15 @@ function buildEntriesByWorker(data, tab = 'today') {
           timeSegments: [{ start: shift.start_time, end: shift.end_time }],
           originalShifts: [shift],
           gaps: mergeUniqueGaps(shift.gaps || []),
-          is_manual: shift.is_manual,
-          gap_id: shift.gap_id
+          is_manual: shift.is_manual
         };
-      } else if (sameGapId || sameTaskWithGap) {
-        // Merge: same gap_id OR same task with gap between
+      } else if (sameTaskWithGap) {
+        // Merge: same task with gap between
         currentMerged.timeSegments.push({ start: shift.start_time, end: shift.end_time });
         currentMerged.originalShifts.push(shift);
         currentMerged.end_time = shift.end_time;
         currentMerged.gaps = mergeUniqueGaps([...(currentMerged.gaps || []), ...(shift.gaps || [])]);
         currentMerged.is_manual = shift.is_manual || currentMerged.is_manual;
-        currentMerged.gap_id = shift.gap_id || currentMerged.gap_id;
         // Merge task names if different (prefer the existing one, but keep both for display)
         if (shift.task && currentMerged.task !== shift.task && !currentMerged.task.includes(shift.task)) {
           currentMerged.task = currentMerged.task ? `${currentMerged.task}` : shift.task;
@@ -799,8 +792,7 @@ function buildEntriesByWorker(data, tab = 'today') {
           timeSegments: [{ start: shift.start_time, end: shift.end_time }],
           originalShifts: [shift],
           gaps: mergeUniqueGaps(shift.gaps || []),
-          is_manual: shift.is_manual,
-          gap_id: shift.gap_id
+          is_manual: shift.is_manual
         };
       }
     });

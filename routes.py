@@ -117,7 +117,6 @@ def _df_to_api_response(df: pd.DataFrame) -> list[dict[str, Any]]:
     has_gaps = 'gaps' in columns
     has_counts_for_hours = 'counts_for_hours' in columns
     has_manual = 'is_manual' in columns
-    has_gap_id = 'gap_id' in columns
     for idx, row in df.iterrows():
         worker_data = {
             'row_index': int(idx),
@@ -139,9 +138,6 @@ def _df_to_api_response(df: pd.DataFrame) -> list[dict[str, Any]]:
 
         if has_manual:
             worker_data['is_manual'] = bool(row.get('is_manual', False))
-        if has_gap_id:
-            gap_id_value = row.get('gap_id')
-            worker_data['gap_id'] = None if pd.isna(gap_id_value) else gap_id_value
 
         data.append(worker_data)
 

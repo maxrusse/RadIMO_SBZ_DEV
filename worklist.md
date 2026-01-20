@@ -307,24 +307,33 @@ All 6 steps have been successfully implemented. The gap model has been refactore
 
 ## Open Points & Future Work
 
-### Legacy `gap_id` Handling (Low Priority)
-The following code still references `gap_id` for **legacy data compatibility**. This is intentional and should NOT be removed until all legacy split-row data is confirmed cleared:
+### Legacy `gap_id` Removal ✅ COMPLETED
 
-| File | Lines | Purpose |
-|------|-------|---------|
-| `routes.py` | 120-144 | Returns `gap_id` in API response for display |
-| `data_manager/schedule_crud.py` | 513-521 | Deletes all rows with same `gap_id` on delete |
-| `data_manager/schedule_crud.py` | 555-556 | Ensures `gap_id` column exists |
-| `data_manager/file_ops.py` | 186 | Column order includes `gap_id` |
-| `static/js/prep_next_day.actions.js` | 750-803 | Merges shifts by `gap_id` for display |
-| `static/js/prep_next_day.render.js` | 293-294 | Shows 🔗 icon for legacy split shifts |
+**Decision:** Remove ALL legacy `gap_id` code - start clean with new model.
 
-**Future cleanup:** Once confirmed no legacy data exists, these can be simplified/removed.
+**Cleaned locations:**
 
-### Comments to Update (Low Priority)
-The following comments reference old "split" behavior but logic is kept for legacy:
-- `prep_next_day.actions.js:750` — "Merge consecutive shifts with same task or same gap_id (split shifts due to gaps)"
-- `prep_next_day.actions.js:762` — "1. Same gap_id (CSV-split shifts) - always merge"
+| # | File | What Was Removed | Status |
+|---|------|------------------|--------|
+| 1 | `routes.py` | `gap_id` field from API response | ✅ |
+| 2 | `data_manager/schedule_crud.py` | Delete-by-gap_id logic in `_delete_worker_from_schedule` | ✅ |
+| 3 | `data_manager/schedule_crud.py` | `gap_id` column initialization in `_add_gap_to_schedule` | ✅ |
+| 4 | `data_manager/file_ops.py` | `gap_id` from column order | ✅ |
+| 5 | `static/js/prep_next_day.actions.js` | `gap_id` property and merge-by-gap_id logic | ✅ |
+| 6 | `static/js/prep_next_day.render.js` | 🔗 linked icon for `gap_id` shifts | ✅ |
+
+**Summary of cleanup:**
+- Removed `has_gap_id` check and `gap_id` from API response
+- Simplified delete logic to single-row delete (no gap_id chain delete)
+- Removed `gap_id` column initialization
+- Removed `gap_id` from DataFrame column order
+- Removed `gap_id` property from entry/shift objects
+- Removed `sameGapId` merge condition (now only merges same task with gap)
+- Removed 🔗 linked icon display
+
+### Comments Updated ✅
+- `prep_next_day.actions.js:750` — Updated to "Merge consecutive shifts with same task and gap between"
+- Removed all gap_id-related comments
 
 ### Testing Plan ✅ Fixed
 Updated Testing Plan (line 81-86) to remove legacy migration test case and add:
