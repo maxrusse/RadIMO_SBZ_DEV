@@ -107,10 +107,6 @@ def get_next_workday(from_date: Optional[Union[datetime, date]] = None) -> datet
 # -----------------------------------------------------------
 def validate_excel_structure(df: pd.DataFrame, required_columns: List[str], skill_columns: List[str]) -> Tuple[bool, str]:
     """Validate DataFrame structure for worker schedule data."""
-    # Rename column "PP" to "Privat" if it exists
-    if "PP" in df.columns:
-        df.rename(columns={"PP": "Privat"}, inplace=True)
-
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
         return False, f"Fehlende Spalten: {', '.join(missing_columns)}"

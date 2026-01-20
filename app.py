@@ -1,9 +1,6 @@
 # Standard library imports
-import atexit
 import os
 from datetime import timedelta
-
-from apscheduler.schedulers.background import BackgroundScheduler
 
 # Flask imports
 from flask import Flask
@@ -35,24 +32,11 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
 # Register Routes
 app.register_blueprint(routes)
 
-# -----------------------------------------------------------
-# Scheduler Setup
-# -----------------------------------------------------------
-scheduler = BackgroundScheduler()
-
 # Daily reset check runs on every request
 @app.before_request
 def before_request_hook() -> None:
     check_and_perform_daily_reset()
 
-
-def shutdown_scheduler() -> None:
-    scheduler.shutdown()
-
-
-
-scheduler.start()
-atexit.register(shutdown_scheduler)
 
 # -----------------------------------------------------------
 # Startup Logic
