@@ -623,11 +623,16 @@ function buildEntriesByWorker(data, tab = 'today') {
         modifier: row.Modifier !== undefined ? row.Modifier : 1.0,
         counts_for_hours: countsForHours !== false,  // Default true
         is_manual: Boolean(row.is_manual),
+        is_gap_entry: isGapRow,
         gaps: gaps,
         skills: SKILLS.reduce((acc, skill) => {
-          if (isGapRow) { acc[skill] = -1; return acc; }
           const rawVal = row[skill];
           const hasRaw = rawVal !== undefined && rawVal !== '';
+          if (isGapRow) {
+            acc[skill] = hasRaw ? normalizeSkillValueJS(rawVal) : -1;
+            return acc;
+          }
+
           const fallback = rosterSkills[skill];
           const hasFallback = fallback !== undefined && fallback !== '';
 
@@ -643,7 +648,13 @@ function buildEntriesByWorker(data, tab = 'today') {
       };
 
       if (!grouped[workerName]) {
-        grouped[workerName] = { worker: workerName, shifts: {}, allEntries: [], allGaps: [] };
+        grouped[workerName] = {
+          worker: workerName,
+          shifts: {},
+          modalShifts: {},
+          allEntries: [],
+          allGaps: []
+        };
       }
       grouped[workerName].allEntries.push(entry);
       const gapCandidates = [...gaps];
@@ -659,6 +670,7 @@ function buildEntriesByWorker(data, tab = 'today') {
 
       // Group by time slot (shift key = start_time-end_time)
       const shiftKey = `${entry.start_time}-${entry.end_time}`;
+      const modalShiftKey = `${entry.start_time}-${entry.end_time}-${entry.is_gap_entry ? 'gap' : 'shift'}`;
       if (!grouped[workerName].shifts[shiftKey]) {
         grouped[workerName].shifts[shiftKey] = {
           start_time: entry.start_time,
@@ -670,13 +682,34 @@ function buildEntriesByWorker(data, tab = 'today') {
           modalities: {},
           timeSegments: [{ start: entry.start_time, end: entry.end_time }],
           originalShifts: [entry],
-          is_manual: entry.is_manual
+          is_manual: entry.is_manual,
+          is_gap_entry: entry.is_gap_entry
+        };
+      }
+      if (!grouped[workerName].modalShifts[modalShiftKey]) {
+        grouped[workerName].modalShifts[modalShiftKey] = {
+          start_time: entry.start_time,
+          end_time: entry.end_time,
+          modifier: entry.modifier,
+          counts_for_hours: entry.counts_for_hours,
+          task: entry.task,
+          gaps: gaps,
+          modalities: {},
+          timeSegments: [{ start: entry.start_time, end: entry.end_time }],
+          originalShifts: [entry],
+          is_manual: entry.is_manual,
+          is_gap_entry: entry.is_gap_entry
         };
       }
 
       // Add this modality's skills to the shift
       const modKey = mod.toLowerCase();
       grouped[workerName].shifts[shiftKey].modalities[modKey] = {
+        skills: entry.skills,
+        row_index: entry.row_index,
+        modifier: entry.modifier
+      };
+      grouped[workerName].modalShifts[modalShiftKey].modalities[modKey] = {
         skills: entry.skills,
         row_index: entry.row_index,
         modifier: entry.modifier
@@ -689,9 +722,22 @@ function buildEntriesByWorker(data, tab = 'today') {
       } else if (entry.task && !existingTask) {
         grouped[workerName].shifts[shiftKey].task = entry.task;
       }
+      if (grouped[workerName].shifts[shiftKey].is_gap_entry !== undefined) {
+        grouped[workerName].shifts[shiftKey].is_gap_entry =
+          grouped[workerName].shifts[shiftKey].is_gap_entry && entry.is_gap_entry;
+      }
+      const existingModalTask = grouped[workerName].modalShifts[modalShiftKey].task;
+      if (entry.task && existingModalTask && !existingModalTask.includes(entry.task)) {
+        grouped[workerName].modalShifts[modalShiftKey].task = existingModalTask + ', ' + entry.task;
+      } else if (entry.task && !existingModalTask) {
+        grouped[workerName].modalShifts[modalShiftKey].task = entry.task;
+      }
       // Merge gaps
       if (gaps.length > 0 && !grouped[workerName].shifts[shiftKey].gaps) {
         grouped[workerName].shifts[shiftKey].gaps = gaps;
+      }
+      if (gaps.length > 0 && !grouped[workerName].modalShifts[modalShiftKey].gaps) {
+        grouped[workerName].modalShifts[modalShiftKey].gaps = gaps;
       }
     });
   });
@@ -727,7 +773,11 @@ function buildEntriesByWorker(data, tab = 'today') {
       .map(([key, shift]) => ({ ...shift, shiftKey: key }))
       .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
 
-    group.modalShiftsArray = shiftsArr;
+    const modalShiftsArr = Object.entries(group.modalShifts || {})
+      .map(([key, shift]) => ({ ...shift, shiftKey: key }))
+      .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+
+    group.modalShiftsArray = modalShiftsArr;
 
     // Collect all gaps for this worker
     const workerGaps = group.allGaps || [];
@@ -761,7 +811,8 @@ function buildEntriesByWorker(data, tab = 'today') {
           timeSegments: [{ start: shift.start_time, end: shift.end_time }],
           originalShifts: [shift],
           gaps: mergeUniqueGaps(shift.gaps || []),
-          is_manual: shift.is_manual
+          is_manual: shift.is_manual,
+          is_gap_entry: shift.is_gap_entry
         };
       } else if (sameTaskWithGap) {
         // Merge: same task with gap between
@@ -770,6 +821,7 @@ function buildEntriesByWorker(data, tab = 'today') {
         currentMerged.end_time = shift.end_time;
         currentMerged.gaps = mergeUniqueGaps([...(currentMerged.gaps || []), ...(shift.gaps || [])]);
         currentMerged.is_manual = shift.is_manual || currentMerged.is_manual;
+        currentMerged.is_gap_entry = currentMerged.is_gap_entry && shift.is_gap_entry;
         // Merge task names if different (prefer the existing one, but keep both for display)
         if (shift.task && currentMerged.task !== shift.task && !currentMerged.task.includes(shift.task)) {
           currentMerged.task = currentMerged.task ? `${currentMerged.task}` : shift.task;
@@ -788,7 +840,8 @@ function buildEntriesByWorker(data, tab = 'today') {
           timeSegments: [{ start: shift.start_time, end: shift.end_time }],
           originalShifts: [shift],
           gaps: mergeUniqueGaps(shift.gaps || []),
-          is_manual: shift.is_manual
+          is_manual: shift.is_manual,
+          is_gap_entry: shift.is_gap_entry
         };
       }
     });

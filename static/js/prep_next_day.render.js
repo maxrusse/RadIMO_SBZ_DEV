@@ -297,7 +297,7 @@ function renderTable(tab) {
         tr.innerHTML += `<td rowspan="${totalRows}" style="vertical-align: middle;">${workerHtml}</td>`;
       }
 
-      const isGapRow = isGapTask(shift.task);
+      const isGapRow = shift.is_gap_entry !== undefined ? shift.is_gap_entry : isGapTask(shift.task);
       // Build timeline display with gaps shown inline
       const segments = shift.timeSegments || [{ start: shift.start_time, end: shift.end_time }];
       const gaps = shift.gaps || [];
@@ -372,9 +372,9 @@ function renderTable(tab) {
       const renderCell = (modKey, skill) => {
         const modData = shift.modalities[modKey] || { skills: {}, row_index: -1, modifier: 1.0 };
         const isAssigned = modData.row_index !== undefined && modData.row_index >= 0;
-        // Only mark as gap if the task itself is a gap (not just has gap metadata)
-        const isGap = isGapTask(shift.task);
-        const rawVal = isGap ? -1 : (modData.skills[skill] !== undefined ? modData.skills[skill] : -1);
+        // Only mark as gap if this entry is truly a gap row
+        const isGap = isGapRow;
+        const rawVal = modData.skills[skill] !== undefined ? modData.skills[skill] : -1;
         const val = normalizeSkillValueJS(rawVal);
 
         // Background color based on display mode:
@@ -532,11 +532,10 @@ function renderEditModalContent() {
     const primaryMod = assignedMods[0] || MODALITIES[0]?.toLowerCase() || 'ct';
     const modData = shift.modalities[primaryMod] || { skills: {}, row_index: -1, modifier: shift.modifier || 1.0 };
 
-    // Detect if this is a gap entry (all skills are -1)
-    const isGapEntry = SKILLS.every(skill => {
-      const val = modData.skills[skill];
-      return val === -1 || val === '-1';
-    });
+    // Detect if this is a gap entry (prefer explicit flag or task type)
+    const isGapEntry = shift.is_gap_entry !== undefined
+      ? shift.is_gap_entry
+      : isGapTask(shift.task);
 
     // Build timeline with gaps to make split shifts explicit
     const segments = shift.timeSegments || [{ start: shift.start_time, end: shift.end_time }];
