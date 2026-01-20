@@ -591,7 +591,13 @@ function buildEntriesByWorker(data, tab = 'today') {
       });
 
       // Pull default times from configured shifts/roles when missing
-      const roleConfig = TASK_ROLES.find(t => t.name === taskStr);
+      let roleConfig = TASK_ROLES.find(t => t.name === taskStr);
+      if (isGapRow && !roleConfig && taskParts.length > 0) {
+        const gapTaskName = taskParts.find(part => isGapTask(part));
+        if (gapTaskName) {
+          roleConfig = TASK_ROLES.find(t => t.name === gapTaskName);
+        }
+      }
       let startTime = row.start_time;
       let endTime = row.end_time;
       if ((!startTime || !endTime) && roleConfig) {
@@ -639,7 +645,25 @@ function buildEntriesByWorker(data, tab = 'today') {
           const rawVal = row[skill];
           const hasRaw = rawVal !== undefined && rawVal !== '';
           if (isGapRow) {
-            acc[skill] = hasRaw ? normalizeSkillValueJS(rawVal) : -1;
+            if (hasRaw) {
+              acc[skill] = normalizeSkillValueJS(rawVal);
+              return acc;
+            }
+            const overrides = roleConfig?.skill_overrides || {};
+            const skillModKey = `${skill}_${mod.toLowerCase()}`;
+            if (overrides[skillModKey] !== undefined) {
+              acc[skill] = normalizeSkillValueJS(overrides[skillModKey]);
+              return acc;
+            }
+            if (overrides[skill] !== undefined) {
+              acc[skill] = normalizeSkillValueJS(overrides[skill]);
+              return acc;
+            }
+            if (overrides.all !== undefined) {
+              acc[skill] = normalizeSkillValueJS(overrides.all);
+              return acc;
+            }
+            acc[skill] = -1;
             return acc;
           }
 
