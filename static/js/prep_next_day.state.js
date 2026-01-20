@@ -78,6 +78,9 @@ function getShiftTimes(taskConfig, targetDay) {
   if (targetDay === 'Freitag' && times.friday && !times.Freitag) {
     timeStr = times.friday;
   }
+  if (typeof timeStr !== 'string') {
+    return defaultTimes;
+  }
   const [start, end] = timeStr.split('-');
   return { start: start?.trim() || '07:00', end: end?.trim() || '15:00' };
 }
