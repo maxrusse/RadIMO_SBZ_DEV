@@ -184,6 +184,14 @@ function isGapTask(taskName) {
   return gapTasks.some(g => g.name && g.name.toLowerCase().trim() === taskLower);
 }
 
+// Helper: Check if a task name is a known shift (using config)
+function isShiftTask(taskName) {
+  if (!taskName) return false;
+  const shifts = getShiftRoles();
+  const taskLower = taskName.toLowerCase().trim();
+  return shifts.some(s => s.name && s.name.toLowerCase().trim() === taskLower);
+}
+
 // Helper: Render task/role dropdown with optgroups for Shifts vs Gaps
 // autoSelectFirst: if true and no selectedValue, auto-select the first shift option
 function renderTaskOptionsWithGroups(selectedValue = '', includeGaps = false, autoSelectFirst = false) {

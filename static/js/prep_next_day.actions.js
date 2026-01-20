@@ -584,11 +584,9 @@ function buildEntriesByWorker(data, tab = 'today') {
         counts_for_hours: gap.counts_for_hours === true
       }));
 
-      // Check if this is a gap row using config (task list or skill exclusions)
-      const isGapRow = taskParts.some(part => isGapTask(part)) || (SKILLS.length > 0 && SKILLS.every(skill => {
-        const val = row[skill];
-        return val === -1 || val === '-1';
-      }));
+      // Check if this is a gap row - ONLY based on task name matching config
+      // No fallback to "all skills = -1" - tasks must be explicitly defined
+      const isGapRow = taskParts.some(part => isGapTask(part));
 
       // Pull default times from configured shifts/roles when missing
       let roleConfig = TASK_ROLES.find(t => t.name === taskStr);
@@ -766,12 +764,15 @@ function buildEntriesByWorker(data, tab = 'today') {
       } else if (entry.task && !existingModalTask) {
         grouped[workerName].modalShifts[modalShiftKey].task = entry.task;
       }
-      // Merge gaps
-      if (gaps.length > 0 && !grouped[workerName].shifts[shiftKey].gaps) {
-        grouped[workerName].shifts[shiftKey].gaps = gaps;
+      // Merge gaps from all modality entries for the same shift
+      // Use mergeUniqueGaps to deduplicate based on start-end time
+      if (gaps.length > 0) {
+        const existingGaps = grouped[workerName].shifts[shiftKey].gaps || [];
+        grouped[workerName].shifts[shiftKey].gaps = mergeUniqueGaps([...existingGaps, ...gaps]);
       }
-      if (gaps.length > 0 && !grouped[workerName].modalShifts[modalShiftKey].gaps) {
-        grouped[workerName].modalShifts[modalShiftKey].gaps = gaps;
+      if (gaps.length > 0) {
+        const existingModalGaps = grouped[workerName].modalShifts[modalShiftKey].gaps || [];
+        grouped[workerName].modalShifts[modalShiftKey].gaps = mergeUniqueGaps([...existingModalGaps, ...gaps]);
       }
     });
   });
