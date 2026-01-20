@@ -1198,6 +1198,88 @@ async function deleteShiftFromModal(shiftIdx) {
   }
 }
 
+// Unmerge a gap: copy its data to the "Add New Shift/Gap" form for editing
+// User can then modify it, remove the old gap, and add the modified one
+function unmergeGapToAddForm(shiftIdx, gapIdx) {
+  const { tab, groupIdx } = currentEditEntry || {};
+  const group = entriesData[tab]?.[groupIdx];
+  if (!group) return;
+
+  const shifts = getModalShifts(group);
+  const shift = shifts[shiftIdx];
+  if (!shift) return;
+
+  const gaps = shift.gaps || [];
+  const gap = gaps[gapIdx];
+  if (!gap) return;
+
+  // Find the task dropdown and select the matching gap task (or first gap task)
+  const taskSelect = document.getElementById('modal-add-task');
+  if (taskSelect) {
+    // Try to find an option matching the gap activity
+    let matched = false;
+    for (let i = 0; i < taskSelect.options.length; i++) {
+      const opt = taskSelect.options[i];
+      if (opt.value === gap.activity || opt.textContent === gap.activity) {
+        taskSelect.selectedIndex = i;
+        matched = true;
+        break;
+      }
+    }
+    // If no exact match, try to select any gap-type task
+    if (!matched) {
+      for (let i = 0; i < taskSelect.options.length; i++) {
+        const opt = taskSelect.options[i];
+        if (opt.dataset && opt.dataset.type === 'gap') {
+          taskSelect.selectedIndex = i;
+          break;
+        }
+      }
+    }
+  }
+
+  // Set the start and end times
+  const startInput = document.getElementById('modal-add-start');
+  const endInput = document.getElementById('modal-add-end');
+  if (startInput) startInput.value = gap.start || '12:00';
+  if (endInput) endInput.value = gap.end || '13:00';
+
+  // Set the counts_for_hours checkbox
+  const countsCheckbox = document.getElementById('modal-add-counts-hours');
+  if (countsCheckbox) {
+    countsCheckbox.checked = gap.counts_for_hours === true;
+    // Update the label
+    const label = countsCheckbox.parentElement?.querySelector('.hours-toggle-label');
+    if (label) {
+      label.textContent = gap.counts_for_hours === true ? 'Counts' : 'No count';
+      label.className = `hours-toggle-label ${gap.counts_for_hours === true ? 'counts' : 'no-count'}`;
+    }
+  }
+
+  // Set skills to -1 for all modalities (typical for gaps)
+  MODALITIES.forEach(mod => {
+    const modKey = mod.toLowerCase();
+    SKILLS.forEach(skill => {
+      const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
+      if (el) el.value = '-1';
+    });
+  });
+
+  // Scroll to the Add form section to make it visible
+  const addSection = document.querySelector('[style*="background: #d4edda"]');
+  if (addSection) {
+    addSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Flash the add section to draw attention
+    addSection.style.transition = 'box-shadow 0.3s';
+    addSection.style.boxShadow = '0 0 10px 3px #28a745';
+    setTimeout(() => {
+      addSection.style.boxShadow = '';
+    }, 1500);
+  }
+
+  showMessage('info', `Gap copied to Add form below. Edit and click "Add", then remove old gap above.`);
+}
+
 // Remove a gap from a shift via edit modal
 async function removeGapFromModal(shiftIdx, gapIdx) {
   const { tab, groupIdx } = currentEditEntry || {};

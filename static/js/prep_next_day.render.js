@@ -608,7 +608,7 @@ function renderEditModalContent() {
 
 ${gaps.length > 0 ? `
 <div style="margin-bottom: 0.5rem; padding: 0.5rem; background: #fff3cd; border-radius: 4px; border: 1px solid #ffc107;">
-  <label style="font-size: 0.75rem; font-weight: 600; color: #856404; display: block; margin-bottom: 0.25rem;">Gaps (edit type/time, toggle counts, click × to remove)</label>
+  <label style="font-size: 0.75rem; font-weight: 600; color: #856404; display: block; margin-bottom: 0.25rem;">Gaps (edit inline, or click ✎ to edit separately below)</label>
   <div style="display: flex; flex-wrap: wrap; gap: 0.35rem;">
     ${gaps.map((g, gapIdx) => `
       <span class="gap-chip" style="display: inline-flex; align-items: center; background: #f8d7da; color: #721c24; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.75rem;">
@@ -622,7 +622,8 @@ ${gaps.length > 0 ? `
           <input type="checkbox" ${g.counts_for_hours === true ? 'checked' : ''} onchange="updateGapCountsForHours(${shiftIdx}, ${gapIdx}, this.checked)">
           <span>${g.counts_for_hours === true ? 'Counts' : 'No count'}</span>
         </label>
-        <button type="button" onclick="removeGapFromModal(${shiftIdx}, ${gapIdx})" style="margin-left: 0.3rem; background: none; border: none; color: #721c24; cursor: pointer; font-weight: bold; padding: 0 0.2rem;" title="Remove this gap">×</button>
+        <button type="button" onclick="unmergeGapToAddForm(${shiftIdx}, ${gapIdx})" style="background: #155724; border: none; color: #fff; cursor: pointer; font-size: 0.65rem; padding: 0.1rem 0.3rem; border-radius: 3px; margin-left: 0.2rem;" title="Edit separately (copy to Add form below)">✎</button>
+        <button type="button" onclick="removeGapFromModal(${shiftIdx}, ${gapIdx})" style="margin-left: 0.2rem; background: none; border: none; color: #721c24; cursor: pointer; font-weight: bold; padding: 0 0.2rem;" title="Remove this gap">×</button>
       </span>
     `).join('')}
   </div>
