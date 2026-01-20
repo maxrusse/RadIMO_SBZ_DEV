@@ -51,6 +51,11 @@ const TimelineChart = (function() {
     return parseGapList(entry.gaps).length > 0;
   }
 
+  // Check if skill is explicitly active (value === 1)
+  function isSkillExplicitOne(val) {
+    return val === 1 || val === '1';
+  }
+
   // Escape HTML for XSS protection
   function escapeHtml(text) {
     if (text == null) return '';
@@ -430,15 +435,22 @@ const TimelineChart = (function() {
         if (width <= 0) return;
 
         let activeSkills;
+        let tooltipSkills;
         let tooltipMods = '';
         let gapTooltip = '';
 
         if (entry.skillValues) {
           activeSkills = Object.keys(entry.skillValues)
             .map(s => skillSlugMap[s] || s.toLowerCase());
+          tooltipSkills = Object.keys(entry.skillValues)
+            .filter(s => isSkillExplicitOne(entry.skillValues[s]))
+            .map(s => skillSlugMap[s] || s.toLowerCase());
         } else {
           activeSkills = skillColumns
             .filter(s => isSkillActive(entry[s]))
+            .map(s => skillSlugMap[s] || s.toLowerCase());
+          tooltipSkills = skillColumns
+            .filter(s => isSkillExplicitOne(entry[s]))
             .map(s => skillSlugMap[s] || s.toLowerCase());
         }
 
@@ -447,6 +459,11 @@ const TimelineChart = (function() {
         } else if (entry._modality || entry.modality) {
           tooltipMods = `Modality: ${(entry._modality || entry.modality).toUpperCase()}\n`;
         }
+        const tooltipModLabel = entry._modality || entry.modality
+          || (entry.modalities && entry.modalities.size === 1 ? Array.from(entry.modalities)[0] : '');
+        const tooltipSkillLabels = tooltipModLabel
+          ? tooltipSkills.map(skill => `${tooltipModLabel.toUpperCase()}_${skill}`)
+          : tooltipSkills;
 
         const tasks = normalizeTasks(entry.tasks || entry.task);
         const taskTooltip = tasks.length ? `Shifts: ${tasks.join(', ')}\n` : '';
@@ -484,7 +501,8 @@ const TimelineChart = (function() {
 
           // Tooltip
           const timeDisplay = entry.TIME || `${entry.start_time}-${entry.end_time}`;
-          bar.title = `${worker}\n${tooltipMods}${taskTooltip}${gapTooltip}Zeit: ${timeDisplay}\nSkills: ${activeSkills.join(', ')}`;
+          const skillsTooltip = `Skills (1): ${tooltipSkillLabels.join(', ')}`;
+          bar.title = `${worker}\n${tooltipMods}${taskTooltip}${gapTooltip}Zeit: ${timeDisplay}\n${skillsTooltip}`;
 
           timelineCell.appendChild(bar);
         }
