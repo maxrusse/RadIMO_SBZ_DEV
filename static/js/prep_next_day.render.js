@@ -633,10 +633,6 @@ ${gaps.length > 0 ? `
 
 <div style="margin-bottom:0.35rem; display:flex; justify-content: space-between; align-items:center;">
   <label style="font-size:0.8rem; font-weight:600;">Skills per modality</label>
-  <div style="display:flex; gap:0.35rem; flex-wrap:wrap;">
-    <button class="btn btn-small btn-secondary" type="button" onclick="applyPresetToShift(${shiftIdx}, document.getElementById('edit-shift-${shiftIdx}-task').value)">Apply task preset</button>
-    <button class="btn btn-small btn-primary" type="button" onclick="applyWorkerRosterToShift(${shiftIdx})">Apply roster</button>
-  </div>
 </div>
 
 <table class="worker-skill-table">
