@@ -8,6 +8,7 @@ This module handles:
 - Gap handling (standalone and embedded)
 """
 import json
+import uuid
 from datetime import datetime, time, date, timedelta
 from typing import Dict, List, Optional, Tuple, Any, Iterable
 
@@ -185,7 +186,11 @@ def build_ppl_from_row(row: pd.Series, cols: Optional[dict] = None) -> str:
 
 
 def apply_exclusions_to_shifts(work_shifts: List[dict], exclusions: List[dict], target_date: date) -> List[dict]:
-    """Apply exclusions (gaps) to shifts. Same-day operations only."""
+    """Apply exclusions (gaps) to shifts. Same-day operations only.
+
+    When a shift is split by gaps, all resulting segments get the same gap_id
+    so they can be linked in the UI for editing/deletion.
+    """
     if not exclusions:
         return work_shifts
 
@@ -213,7 +218,7 @@ def apply_exclusions_to_shifts(work_shifts: List[dict], exclusions: List[dict], 
                 continue
 
             if excl_start_dt < shift_end_dt and excl_end_dt > shift_start_dt:
-                overlapping_exclusions.append((excl_start_dt, excl_end_dt))
+                overlapping_exclusions.append((excl_start_dt, excl_end_dt, excl.get('activity', 'Gap')))
 
         if not overlapping_exclusions:
             result_shifts.append(shift)
@@ -221,20 +226,31 @@ def apply_exclusions_to_shifts(work_shifts: List[dict], exclusions: List[dict], 
 
         overlapping_exclusions.sort(key=lambda x: x[0])
 
+        # Collect segments for this shift (we'll add gap_id if split)
+        segments = []
+        gap_activities = []
         current_start = shift_start_dt
-        for excl_start_dt, excl_end_dt in overlapping_exclusions:
+
+        for excl_start_dt, excl_end_dt, excl_activity in overlapping_exclusions:
             if current_start < excl_start_dt:
                 segment_start = current_start.time()
                 segment_end = excl_start_dt.time()
                 segment_timedelta = excl_start_dt - current_start
 
                 if segment_timedelta >= timedelta(minutes=6):
-                    result_shifts.append({
+                    segments.append({
                         **shift,
                         'start_time': segment_start,
                         'end_time': segment_end,
                         'shift_duration': segment_timedelta.total_seconds() / 3600
                     })
+
+            # Track gap info for linking
+            gap_activities.append({
+                'start': excl_start_dt.time().strftime(TIME_FORMAT),
+                'end': excl_end_dt.time().strftime(TIME_FORMAT),
+                'activity': excl_activity
+            })
 
             current_start = max(current_start, excl_end_dt)
 
@@ -244,12 +260,27 @@ def apply_exclusions_to_shifts(work_shifts: List[dict], exclusions: List[dict], 
             segment_timedelta = shift_end_dt - current_start
 
             if segment_timedelta >= timedelta(minutes=6):
-                result_shifts.append({
+                segments.append({
                     **shift,
                     'start_time': segment_start,
                     'end_time': segment_end,
                     'shift_duration': segment_timedelta.total_seconds() / 3600
                 })
+
+        # If shift was split into multiple segments, link them with a gap_id
+        if len(segments) > 1:
+            gap_id = f"gap_{uuid.uuid4().hex[:12]}"
+            gaps_json = json.dumps(gap_activities)
+            for seg in segments:
+                seg['gap_id'] = gap_id
+                seg['gaps'] = gaps_json
+            result_shifts.extend(segments)
+        elif len(segments) == 1:
+            # Single segment (gap trimmed start or end) - add gaps info but no gap_id needed
+            if gap_activities:
+                segments[0]['gaps'] = json.dumps(gap_activities)
+            result_shifts.append(segments[0])
+        # If no segments, the gap(s) covered the entire shift - nothing to add
 
     return result_shifts
 
