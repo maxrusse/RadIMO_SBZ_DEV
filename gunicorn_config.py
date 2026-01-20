@@ -1,12 +1,14 @@
 import logging
 from logging.handlers import RotatingFileHandler
+import os
 import sys
+
 # Basic configuration
 bind = "0.0.0.0:5019"
 workers = 1
 worker_class = "gevent"
 worker_connections = 1000
-threads = 1 
+threads = 1
 timeout = 60
 keepalive = 5
 preload_app = False
@@ -14,8 +16,11 @@ max_requests = 0
 max_requests_jitter = 0
 
 # Logging configuration
-logfile = "/xxxx/gunicorn.log"
+logdir = "logs"
+os.makedirs(logdir, exist_ok=True)
+logfile = os.path.join(logdir, "gunicorn.log")
 loglevel = "info"
+
 # Setup logging
 logger = logging.getLogger("gunicorn.error")
 logger.setLevel(logging.INFO)
