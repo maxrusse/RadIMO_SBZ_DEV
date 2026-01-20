@@ -8,7 +8,7 @@ tool usage patterns and compare against actual work entries from other data sour
 import csv
 import logging
 import os
-from datetime import datetime, date, time
+from datetime import datetime, date
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
@@ -187,11 +187,7 @@ def check_and_export_at_scheduled_time() -> bool:
     # Use local timezone-aware time for consistent behavior
     from lib.utils import get_local_now
     now = get_local_now()
-    current_time = now.time()
     today = now.date()
-
-    # Check if we've crossed 7:30 AM
-    scheduled_time = time(7, 30)
 
     with _lock:
         if today > _current_date:

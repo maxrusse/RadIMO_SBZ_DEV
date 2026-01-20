@@ -178,7 +178,6 @@ def preload_next_workday(csv_path: str, config: dict, target_date: Optional[Unio
         )
 
         # Clear unified scheduled file first to prevent stale data
-        cleared_modalities = []
         unified_scheduled_path = _state.unified_schedule_paths['scheduled']
         if os.path.exists(unified_scheduled_path):
             try:
@@ -222,8 +221,7 @@ def preload_next_workday(csv_path: str, config: dict, target_date: Optional[Unio
                 f'Keine Mitarbeiter für {date_str} gefunden - Schichten können leer sein'
                 if not saved_modalities
                 else f'Preload erfolgreich gespeichert (wird am {date_str} aktiviert)'
-            ),
-            'cleared_modalities': cleared_modalities
+            )
         }
 
     except Exception as exc:

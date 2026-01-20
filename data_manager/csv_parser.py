@@ -591,6 +591,9 @@ def build_working_hours_from_medweb(
                         target_date_obj
                     )
 
+                    # NOTE: Gap overwrite edge case - if a shift already has gaps from a
+                    # previous operation (e.g., duplicate worker entries), this will overwrite
+                    # them. All exclusions for a worker are combined into a single gaps_json.
                     gaps_json = json.dumps([{
                         'start': excl['start_time'].strftime(TIME_FORMAT),
                         'end': excl['end_time'].strftime(TIME_FORMAT),
