@@ -314,8 +314,15 @@ function renderTable(tab) {
           </div>`;
         // Show gaps in edit mode too
         if (gaps.length > 0) {
-          gaps.forEach(g => {
-            shiftEditor += `<div class="gap-indicator" style="margin-top:0.1rem;" title="${escapeHtml(g.activity || 'Gap')}">${escapeHtml(g.start)}-${escapeHtml(g.end)}</div>`;
+          gaps.forEach((g, gapIdx) => {
+            const checked = g.counts_for_hours === true ? 'checked' : '';
+            shiftEditor += `<div class="gap-indicator" style="margin-top:0.1rem;" title="${escapeHtml(g.activity || 'Gap')}">
+              ${escapeHtml(g.start)}-${escapeHtml(g.end)}
+              <label style="margin-left: 0.3rem; font-size: 0.65rem; display: inline-flex; align-items: center; gap: 0.2rem;">
+                <input type="checkbox" ${checked} onchange="updateGapCountsForHours(${shiftIdx}, ${gapIdx}, this.checked)">
+                <span>${g.counts_for_hours === true ? 'Counts' : 'No count'}</span>
+              </label>
+            </div>`;
           });
         } else if (isGapRow) {
           const gapStart = firstSeg.start || shift.start_time || '12:00';
@@ -603,11 +610,23 @@ function renderEditModalContent() {
 
 ${gaps.length > 0 ? `
 <div style="margin-bottom: 0.5rem; padding: 0.5rem; background: #fff3cd; border-radius: 4px; border: 1px solid #ffc107;">
-  <label style="font-size: 0.75rem; font-weight: 600; color: #856404; display: block; margin-bottom: 0.25rem;">Gaps (click × to remove)</label>
+  <label style="font-size: 0.75rem; font-weight: 600; color: #856404; display: block; margin-bottom: 0.25rem;">Gaps (edit type/time, toggle counts, click × to remove)</label>
   <div style="display: flex; flex-wrap: wrap; gap: 0.35rem;">
     ${gaps.map((g, gapIdx) => `
       <span class="gap-chip" style="display: inline-flex; align-items: center; background: #f8d7da; color: #721c24; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.75rem;">
-        <span>${escapeHtml(g.start)}-${escapeHtml(g.end)} (${escapeHtml(g.activity || 'Gap')})</span>
+        <select style="margin-right: 0.3rem; padding: 0.1rem 0.2rem; font-size: 0.7rem;"
+          onchange="updateGapDetailsFromModal(${shiftIdx}, ${gapIdx}, { new_activity: this.value })">
+          ${renderGapOptions(g.activity || '')}
+        </select>
+        <input type="time" value="${escapeHtml(g.start)}" style="width: 80px; font-size: 0.7rem; margin-right: 0.2rem;"
+          onchange="updateGapDetailsFromModal(${shiftIdx}, ${gapIdx}, { new_start: this.value })">
+        <span>-</span>
+        <input type="time" value="${escapeHtml(g.end)}" style="width: 80px; font-size: 0.7rem; margin: 0 0.3rem 0 0.2rem;"
+          onchange="updateGapDetailsFromModal(${shiftIdx}, ${gapIdx}, { new_end: this.value })">
+        <label style="margin-right: 0.35rem; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 0.2rem;">
+          <input type="checkbox" ${g.counts_for_hours === true ? 'checked' : ''} onchange="updateGapCountsForHours(${shiftIdx}, ${gapIdx}, this.checked)">
+          <span>${g.counts_for_hours === true ? 'Counts' : 'No count'}</span>
+        </label>
         <button type="button" onclick="removeGapFromModal(${shiftIdx}, ${gapIdx})" style="margin-left: 0.3rem; background: none; border: none; color: #721c24; cursor: pointer; font-weight: bold; padding: 0 0.2rem;" title="Remove this gap">×</button>
       </span>
     `).join('')}

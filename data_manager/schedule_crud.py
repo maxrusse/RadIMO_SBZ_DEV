@@ -64,6 +64,8 @@ def _merge_gap(existing: list, new_gap: dict) -> list:
             g.get('end') == new_gap.get('end') and
             g.get('activity') == new_gap.get('activity')
         ):
+            if g.get('counts_for_hours') != new_gap.get('counts_for_hours'):
+                g['counts_for_hours'] = new_gap.get('counts_for_hours', False)
             return merged
     merged.append(new_gap)
     return merged
@@ -100,6 +102,40 @@ def _validate_no_gap_overlap(existing_gaps: list, new_gap: dict, exclude_index: 
 def _calc_shift_duration_seconds(start_dt: datetime, end_dt: datetime) -> float:
     """Calculate shift duration in hours from datetime objects."""
     return (end_dt - start_dt).total_seconds() / 3600
+
+
+def _calc_effective_duration_from_gaps(gaps: list, shift_start_dt: datetime, shift_end_dt: datetime) -> float:
+    """Calculate effective working hours = shift duration - non-counting gap durations."""
+    total_shift_hours = (shift_end_dt - shift_start_dt).total_seconds() / 3600
+    gap_hours = 0.0
+    base_date = shift_start_dt.date()
+    for g in gaps:
+        if g.get('counts_for_hours', False):
+            continue
+        try:
+            g_start = datetime.strptime(g['start'], TIME_FORMAT).time()
+            g_end = datetime.strptime(g['end'], TIME_FORMAT).time()
+            g_start_dt = datetime.combine(base_date, g_start)
+            g_end_dt = datetime.combine(base_date, g_end)
+            # Clip gap to shift boundaries
+            g_start_dt = max(g_start_dt, shift_start_dt)
+            g_end_dt = min(g_end_dt, shift_end_dt)
+            if g_end_dt > g_start_dt:
+                gap_hours += (g_end_dt - g_start_dt).total_seconds() / 3600
+        except (KeyError, ValueError):
+            pass
+    return max(0.0, total_shift_hours - gap_hours)
+
+
+def _coerce_bool(value: Optional[object]) -> Optional[bool]:
+    """Normalize various truthy/falsey inputs into a bool or None."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {'true', '1', 'yes', 'y'}
+    return bool(value)
 
 
 def _get_schedule_data_dict(modality: str, use_staged: bool) -> dict:
@@ -455,6 +491,28 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
 
         new_row['counts_for_hours'] = worker_data.get('counts_for_hours', True)
 
+        raw_gaps = worker_data.get('gaps')
+        if raw_gaps is not None:
+            if isinstance(raw_gaps, str):
+                try:
+                    gaps_list = json.loads(raw_gaps)
+                except Exception:
+                    gaps_list = []
+            elif isinstance(raw_gaps, list):
+                gaps_list = raw_gaps
+            else:
+                gaps_list = []
+
+            if gaps_list:
+                if df is not None and 'gaps' not in df.columns:
+                    df['gaps'] = pd.array([None] * len(df), dtype=object)
+                new_row['gaps'] = json.dumps(gaps_list)
+                new_row['shift_duration'] = _calc_effective_duration_from_gaps(
+                    gaps_list,
+                    start_dt,
+                    end_dt
+                )
+
         if df is None or df.empty:
             data_dict['working_hours_df'] = pd.DataFrame([new_row])
         else:
@@ -526,7 +584,15 @@ def _delete_worker_from_schedule(modality: str, row_index: int, use_staged: bool
         return False, None, str(e)
 
 
-def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start: str, gap_end: str, use_staged: bool) -> tuple:
+def _add_gap_to_schedule(
+    modality: str,
+    row_index: int,
+    gap_type: str,
+    gap_start: str,
+    gap_end: str,
+    use_staged: bool,
+    gap_counts_for_hours: Optional[bool] = None,
+) -> tuple:
     """
     Add a gap to a worker's schedule as a child entity.
 
@@ -571,10 +637,12 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
         gap_start_dt = datetime.combine(base_date, gap_start_time)
         gap_end_dt = datetime.combine(base_date, gap_end_time)
 
+        normalized_gap_counts = _coerce_bool(gap_counts_for_hours)
         gap_entry = {
             'start': gap_start_time.strftime(TIME_FORMAT),
             'end': gap_end_time.strftime(TIME_FORMAT),
             'activity': gap_type,
+            'counts_for_hours': normalized_gap_counts if normalized_gap_counts is not None else False,
         }
 
         if gap_end_dt <= shift_start_dt or gap_start_dt >= shift_end_dt:
@@ -588,27 +656,6 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
 
         log_prefix = "STAGED: " if use_staged else ""
         merged_gaps = json.dumps(_merge_gap(existing_gaps, gap_entry))
-
-        # Calculate effective working duration (shift duration minus all gaps)
-        def calc_effective_duration(gaps_json: str, s_start_dt: datetime, s_end_dt: datetime) -> float:
-            """Calculate effective working hours = shift duration - gap durations."""
-            total_shift_hours = (s_end_dt - s_start_dt).total_seconds() / 3600
-            gaps_list = _parse_gap_list(gaps_json)
-            gap_hours = 0.0
-            for g in gaps_list:
-                try:
-                    g_start = datetime.strptime(g['start'], TIME_FORMAT).time()
-                    g_end = datetime.strptime(g['end'], TIME_FORMAT).time()
-                    g_start_dt = datetime.combine(base_date, g_start)
-                    g_end_dt = datetime.combine(base_date, g_end)
-                    # Clip gap to shift boundaries
-                    g_start_dt = max(g_start_dt, s_start_dt)
-                    g_end_dt = min(g_end_dt, s_end_dt)
-                    if g_end_dt > g_start_dt:
-                        gap_hours += (g_end_dt - g_start_dt).total_seconds() / 3600
-                except (KeyError, ValueError):
-                    pass
-            return max(0.0, total_shift_hours - gap_hours)
 
         if gap_start_dt <= shift_start_dt and gap_end_dt >= shift_end_dt:
             # Case 1: Gap covers entire shift - keep row as full-shift gap
@@ -624,39 +671,47 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
             return True, 'full_shift_gap', None
 
         elif gap_start_dt <= shift_start_dt < gap_end_dt < shift_end_dt:
-            # Case 2: Gap at start - adjust start time
-            df.at[row_index, 'start_time'] = gap_end_time
-            if 'TIME' in df.columns:
-                df.at[row_index, 'TIME'] = f"{gap_end_time.strftime(TIME_FORMAT)}-{shift_end.strftime(TIME_FORMAT)}"
-            new_start_dt = datetime.combine(base_date, gap_end_time)
-            df.at[row_index, 'shift_duration'] = _calc_shift_duration_seconds(new_start_dt, shift_end_dt)
+            # Case 2: Gap at start - keep shift bounds, store gap as child entity
             df.at[row_index, 'gaps'] = merged_gaps
+            effective_duration = _calc_effective_duration_from_gaps(
+                _parse_gap_list(merged_gaps),
+                shift_start_dt,
+                shift_end_dt
+            )
+            df.at[row_index, 'shift_duration'] = effective_duration
+            df.at[row_index, 'counts_for_hours'] = effective_duration >= 0.1
             if use_staged:
                 df.at[row_index, 'is_manual'] = True
             backup_dataframe(modality, use_staged=use_staged)
-            selection_logger.info(f"{log_prefix}Gap ({gap_type}) at start for {worker_name}: new start {gap_end_time}")
-            return True, 'start_adjusted', None
+            selection_logger.info(f"{log_prefix}Gap ({gap_type}) at start for {worker_name}: stored as child entity (no trim)")
+            return True, 'gap_added', None
 
         elif shift_start_dt < gap_start_dt < shift_end_dt and gap_end_dt >= shift_end_dt:
-            # Case 3: Gap at end - adjust end time
-            df.at[row_index, 'end_time'] = gap_start_time
-            if 'TIME' in df.columns:
-                df.at[row_index, 'TIME'] = f"{shift_start.strftime(TIME_FORMAT)}-{gap_start_time.strftime(TIME_FORMAT)}"
-            new_end_dt = datetime.combine(base_date, gap_start_time)
-            df.at[row_index, 'shift_duration'] = _calc_shift_duration_seconds(shift_start_dt, new_end_dt)
+            # Case 3: Gap at end - keep shift bounds, store gap as child entity
             df.at[row_index, 'gaps'] = merged_gaps
+            effective_duration = _calc_effective_duration_from_gaps(
+                _parse_gap_list(merged_gaps),
+                shift_start_dt,
+                shift_end_dt
+            )
+            df.at[row_index, 'shift_duration'] = effective_duration
+            df.at[row_index, 'counts_for_hours'] = effective_duration >= 0.1
             if use_staged:
                 df.at[row_index, 'is_manual'] = True
             backup_dataframe(modality, use_staged=use_staged)
-            selection_logger.info(f"{log_prefix}Gap ({gap_type}) at end for {worker_name}: new end {gap_start_time}")
-            return True, 'end_adjusted', None
+            selection_logger.info(f"{log_prefix}Gap ({gap_type}) at end for {worker_name}: stored as child entity (no trim)")
+            return True, 'gap_added', None
 
         else:
             # Case 4: Gap in middle - NO SPLIT, just store gap as child entity
             # Keep original shift times, add gap to gaps array
             df.at[row_index, 'gaps'] = merged_gaps
             # Update shift_duration to reflect effective working time (excluding gap)
-            df.at[row_index, 'shift_duration'] = calc_effective_duration(merged_gaps, shift_start_dt, shift_end_dt)
+            df.at[row_index, 'shift_duration'] = _calc_effective_duration_from_gaps(
+                _parse_gap_list(merged_gaps),
+                shift_start_dt,
+                shift_end_dt
+            )
             if use_staged:
                 df.at[row_index, 'is_manual'] = True
 
@@ -670,15 +725,22 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
         return False, None, str(e)
 
 
-def _remove_gap_from_schedule(modality: str, row_index: int, gap_index: int, use_staged: bool) -> tuple:
+def _remove_gap_from_schedule(
+    modality: str,
+    row_index: int,
+    gap_index: Optional[int],
+    use_staged: bool,
+    gap_match: Optional[dict] = None,
+) -> tuple:
     """
-    Remove a gap from a worker's schedule by index.
+    Remove a gap from a worker's schedule by index or by matching fields.
 
     Args:
         modality: The modality (e.g., 'CT', 'MRT')
         row_index: Index of the shift row
-        gap_index: Index of the gap to remove (0-based)
+        gap_index: Index of the gap to remove (0-based), optional
         use_staged: Whether to use staged (prep) or live data
+        gap_match: Optional dict with 'start', 'end', and optional 'activity' to match
 
     Returns:
         (success: bool, action_or_None: str, error_or_None: str)
@@ -700,6 +762,24 @@ def _remove_gap_from_schedule(modality: str, row_index: int, gap_index: int, use
         if not gaps:
             return False, None, 'No gaps to remove'
 
+        if gap_index is None:
+            match_start = (gap_match or {}).get('start')
+            match_end = (gap_match or {}).get('end')
+            match_activity = (gap_match or {}).get('activity')
+            if not match_start or not match_end:
+                return False, None, 'Gap start and end are required'
+            gap_index = next(
+                (
+                    idx for idx, gap in enumerate(gaps)
+                    if gap.get('start') == match_start
+                    and gap.get('end') == match_end
+                    and (match_activity is None or gap.get('activity') == match_activity)
+                ),
+                None
+            )
+            if gap_index is None:
+                return False, None, 'Gap not found for removal'
+
         if gap_index < 0 or gap_index >= len(gaps):
             return False, None, f'Invalid gap index: {gap_index}'
 
@@ -716,23 +796,7 @@ def _remove_gap_from_schedule(modality: str, row_index: int, gap_index: int, use
         shift_start_dt = datetime.combine(base_date, shift_start)
         shift_end_dt = datetime.combine(base_date, shift_end)
 
-        total_shift_hours = (shift_end_dt - shift_start_dt).total_seconds() / 3600
-        gap_hours = 0.0
-        for g in gaps:
-            try:
-                g_start = datetime.strptime(g['start'], TIME_FORMAT).time()
-                g_end = datetime.strptime(g['end'], TIME_FORMAT).time()
-                g_start_dt = datetime.combine(base_date, g_start)
-                g_end_dt = datetime.combine(base_date, g_end)
-                # Clip to shift boundaries
-                g_start_dt = max(g_start_dt, shift_start_dt)
-                g_end_dt = min(g_end_dt, shift_end_dt)
-                if g_end_dt > g_start_dt:
-                    gap_hours += (g_end_dt - g_start_dt).total_seconds() / 3600
-            except (KeyError, ValueError):
-                pass
-
-        effective_duration = max(0.0, total_shift_hours - gap_hours)
+        effective_duration = _calc_effective_duration_from_gaps(gaps, shift_start_dt, shift_end_dt)
         df.at[row_index, 'shift_duration'] = effective_duration
 
         # If shift now has working time, restore counts_for_hours
@@ -753,9 +817,17 @@ def _remove_gap_from_schedule(modality: str, row_index: int, gap_index: int, use
         return False, None, str(e)
 
 
-def _update_gap_in_schedule(modality: str, row_index: int, gap_index: int,
-                            new_start: Optional[str], new_end: Optional[str],
-                            new_activity: Optional[str], use_staged: bool) -> tuple:
+def _update_gap_in_schedule(
+    modality: str,
+    row_index: int,
+    gap_index: Optional[int],
+    new_start: Optional[str],
+    new_end: Optional[str],
+    new_activity: Optional[str],
+    use_staged: bool,
+    new_counts_for_hours: Optional[bool] = None,
+    gap_match: Optional[dict] = None,
+) -> tuple:
     """
     Update a gap in a worker's schedule.
 
@@ -788,6 +860,24 @@ def _update_gap_in_schedule(modality: str, row_index: int, gap_index: int,
         if not gaps:
             return False, None, 'No gaps to update'
 
+        if gap_index is None:
+            match_start = (gap_match or {}).get('start')
+            match_end = (gap_match or {}).get('end')
+            match_activity = (gap_match or {}).get('activity')
+            if not match_start or not match_end:
+                return False, None, 'Gap start and end are required'
+            gap_index = next(
+                (
+                    idx for idx, gap_item in enumerate(gaps)
+                    if gap_item.get('start') == match_start
+                    and gap_item.get('end') == match_end
+                    and (match_activity is None or gap_item.get('activity') == match_activity)
+                ),
+                None
+            )
+            if gap_index is None:
+                return False, None, 'Gap not found for update'
+
         if gap_index < 0 or gap_index >= len(gaps):
             return False, None, f'Invalid gap index: {gap_index}'
 
@@ -803,6 +893,9 @@ def _update_gap_in_schedule(modality: str, row_index: int, gap_index: int,
             gap['end'] = new_end
         if new_activity is not None:
             gap['activity'] = new_activity
+        normalized_gap_counts = _coerce_bool(new_counts_for_hours)
+        if normalized_gap_counts is not None:
+            gap['counts_for_hours'] = normalized_gap_counts
 
         # Validate gap times
         gap_start_time = datetime.strptime(gap['start'], TIME_FORMAT).time()
@@ -819,7 +912,7 @@ def _update_gap_in_schedule(modality: str, row_index: int, gap_index: int,
         gap_start_dt = datetime.combine(base_date, gap_start_time)
         gap_end_dt = datetime.combine(base_date, gap_end_time)
 
-        if gap_end_dt <= shift_start_dt or gap_start_dt >= shift_end_dt:
+        if gap_end_dt < shift_start_dt or gap_start_dt > shift_end_dt:
             return False, None, 'Gap must be within shift time bounds'
 
         # Validate no overlap with other gaps (exclude current gap index)
@@ -831,23 +924,7 @@ def _update_gap_in_schedule(modality: str, row_index: int, gap_index: int,
         df.at[row_index, 'gaps'] = json.dumps(gaps)
 
         # Recalculate effective shift duration
-        total_shift_hours = (shift_end_dt - shift_start_dt).total_seconds() / 3600
-        gap_hours = 0.0
-        for g in gaps:
-            try:
-                g_start = datetime.strptime(g['start'], TIME_FORMAT).time()
-                g_end = datetime.strptime(g['end'], TIME_FORMAT).time()
-                g_start_dt = datetime.combine(base_date, g_start)
-                g_end_dt = datetime.combine(base_date, g_end)
-                # Clip to shift boundaries
-                g_start_dt = max(g_start_dt, shift_start_dt)
-                g_end_dt = min(g_end_dt, shift_end_dt)
-                if g_end_dt > g_start_dt:
-                    gap_hours += (g_end_dt - g_start_dt).total_seconds() / 3600
-            except (KeyError, ValueError):
-                pass
-
-        effective_duration = max(0.0, total_shift_hours - gap_hours)
+        effective_duration = _calc_effective_duration_from_gaps(gaps, shift_start_dt, shift_end_dt)
         df.at[row_index, 'shift_duration'] = effective_duration
 
         # Update counts_for_hours based on effective duration

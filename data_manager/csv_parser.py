@@ -220,7 +220,12 @@ def apply_exclusions_to_shifts(work_shifts: List[dict], exclusions: List[dict], 
                 continue
 
             if excl_start_dt < shift_end_dt and excl_end_dt > shift_start_dt:
-                overlapping_exclusions.append((excl_start_dt, excl_end_dt, excl.get('activity', 'Gap')))
+                overlapping_exclusions.append((
+                    excl_start_dt,
+                    excl_end_dt,
+                    excl.get('activity', 'Gap'),
+                    excl.get('counts_for_hours', False)
+                ))
 
         if not overlapping_exclusions:
             result_shifts.append(shift)
@@ -228,22 +233,44 @@ def apply_exclusions_to_shifts(work_shifts: List[dict], exclusions: List[dict], 
 
         overlapping_exclusions.sort(key=lambda x: x[0])
 
-        # Build gaps array (clipped to shift boundaries)
-        gap_activities = []
-        total_gap_hours = 0.0
-
-        for excl_start_dt, excl_end_dt, excl_activity in overlapping_exclusions:
+        # Build gaps array (clipped to shift boundaries) with overlap merging
+        clipped_exclusions = []
+        for excl_start_dt, excl_end_dt, excl_activity, excl_counts_for_hours in overlapping_exclusions:
             # Clip gap to shift boundaries
             clipped_start = max(excl_start_dt, shift_start_dt)
             clipped_end = min(excl_end_dt, shift_end_dt)
 
             if clipped_end > clipped_start:
-                gap_activities.append({
-                    'start': clipped_start.time().strftime(TIME_FORMAT),
-                    'end': clipped_end.time().strftime(TIME_FORMAT),
-                    'activity': excl_activity
-                })
-                total_gap_hours += (clipped_end - clipped_start).total_seconds() / 3600
+                clipped_exclusions.append((clipped_start, clipped_end, excl_activity, excl_counts_for_hours))
+
+        clipped_exclusions.sort(key=lambda x: x[0])
+
+        merged_exclusions = []
+        for excl_start_dt, excl_end_dt, excl_activity, excl_counts_for_hours in clipped_exclusions:
+            if not merged_exclusions:
+                merged_exclusions.append([excl_start_dt, excl_end_dt, excl_activity, excl_counts_for_hours])
+                continue
+
+            last_start, last_end, last_activity, last_counts_for_hours = merged_exclusions[-1]
+            if excl_start_dt < last_end:
+                merged_end = max(last_end, excl_end_dt)
+                merged_activity = last_activity if last_activity == excl_activity else 'Gap'
+                merged_counts_for_hours = last_counts_for_hours and excl_counts_for_hours
+                merged_exclusions[-1] = [last_start, merged_end, merged_activity, merged_counts_for_hours]
+            else:
+                merged_exclusions.append([excl_start_dt, excl_end_dt, excl_activity, excl_counts_for_hours])
+
+        gap_activities = []
+        total_gap_hours = 0.0
+        for excl_start_dt, excl_end_dt, excl_activity, excl_counts_for_hours in merged_exclusions:
+            gap_activities.append({
+                'start': excl_start_dt.time().strftime(TIME_FORMAT),
+                'end': excl_end_dt.time().strftime(TIME_FORMAT),
+                'activity': excl_activity,
+                'counts_for_hours': excl_counts_for_hours
+            })
+            if not excl_counts_for_hours:
+                total_gap_hours += (excl_end_dt - excl_start_dt).total_seconds() / 3600
 
         # Calculate effective working duration (shift minus gaps)
         total_shift_hours = (shift_end_dt - shift_start_dt).total_seconds() / 3600
@@ -363,6 +390,12 @@ def build_working_hours_from_medweb(
             if not gap_times:
                 continue
 
+            hours_counting_config = config.get('balancer', {}).get('hours_counting', {})
+            if 'counts_for_hours' in rule:
+                counts_for_hours = rule['counts_for_hours']
+            else:
+                counts_for_hours = hours_counting_config.get('gap_default', False)
+
             if canonical_id not in exclusions_per_worker:
                 exclusions_per_worker[canonical_id] = []
 
@@ -371,6 +404,7 @@ def build_working_hours_from_medweb(
                     'start_time': gap_start,
                     'end_time': gap_end,
                     'activity': activity_desc,
+                    'counts_for_hours': counts_for_hours,
                     'ppl_str': ppl_str
                 })
 
@@ -418,6 +452,12 @@ def build_working_hours_from_medweb(
         embedded_gap_times = parse_gap_times(embedded_gaps, weekday_name)
 
         if embedded_gap_times:
+            hours_counting_config = config.get('balancer', {}).get('hours_counting', {})
+            if 'counts_for_hours' in rule:
+                counts_for_hours = rule['counts_for_hours']
+            else:
+                counts_for_hours = hours_counting_config.get('gap_default', False)
+
             if canonical_id not in exclusions_per_worker:
                 exclusions_per_worker[canonical_id] = []
 
@@ -426,6 +466,7 @@ def build_working_hours_from_medweb(
                     'start_time': gap_start,
                     'end_time': gap_end,
                     'activity': f"{activity_desc} (gap)",
+                    'counts_for_hours': counts_for_hours,
                     'ppl_str': ppl_str
                 })
                 selection_logger.info(
@@ -485,6 +526,8 @@ def build_working_hours_from_medweb(
             if end_dt <= start_dt:
                 continue
             duration_hours = (end_dt - start_dt).total_seconds() / 3600
+            counts_for_hours = excl.get('counts_for_hours', False)
+            effective_duration = duration_hours if counts_for_hours else 0.0
 
             # Create an entry in all modalities (or just first one) with all skills = -1
             unavailable_skills = {skill: -1 for skill in SKILL_COLUMNS}
@@ -496,14 +539,15 @@ def build_working_hours_from_medweb(
                 'canonical_id': canonical_id,
                 'start_time': gap_start,
                 'end_time': gap_end,
-                'shift_duration': duration_hours,
+                'shift_duration': effective_duration,
                 'Modifier': 1.0,
                 'tasks': f"[Unavailable] {activity}",
-                'counts_for_hours': False,
+                'counts_for_hours': counts_for_hours,
                 'gaps': json.dumps([{
                     'start': gap_start.strftime(TIME_FORMAT),
                     'end': gap_end.strftime(TIME_FORMAT),
-                    'activity': activity
+                    'activity': activity,
+                    'counts_for_hours': counts_for_hours
                 }]),
                 **unavailable_skills
             })
