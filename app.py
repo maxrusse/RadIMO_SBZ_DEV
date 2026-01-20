@@ -1,8 +1,8 @@
 # Standard library imports
-import os
 import atexit
-import logging
+import os
 from datetime import timedelta
+
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # Flask imports
@@ -42,18 +42,24 @@ scheduler = BackgroundScheduler()
 
 # Daily reset check runs on every request
 @app.before_request
-def before_request_hook():
+def before_request_hook() -> None:
     check_and_perform_daily_reset()
 
+
+def shutdown_scheduler() -> None:
+    scheduler.shutdown()
+
+
+
 scheduler.start()
-atexit.register(lambda: scheduler.shutdown())
+atexit.register(shutdown_scheduler)
 
 # -----------------------------------------------------------
 # Startup Logic
 # -----------------------------------------------------------
-def startup_initialization():
+def startup_initialization() -> None:
     load_state()
-    
+
     # Check for master CSV existence
     master_csv_path = os.path.join(app.config['UPLOAD_FOLDER'], 'master_medweb.csv')
     if os.path.exists(master_csv_path):

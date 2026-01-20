@@ -2,11 +2,11 @@
 import json
 import os
 import shutil
-from datetime import datetime, date
+from datetime import date, datetime
 from functools import wraps
 from typing import Any, Callable, Optional
 
-# Flask imports
+# Third-party imports
 from flask import (
     Blueprint,
     jsonify,
@@ -16,8 +16,6 @@ from flask import (
     session,
     url_for,
 )
-
-# Third-party imports
 import pandas as pd
 
 # Local imports
@@ -227,7 +225,7 @@ def access_required(f: Callable) -> Callable:
     Admin login also grants basic access.
     """
     @wraps(f)
-    def decorated(*args, **kwargs):
+    def decorated(*args: Any, **kwargs: Any) -> Any:
         # Skip if access protection is disabled
         if not is_access_protection_enabled():
             return f(*args, **kwargs)
@@ -241,7 +239,7 @@ def access_required(f: Callable) -> Callable:
 
 def admin_required(f: Callable) -> Callable:
     @wraps(f)
-    def decorated(*args, **kwargs):
+    def decorated(*args: Any, **kwargs: Any) -> Any:
         if not has_admin_access():
             modality = resolve_modality_from_request()
             return redirect(url_for('routes.login', modality=modality))
@@ -253,7 +251,7 @@ def admin_required(f: Callable) -> Callable:
 # -----------------------------------------------------------
 
 @routes.context_processor
-def inject_modality_settings():
+def inject_modality_settings() -> dict[str, Any]:
     return {
         'modalities': MODALITY_SETTINGS,
         'modality_order': allowed_modalities,
@@ -270,7 +268,7 @@ def inject_modality_settings():
 
 @routes.route('/')
 @access_required
-def index():
+def index() -> Any:
     modality = resolve_modality_from_request()
     d = modality_data[modality]
 
@@ -301,7 +299,7 @@ def index():
 
 @routes.route('/by-skill')
 @access_required
-def index_by_skill():
+def index_by_skill() -> Any:
     skill = request.args.get('skill', SKILL_COLUMNS[0] if SKILL_COLUMNS else 'Notfall')
     skill = normalize_skill(skill)
 
@@ -339,7 +337,7 @@ def index_by_skill():
 
 @routes.route('/timetable')
 @access_required
-def timetable():
+def timetable() -> Any:
     modality = request.args.get('modality', 'all')
     skill_filter = request.args.get('skill', 'all')
     
@@ -374,7 +372,7 @@ def timetable():
 
 @routes.route('/skill-roster')
 @admin_required
-def skill_roster_page():
+def skill_roster_page() -> Any:
     valid_skills_map = build_valid_skills_map()
     default_w_modifier = BALANCER_SETTINGS.get('default_w_modifier', 1.0)
     return render_template(
@@ -386,7 +384,7 @@ def skill_roster_page():
 
 @routes.route('/api/admin/skill_roster', methods=['GET', 'POST'])
 @admin_required
-def skill_roster_api():
+def skill_roster_api() -> Any:
     if request.method == 'POST':
         data = request.json
         roster = data.get('roster')
@@ -407,7 +405,7 @@ def skill_roster_api():
 
 @routes.route('/api/admin/skill_roster/import_new', methods=['POST'])
 @admin_required
-def import_new_skill_roster_api():
+def import_new_skill_roster_api() -> Any:
     # Get current modality DFs
     current_dfs = {mod: modality_data[mod]['working_hours_df'] for mod in allowed_modalities}
     added_count, added_workers = auto_populate_skill_roster(current_dfs)
@@ -418,7 +416,7 @@ def import_new_skill_roster_api():
     })
 
 @routes.route('/login', methods=['GET', 'POST'])
-def login():
+def login() -> Any:
     modality = resolve_modality_from_request()
     error = None
     passwordless = not is_admin_protection_enabled()
@@ -437,7 +435,7 @@ def login():
     return render_template("login.html", error=error, modality=modality, login_type='admin', passwordless=passwordless)
 
 @routes.route('/logout')
-def logout():
+def logout() -> Any:
     """Smart logout that handles both admin and basic auth levels.
 
     - If admin: clears admin session, redirects to login page
@@ -461,7 +459,7 @@ def logout():
 
 
 @routes.route('/access-login', methods=['GET', 'POST'])
-def access_login():
+def access_login() -> Any:
     """Basic access login for non-admin pages.
 
     Uses a permanent session cookie for long-lived access.
@@ -490,7 +488,7 @@ def access_login():
 
 
 @routes.route('/access-logout')
-def access_logout():
+def access_logout() -> Any:
     """Logout from basic access (keeps admin session if present)."""
     session.pop('access_granted', None)
     modality = resolve_modality_from_request()
@@ -499,7 +497,7 @@ def access_logout():
 
 @routes.route('/api/edit_info', methods=['POST'])
 @admin_required
-def edit_info():
+def edit_info() -> Any:
     """Update info texts for a specific modality"""
     try:
         data = request.get_json()
@@ -531,7 +529,7 @@ def edit_info():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @routes.route('/api/master-csv-status')
-def master_csv_status():
+def master_csv_status() -> Any:
     if os.path.exists(MASTER_CSV_PATH):
         stat = os.stat(MASTER_CSV_PATH)
         modified = datetime.fromtimestamp(stat.st_mtime).strftime('%d.%m.%Y %H:%M')
@@ -545,7 +543,7 @@ def master_csv_status():
 
 @routes.route('/upload-master-csv', methods=['POST'])
 @admin_required
-def upload_master_csv():
+def upload_master_csv() -> Any:
     if 'file' not in request.files:
         return jsonify({"error": "Keine Datei ausgewählt"}), 400
 
@@ -569,7 +567,7 @@ def upload_master_csv():
 
 @routes.route('/preload-from-master', methods=['POST'])
 @admin_required
-def preload_from_master():
+def preload_from_master() -> Any:
     if not os.path.exists(MASTER_CSV_PATH):
         return jsonify({"error": "Keine Master-CSV vorhanden. Bitte zuerst hochladen."}), 400
 
@@ -603,7 +601,7 @@ def preload_from_master():
 
 @routes.route('/upload', methods=['GET'])
 @admin_required
-def upload_file():
+def upload_file() -> Any:
     """Admin dashboard page for CSV management and statistics."""
     modality = resolve_modality_from_request()
     d = modality_data[modality]
@@ -727,7 +725,7 @@ def _check_worker_data() -> dict[str, str]:
     return {'status': 'OK', 'detail': f'{total_workers} workers loaded across all modalities'}
 
 
-def run_operational_checks(context: str = 'unknown', force: bool = False) -> dict:
+def run_operational_checks(context: str = 'unknown', force: bool = False) -> dict[str, Any]:
     """Run all operational checks and return results."""
     checks = [
         ('Config File', _check_config_file),
@@ -755,7 +753,7 @@ def run_operational_checks(context: str = 'unknown', force: bool = False) -> dic
 
 @routes.route('/load-today-from-master', methods=['POST'])
 @admin_required
-def load_today_from_master():
+def load_today_from_master() -> Any:
     if not os.path.exists(MASTER_CSV_PATH):
         return jsonify({"error": "Keine Master-CSV vorhanden. Bitte zuerst CSV hochladen."}), 400
 
@@ -872,7 +870,7 @@ def load_today_from_master():
     except Exception as e:
         return jsonify({"error": f"Fehler: {str(e)}"}), 500
 
-def _render_prep_page(initial_tab):
+def _render_prep_page(initial_tab: str) -> Any:
     staged_target_date = _get_staged_target_date()
     if initial_tab == 'tomorrow' and staged_target_date is None:
         _ensure_next_workday_preloaded()
@@ -951,18 +949,18 @@ def _render_prep_page(initial_tab):
 
 @routes.route('/prep-today')
 @admin_required
-def prep_today():
+def prep_today() -> Any:
     return _render_prep_page('today')
 
 
 @routes.route('/prep-tomorrow')
 @admin_required
-def prep_tomorrow():
+def prep_tomorrow() -> Any:
     return _render_prep_page('tomorrow')
 
 @routes.route('/api/prep-next-day/data', methods=['GET'])
 @admin_required
-def get_prep_data():
+def get_prep_data() -> Any:
     result = {}
     staged_target_date = _get_staged_target_date()
     if staged_target_date is None:
@@ -1004,7 +1002,7 @@ def get_prep_data():
 
 @routes.route('/api/prep-next-day/update-row', methods=['POST'])
 @admin_required
-def update_prep_row():
+def update_prep_row() -> Any:
     data = request.json
     modality = data.get('modality')
     row_index = data.get('row_index')
@@ -1022,7 +1020,7 @@ def update_prep_row():
 
 @routes.route('/api/prep-next-day/add-worker', methods=['POST'])
 @admin_required
-def add_prep_worker():
+def add_prep_worker() -> Any:
     data = request.json
     modality = data.get('modality')
     worker_data = data.get('worker_data', {})
@@ -1043,7 +1041,7 @@ def add_prep_worker():
 
 @routes.route('/api/prep-next-day/delete-worker', methods=['POST'])
 @admin_required
-def delete_prep_worker():
+def delete_prep_worker() -> Any:
     data = request.json
     modality = data.get('modality')
     row_index = data.get('row_index')
@@ -1060,7 +1058,7 @@ def delete_prep_worker():
 
 @routes.route('/api/live-schedule/data', methods=['GET'])
 @admin_required
-def get_live_data():
+def get_live_data() -> Any:
     result = {}
     for modality in allowed_modalities:
         df = modality_data[modality].get('working_hours_df')
@@ -1069,7 +1067,7 @@ def get_live_data():
 
 @routes.route('/api/live-schedule/update-row', methods=['POST'])
 @admin_required
-def update_live_row():
+def update_live_row() -> Any:
     data = request.json
     modality = data.get('modality')
     row_index = data.get('row_index')
@@ -1088,7 +1086,7 @@ def update_live_row():
 
 @routes.route('/api/live-schedule/add-worker', methods=['POST'])
 @admin_required
-def add_live_worker():
+def add_live_worker() -> Any:
     data = request.json
     modality = data.get('modality')
     worker_data = data.get('worker_data', {})
@@ -1119,7 +1117,7 @@ def add_live_worker():
 
 @routes.route('/api/live-schedule/delete-worker', methods=['POST'])
 @admin_required
-def delete_live_worker():
+def delete_live_worker() -> Any:
     data = request.json
     modality = data.get('modality')
     row_index = data.get('row_index')
@@ -1138,7 +1136,7 @@ def delete_live_worker():
 
 @routes.route('/api/live-schedule/add-gap', methods=['POST'])
 @admin_required
-def add_live_gap():
+def add_live_gap() -> Any:
     data = request.json
     modality = data.get('modality')
     row_index = data.get('row_index')
@@ -1166,7 +1164,7 @@ def add_live_gap():
 
 @routes.route('/api/prep-next-day/add-gap', methods=['POST'])
 @admin_required
-def add_staged_gap():
+def add_staged_gap() -> Any:
     data = request.json
     modality = data.get('modality')
     row_index = data.get('row_index')
@@ -1195,7 +1193,7 @@ def add_staged_gap():
 
 @routes.route('/api/live-schedule/remove-gap', methods=['POST'])
 @admin_required
-def remove_live_gap():
+def remove_live_gap() -> Any:
     """Remove a gap from a live schedule shift."""
     from data_manager.schedule_crud import _remove_gap_from_schedule
 
@@ -1233,7 +1231,7 @@ def remove_live_gap():
 
 @routes.route('/api/prep-next-day/remove-gap', methods=['POST'])
 @admin_required
-def remove_staged_gap():
+def remove_staged_gap() -> Any:
     """Remove a gap from a staged schedule shift."""
     from data_manager.schedule_crud import _remove_gap_from_schedule
 
@@ -1271,7 +1269,7 @@ def remove_staged_gap():
 
 @routes.route('/api/live-schedule/update-gap', methods=['POST'])
 @admin_required
-def update_live_gap():
+def update_live_gap() -> Any:
     """Update a gap in a live schedule shift."""
     from data_manager.schedule_crud import _update_gap_in_schedule
 
@@ -1313,7 +1311,7 @@ def update_live_gap():
 
 @routes.route('/api/prep-next-day/update-gap', methods=['POST'])
 @admin_required
-def update_staged_gap():
+def update_staged_gap() -> Any:
     """Update a gap in a staged schedule shift."""
     from data_manager.schedule_crud import _update_gap_in_schedule
 
@@ -1353,7 +1351,7 @@ def update_staged_gap():
     return jsonify({'error': error}), 400
 
 
-def _assign_worker(modality: str, role: str, allow_overflow: bool = True):
+def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any:
     try:
         now = get_local_now()
 
@@ -1450,7 +1448,7 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True):
 
 @routes.route('/api/<modality>/<role>', methods=['GET'])
 @access_required
-def assign_worker_api(modality, role):
+def assign_worker_api(modality: str, role: str) -> Any:
     modality = normalize_modality(modality)
     if modality not in modality_data:
         return jsonify({"error": "Invalid modality"}), 400
@@ -1458,7 +1456,7 @@ def assign_worker_api(modality, role):
 
 @routes.route('/api/<modality>/<role>/strict', methods=['GET'])
 @access_required
-def assign_worker_strict_api(modality, role):
+def assign_worker_strict_api(modality: str, role: str) -> Any:
     modality = normalize_modality(modality)
     if modality not in modality_data:
         return jsonify({"error": "Invalid modality"}), 400
@@ -1468,7 +1466,7 @@ def assign_worker_strict_api(modality, role):
 
 @routes.route('/api/usage-stats/current', methods=['GET'])
 @admin_required
-def get_current_usage_stats():
+def get_current_usage_stats() -> Any:
     """Get current daily usage statistics for skill-modality combinations."""
     stats = usage_logger.get_current_usage_stats()
 
@@ -1491,7 +1489,7 @@ def get_current_usage_stats():
 
 @routes.route('/api/usage-stats/export', methods=['POST'])
 @admin_required
-def export_usage_stats():
+def export_usage_stats() -> Any:
     """Manually trigger export of current usage statistics to CSV (wide format)."""
     try:
         csv_path = usage_logger.export_current_usage()
@@ -1517,7 +1515,7 @@ def export_usage_stats():
 
 @routes.route('/api/usage-stats/reset', methods=['POST'])
 @admin_required
-def reset_usage_stats():
+def reset_usage_stats() -> Any:
     """Reset current usage statistics (use with caution)."""
     try:
         usage_logger.reset_daily_usage()
@@ -1534,7 +1532,7 @@ def reset_usage_stats():
 
 @routes.route('/api/usage-stats/file', methods=['GET'])
 @admin_required
-def get_usage_stats_file_info():
+def get_usage_stats_file_info() -> Any:
     """Get information about the usage statistics CSV file."""
     try:
         csv_path = usage_logger.USAGE_STATS_FILE
@@ -1582,7 +1580,7 @@ def get_usage_stats_file_info():
 
 @routes.route('/worker-load')
 @admin_required
-def worker_load_monitor():
+def worker_load_monitor() -> Any:
     """Worker load monitoring page with simple/advanced views."""
     load_monitor_config = APP_CONFIG.get('worker_load_monitor', {})
 
@@ -1600,7 +1598,7 @@ def worker_load_monitor():
 
 @routes.route('/api/worker-load/data', methods=['GET'])
 @admin_required
-def get_worker_load_data():
+def get_worker_load_data() -> Any:
     """API endpoint returning all worker load data for monitoring."""
     # Collect all unique workers across all modalities
     all_workers = {}  # canonical_id -> {name, shift_info, modality_data}
