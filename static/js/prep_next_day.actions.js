@@ -2313,8 +2313,8 @@ function onQuickGapFromModal() {
   document.getElementById('break-popup').classList.add('show');
   document.getElementById('break-custom-minutes').value = '';
   clearBreakPresets();
-  // Pre-select 30 min as default
-  selectBreakPreset(30);
+  // Pre-select configured break duration as default
+  selectBreakPreset(QUICK_BREAK.duration_minutes);
 }
 
 /** Track selected break duration */

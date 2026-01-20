@@ -614,10 +614,7 @@ ${gaps.length > 0 ? `
   <div style="display: flex; flex-wrap: wrap; gap: 0.35rem;">
     ${gaps.map((g, gapIdx) => `
       <span class="gap-chip" style="display: inline-flex; align-items: center; background: #f8d7da; color: #721c24; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.75rem;">
-        <select style="margin-right: 0.3rem; padding: 0.1rem 0.2rem; font-size: 0.7rem;"
-          onchange="updateGapDetailsFromModal(${shiftIdx}, ${gapIdx}, { new_activity: this.value })">
-          ${renderGapOptions(g.activity || '')}
-        </select>
+        <span style="margin-right: 0.3rem; font-weight: 600;">${escapeHtml(g.activity || 'Break')}</span>
         <input type="time" value="${escapeHtml(g.start)}" style="width: 80px; font-size: 0.7rem; margin-right: 0.2rem;"
           onchange="updateGapDetailsFromModal(${shiftIdx}, ${gapIdx}, { new_start: this.value })">
         <span>-</span>
