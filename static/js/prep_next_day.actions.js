@@ -172,7 +172,7 @@ function validateAndSaveSkill(el) {
 
   // Trigger change tracking
   const { tab, mod, row, skill, gidx, sidx } = el.dataset;
-  onInlineSkillChange(tab, mod, parseInt(row), skill, normalized, parseInt(gidx), parseInt(sidx), el);
+  onInlineSkillChange(tab, mod, parseInt(row, 10), skill, normalized, parseInt(gidx, 10), parseInt(sidx, 10), el);
 }
 
 // Handle keyboard shortcuts for skill input
@@ -227,7 +227,7 @@ function validateAndSaveModifier(el) {
 
   // Trigger change tracking
   const { tab, mod, row, gidx, sidx } = el.dataset;
-  onInlineModifierChange(tab, mod, parseInt(row), parsed, parseInt(gidx), parseInt(sidx));
+  onInlineModifierChange(tab, mod, parseInt(row, 10), parsed, parseInt(gidx, 10), parseInt(sidx, 10));
 }
 
 // Validate and save shift-level modifier (applies to all modalities in the shift)
@@ -248,7 +248,7 @@ function validateAndSaveShiftModifier(el) {
 
   // Trigger change tracking for ALL modalities in this shift
   const { tab, gidx, sidx } = el.dataset;
-  onInlineShiftModifierChange(tab, parseInt(gidx), parseInt(sidx), parsed);
+  onInlineShiftModifierChange(tab, parseInt(gidx, 10), parseInt(sidx, 10), parsed);
 
   updateSaveButtonCount(tab);
 }
