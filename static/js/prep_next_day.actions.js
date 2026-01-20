@@ -751,7 +751,7 @@ function buildEntriesByWorker(data, tab = 'today') {
       });
     };
 
-    // Merge consecutive shifts with same task (split shifts due to gaps)
+    // Merge consecutive shifts with same task or same gap_id (split shifts due to gaps)
     const mergedShifts = [];
     let currentMerged = null;
 
@@ -762,6 +762,12 @@ function buildEntriesByWorker(data, tab = 'today') {
         hasWorkerGapBetween(currentMerged.end_time, shift.start_time)
       );
 
+      // Check if shifts should be merged:
+      // 1. Same gap_id (CSV-split shifts) - always merge
+      // 2. Same task with gap between - merge into one work period
+      const sameGapId = currentMerged && shift.gap_id && currentMerged.gap_id && shift.gap_id === currentMerged.gap_id;
+      const sameTaskWithGap = currentMerged && currentMerged.task === shift.task && hasGapBetween;
+
       if (!currentMerged) {
         currentMerged = {
           ...shift,
@@ -771,14 +777,18 @@ function buildEntriesByWorker(data, tab = 'today') {
           is_manual: shift.is_manual,
           gap_id: shift.gap_id
         };
-      } else if (currentMerged.task === shift.task && hasGapBetween) {
-        // Same task with gap between - merge into one work period
+      } else if (sameGapId || sameTaskWithGap) {
+        // Merge: same gap_id OR same task with gap between
         currentMerged.timeSegments.push({ start: shift.start_time, end: shift.end_time });
         currentMerged.originalShifts.push(shift);
         currentMerged.end_time = shift.end_time;
         currentMerged.gaps = mergeUniqueGaps([...(currentMerged.gaps || []), ...(shift.gaps || [])]);
         currentMerged.is_manual = shift.is_manual || currentMerged.is_manual;
         currentMerged.gap_id = shift.gap_id || currentMerged.gap_id;
+        // Merge task names if different (prefer the existing one, but keep both for display)
+        if (shift.task && currentMerged.task !== shift.task && !currentMerged.task.includes(shift.task)) {
+          currentMerged.task = currentMerged.task ? `${currentMerged.task}` : shift.task;
+        }
         // Merge modalities (prefer non-placeholder)
         Object.entries(shift.modalities).forEach(([modKey, modData]) => {
           if (!currentMerged.modalities[modKey] || currentMerged.modalities[modKey].placeholder) {
@@ -1209,10 +1219,8 @@ function initializeModalAddForm() {
   const taskSelect = document.getElementById('modal-add-task');
   if (!taskSelect) return;
 
-  if (!taskSelect.value && taskSelect.options.length > 1) {
-    taskSelect.selectedIndex = 1;
-  }
-
+  // The dropdown now auto-selects first shift via renderTaskOptionsWithGroups(_, _, true)
+  // Call onModalTaskChange to populate times/skills based on the selected task
   if (taskSelect.value) {
     onModalTaskChange();
   } else {

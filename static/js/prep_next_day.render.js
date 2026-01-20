@@ -667,7 +667,7 @@ function renderEditModalContent() {
 <div style="flex: 1; min-width: 180px;">
   <label style="font-size: 0.75rem; color: #666; display: block;">Shift / Task</label>
   <select id="modal-add-task" onchange="onModalTaskChange()" style="width: 100%; padding: 0.4rem; font-size: 0.85rem;">
-    ${renderTaskOptionsWithGroups('', true)}
+    ${renderTaskOptionsWithGroups('', true, true)}
   </select>
 </div>
 <div style="min-width: 90px;">

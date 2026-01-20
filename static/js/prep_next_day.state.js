@@ -182,9 +182,14 @@ function isGapTask(taskName) {
 }
 
 // Helper: Render task/role dropdown with optgroups for Shifts vs Gaps
-function renderTaskOptionsWithGroups(selectedValue = '', includeGaps = false) {
+// autoSelectFirst: if true and no selectedValue, auto-select the first shift option
+function renderTaskOptionsWithGroups(selectedValue = '', includeGaps = false, autoSelectFirst = false) {
   const shifts = getShiftRoles();
   const gaps = getGapTasks();
+
+  // Determine if we should auto-select first shift
+  const shouldAutoSelect = autoSelectFirst && !selectedValue && shifts.length > 0;
+  const firstShiftName = shouldAutoSelect ? shifts[0].name : null;
 
   let html = '<option value="">-- Select --</option>';
 
@@ -192,7 +197,8 @@ function renderTaskOptionsWithGroups(selectedValue = '', includeGaps = false) {
   if (shifts.length > 0) {
     html += '<optgroup label="Shifts / Roles">';
     shifts.forEach(t => {
-      const selected = t.name === selectedValue ? 'selected' : '';
+      const isSelected = t.name === selectedValue || (shouldAutoSelect && t.name === firstShiftName);
+      const selected = isSelected ? 'selected' : '';
       const dataAttrs = `data-type="shift" data-modalities='${JSON.stringify(t.modalities || [])}' data-shift="${escapeHtml(t.shift || 'Fruehdienst')}" data-skills='${JSON.stringify(t.skill_overrides || {})}' data-modifier="${t.modifier || 1.0}"`;
       html += `<option value="${escapeHtml(t.name)}" ${dataAttrs} ${selected}>${escapeHtml(t.name)}</option>`;
     });
