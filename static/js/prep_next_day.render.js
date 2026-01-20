@@ -290,9 +290,6 @@ function renderTable(tab) {
       if (shiftIdx === 0) {
         tr.classList.add('worker-group-first');
         let workerHtml = `<span class="worker-name ${isDuplicate ? 'duplicate' : ''}">${escapedWorker}</span>${duplicateBadge}`;
-        if (shift.gap_id) {
-          workerHtml = `<span class="gap-linked-icon" title="Linked Split-Shift (ID: ${shift.gap_id})">🔗</span>` + workerHtml;
-        }
         // Add quick break button at worker level (today tab only)
         if (tab === 'today') {
           workerHtml += `<button type="button" class="btn-quick-gap" onclick="onQuickGap30('${tab}', ${gIdx}, 0)" title="Add ${QUICK_BREAK.duration_minutes}-min break NOW">☕</button>`;
@@ -603,6 +600,20 @@ function renderEditModalContent() {
     ${timelineHtml}
   </div>
 </div>
+
+${gaps.length > 0 ? `
+<div style="margin-bottom: 0.5rem; padding: 0.5rem; background: #fff3cd; border-radius: 4px; border: 1px solid #ffc107;">
+  <label style="font-size: 0.75rem; font-weight: 600; color: #856404; display: block; margin-bottom: 0.25rem;">Gaps (click × to remove)</label>
+  <div style="display: flex; flex-wrap: wrap; gap: 0.35rem;">
+    ${gaps.map((g, gapIdx) => `
+      <span class="gap-chip" style="display: inline-flex; align-items: center; background: #f8d7da; color: #721c24; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.75rem;">
+        <span>${escapeHtml(g.start)}-${escapeHtml(g.end)} (${escapeHtml(g.activity || 'Gap')})</span>
+        <button type="button" onclick="removeGapFromModal(${shiftIdx}, ${gapIdx})" style="margin-left: 0.3rem; background: none; border: none; color: #721c24; cursor: pointer; font-weight: bold; padding: 0 0.2rem;" title="Remove this gap">×</button>
+      </span>
+    `).join('')}
+  </div>
+</div>
+` : ''}
 
 <div style="margin-bottom:0.35rem; display:flex; justify-content: space-between; align-items:center;">
   <label style="font-size:0.8rem; font-weight:600;">Skills per modality</label>

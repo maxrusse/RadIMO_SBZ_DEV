@@ -117,7 +117,6 @@ def _df_to_api_response(df: pd.DataFrame) -> list[dict[str, Any]]:
     has_gaps = 'gaps' in columns
     has_counts_for_hours = 'counts_for_hours' in columns
     has_manual = 'is_manual' in columns
-    has_gap_id = 'gap_id' in columns
     for idx, row in df.iterrows():
         worker_data = {
             'row_index': int(idx),
@@ -139,9 +138,6 @@ def _df_to_api_response(df: pd.DataFrame) -> list[dict[str, Any]]:
 
         if has_manual:
             worker_data['is_manual'] = bool(row.get('is_manual', False))
-        if has_gap_id:
-            gap_id_value = row.get('gap_id')
-            worker_data['gap_id'] = None if pd.isna(gap_id_value) else gap_id_value
 
         data.append(worker_data)
 
@@ -1177,6 +1173,113 @@ def add_staged_gap():
     if success:
         return jsonify({'success': True, 'action': action})
     return jsonify({'error': error}), 400
+
+
+@routes.route('/api/live-schedule/remove-gap', methods=['POST'])
+@admin_required
+def remove_live_gap():
+    """Remove a gap from a live schedule shift by index."""
+    from data_manager.schedule_crud import _remove_gap_from_schedule
+
+    data = request.json
+    modality = data.get('modality')
+    row_index = data.get('row_index')
+    gap_index = data.get('gap_index')
+
+    if modality not in modality_data:
+        return jsonify({'error': 'Invalid modality'}), 400
+
+    if gap_index is None:
+        return jsonify({'error': 'gap_index is required'}), 400
+
+    success, action, error = _remove_gap_from_schedule(modality, row_index, gap_index, use_staged=False)
+
+    if success:
+        return jsonify({'success': True, 'action': action})
+    return jsonify({'error': error}), 400
+
+
+@routes.route('/api/prep-next-day/remove-gap', methods=['POST'])
+@admin_required
+def remove_staged_gap():
+    """Remove a gap from a staged schedule shift by index."""
+    from data_manager.schedule_crud import _remove_gap_from_schedule
+
+    data = request.json
+    modality = data.get('modality')
+    row_index = data.get('row_index')
+    gap_index = data.get('gap_index')
+
+    if modality not in staged_modality_data:
+        return jsonify({'error': 'Invalid modality'}), 400
+
+    if gap_index is None:
+        return jsonify({'error': 'gap_index is required'}), 400
+
+    success, action, error = _remove_gap_from_schedule(modality, row_index, gap_index, use_staged=True)
+
+    if success:
+        return jsonify({'success': True, 'action': action})
+    return jsonify({'error': error}), 400
+
+
+@routes.route('/api/live-schedule/update-gap', methods=['POST'])
+@admin_required
+def update_live_gap():
+    """Update a gap in a live schedule shift."""
+    from data_manager.schedule_crud import _update_gap_in_schedule
+
+    data = request.json
+    modality = data.get('modality')
+    row_index = data.get('row_index')
+    gap_index = data.get('gap_index')
+    new_start = data.get('new_start')
+    new_end = data.get('new_end')
+    new_activity = data.get('new_activity')
+
+    if modality not in modality_data:
+        return jsonify({'error': 'Invalid modality'}), 400
+
+    if gap_index is None:
+        return jsonify({'error': 'gap_index is required'}), 400
+
+    success, action, error = _update_gap_in_schedule(
+        modality, row_index, gap_index, new_start, new_end, new_activity, use_staged=False
+    )
+
+    if success:
+        return jsonify({'success': True, 'action': action})
+    return jsonify({'error': error}), 400
+
+
+@routes.route('/api/prep-next-day/update-gap', methods=['POST'])
+@admin_required
+def update_staged_gap():
+    """Update a gap in a staged schedule shift."""
+    from data_manager.schedule_crud import _update_gap_in_schedule
+
+    data = request.json
+    modality = data.get('modality')
+    row_index = data.get('row_index')
+    gap_index = data.get('gap_index')
+    new_start = data.get('new_start')
+    new_end = data.get('new_end')
+    new_activity = data.get('new_activity')
+
+    if modality not in staged_modality_data:
+        return jsonify({'error': 'Invalid modality'}), 400
+
+    if gap_index is None:
+        return jsonify({'error': 'gap_index is required'}), 400
+
+    success, action, error = _update_gap_in_schedule(
+        modality, row_index, gap_index, new_start, new_end, new_activity, use_staged=True
+    )
+
+    if success:
+        return jsonify({'success': True, 'action': action})
+    return jsonify({'error': error}), 400
+
 
 def _assign_worker(modality: str, role: str, allow_overflow: bool = True):
     try:

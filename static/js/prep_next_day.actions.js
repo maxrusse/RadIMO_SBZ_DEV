@@ -632,7 +632,6 @@ function buildEntriesByWorker(data, tab = 'today') {
         modifier: row.Modifier !== undefined ? row.Modifier : 1.0,
         counts_for_hours: countsForHours !== false,  // Default true
         is_manual: Boolean(row.is_manual),
-        gap_id: row.gap_id || null,
         gaps: gaps,
         skills: SKILLS.reduce((acc, skill) => {
           if (isGapRow) { acc[skill] = -1; return acc; }
@@ -675,8 +674,7 @@ function buildEntriesByWorker(data, tab = 'today') {
           modalities: {},
           timeSegments: [{ start: entry.start_time, end: entry.end_time }],
           originalShifts: [entry],
-          is_manual: entry.is_manual,
-          gap_id: entry.gap_id
+          is_manual: entry.is_manual
         };
       }
 
@@ -747,7 +745,7 @@ function buildEntriesByWorker(data, tab = 'today') {
       });
     };
 
-    // Merge consecutive shifts with same task or same gap_id (split shifts due to gaps)
+    // Merge consecutive shifts with same task and gap between
     const mergedShifts = [];
     let currentMerged = null;
 
@@ -758,10 +756,7 @@ function buildEntriesByWorker(data, tab = 'today') {
         hasWorkerGapBetween(currentMerged.end_time, shift.start_time)
       );
 
-      // Check if shifts should be merged:
-      // 1. Same gap_id (CSV-split shifts) - always merge
-      // 2. Same task with gap between - merge into one work period
-      const sameGapId = currentMerged && shift.gap_id && currentMerged.gap_id && shift.gap_id === currentMerged.gap_id;
+      // Merge shifts with same task and gap between into one work period
       const sameTaskWithGap = currentMerged && currentMerged.task === shift.task && hasGapBetween;
 
       if (!currentMerged) {
@@ -770,17 +765,15 @@ function buildEntriesByWorker(data, tab = 'today') {
           timeSegments: [{ start: shift.start_time, end: shift.end_time }],
           originalShifts: [shift],
           gaps: mergeUniqueGaps(shift.gaps || []),
-          is_manual: shift.is_manual,
-          gap_id: shift.gap_id
+          is_manual: shift.is_manual
         };
-      } else if (sameGapId || sameTaskWithGap) {
-        // Merge: same gap_id OR same task with gap between
+      } else if (sameTaskWithGap) {
+        // Merge: same task with gap between
         currentMerged.timeSegments.push({ start: shift.start_time, end: shift.end_time });
         currentMerged.originalShifts.push(shift);
         currentMerged.end_time = shift.end_time;
         currentMerged.gaps = mergeUniqueGaps([...(currentMerged.gaps || []), ...(shift.gaps || [])]);
         currentMerged.is_manual = shift.is_manual || currentMerged.is_manual;
-        currentMerged.gap_id = shift.gap_id || currentMerged.gap_id;
         // Merge task names if different (prefer the existing one, but keep both for display)
         if (shift.task && currentMerged.task !== shift.task && !currentMerged.task.includes(shift.task)) {
           currentMerged.task = currentMerged.task ? `${currentMerged.task}` : shift.task;
@@ -799,8 +792,7 @@ function buildEntriesByWorker(data, tab = 'today') {
           timeSegments: [{ start: shift.start_time, end: shift.end_time }],
           originalShifts: [shift],
           gaps: mergeUniqueGaps(shift.gaps || []),
-          is_manual: shift.is_manual,
-          gap_id: shift.gap_id
+          is_manual: shift.is_manual
         };
       }
     });
@@ -1073,6 +1065,55 @@ async function deleteShiftFromModal(shiftIdx) {
     showMessage('success', 'Shift deleted');
     closeModal();
     await loadData();
+  } catch (error) {
+    showMessage('error', error.message);
+  }
+}
+
+// Remove a gap from a shift via edit modal
+async function removeGapFromModal(shiftIdx, gapIdx) {
+  const { tab, groupIdx } = currentEditEntry || {};
+  const group = entriesData[tab]?.[groupIdx];
+  if (!group) return;
+
+  const shifts = getModalShifts(group);
+  const shift = shifts[shiftIdx];
+  if (!shift) return;
+
+  const gaps = shift.gaps || [];
+  const gap = gaps[gapIdx];
+  if (!gap) return;
+
+  if (!confirm(`Remove gap ${gap.start}-${gap.end} (${gap.activity || 'Gap'})?`)) return;
+
+  const endpoint = tab === 'today' ? '/api/live-schedule/remove-gap' : '/api/prep-next-day/remove-gap';
+
+  try {
+    // Remove gap from all modality entries for this shift
+    let anySuccess = false;
+    for (const [modKey, modData] of Object.entries(shift.modalities)) {
+      if (modData.row_index !== undefined && modData.row_index >= 0) {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ modality: modKey, row_index: modData.row_index, gap_index: gapIdx })
+        });
+        if (response.ok) {
+          anySuccess = true;
+        }
+      }
+    }
+    if (anySuccess) {
+      showMessage('success', 'Gap removed');
+      await loadData();
+      // Re-open modal to show updated data
+      if (entriesData[tab] && entriesData[tab][groupIdx]) {
+        currentEditEntry = { tab, groupIdx };
+        renderEditModalContent();
+      }
+    } else {
+      showMessage('error', 'Failed to remove gap');
+    }
   } catch (error) {
     showMessage('error', error.message);
   }
@@ -2024,7 +2065,7 @@ async function callAddGap(endpoint, modality, rowIndex, type, start, end) {
 
 /**
  * Add a break (gap) starting NOW for a worker.
- * Uses add-gap API to split existing shifts at the break time.
+ * Uses add-gap API to add gap to existing shifts.
  * Falls back to standalone gap entry if no shift exists at that time.
  * @param {string} tab - 'today' or 'tomorrow'
  * @param {number} gIdx - Group index
@@ -2062,7 +2103,7 @@ async function onQuickGap30(tab, gIdx, shiftIdx, durationMinutes) {
   if (!editMode[tab]) {
     let msg = `Add ${duration}-min break for ${group.worker}?\n\nTime: ${gapStart} - ${gapEnd}`;
     if (overlappingShifts.length > 0) {
-      msg += `\n\nWill split shift(s) at break time.`;
+      msg += `\n\nWill add gap to shift(s).`;
     } else {
       msg += `\n\nNo shift at this time - will create gap entry.`;
     }
@@ -2071,7 +2112,7 @@ async function onQuickGap30(tab, gIdx, shiftIdx, durationMinutes) {
 
   try {
     if (overlappingShifts.length > 0) {
-      // Use add-gap API to split existing shifts
+      // Use add-gap API to add gap to existing shifts
       const gapEndpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
 
       for (const shift of overlappingShifts) {
@@ -2087,7 +2128,7 @@ async function onQuickGap30(tab, gIdx, shiftIdx, durationMinutes) {
         }
       }
 
-      showMessage('success', `Added break (${gapStart}-${gapEnd}) for ${group.worker} - shift split`);
+      showMessage('success', `Added break (${gapStart}-${gapEnd}) for ${group.worker}`);
     } else {
       // No overlapping shift - create standalone gap entry
       const addEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';

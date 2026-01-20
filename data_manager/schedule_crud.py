@@ -8,7 +8,6 @@ This module handles:
 - Overlapping shift resolution
 """
 import json
-import uuid
 from datetime import datetime, time, date, timedelta
 from typing import Optional, Dict, List, Tuple
 
@@ -68,6 +67,34 @@ def _merge_gap(existing: list, new_gap: dict) -> list:
             return merged
     merged.append(new_gap)
     return merged
+
+
+def _validate_no_gap_overlap(existing_gaps: list, new_gap: dict, exclude_index: int = -1) -> tuple:
+    """
+    Validate that a new gap doesn't overlap with existing gaps.
+
+    Args:
+        existing_gaps: List of existing gap dicts with 'start' and 'end' keys
+        new_gap: The new gap to validate
+        exclude_index: Index to exclude from overlap check (for updates)
+
+    Returns:
+        (valid: bool, error_message: str or None)
+    """
+    new_start = new_gap.get('start', '')
+    new_end = new_gap.get('end', '')
+
+    for i, g in enumerate(existing_gaps):
+        if i == exclude_index:
+            continue
+        g_start = g.get('start', '')
+        g_end = g.get('end', '')
+
+        # Check for overlap: two ranges overlap if start1 < end2 AND start2 < end1
+        if new_start < g_end and g_start < new_end:
+            return False, f"Gap overlaps with existing gap ({g_start}-{g_end})"
+
+    return True, None
 
 
 def _calc_shift_duration_seconds(start_dt: datetime, end_dt: datetime) -> float:
@@ -483,17 +510,11 @@ def _delete_worker_from_schedule(modality: str, row_index: int, use_staged: bool
 
     try:
         worker_name = df.loc[row_index_int, 'PPL']
-        gap_id = df.loc[row_index_int, 'gap_id'] if 'gap_id' in df.columns else None
 
         if verify_ppl and str(worker_name) != str(verify_ppl):
             return False, None, 'Row mismatch: Schedule has changed. Please reload.'
 
-        if gap_id and pd.notnull(gap_id):
-            # Delete all rows sharing the same gap_id
-            data_dict['working_hours_df'] = df[df['gap_id'] != gap_id].reset_index(drop=True)
-            selection_logger.info(f"Deleted linked gap rows for ID {gap_id}")
-        else:
-            data_dict['working_hours_df'] = df.drop(index=row_index_int).reset_index(drop=True)
+        data_dict['working_hours_df'] = df.drop(index=row_index_int).reset_index(drop=True)
 
         if not use_staged:
             reconcile_live_worker_tracking(modality)
@@ -507,13 +528,13 @@ def _delete_worker_from_schedule(modality: str, row_index: int, use_staged: bool
 
 def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start: str, gap_end: str, use_staged: bool) -> tuple:
     """
-    Add a gap to a worker's schedule.
+    Add a gap to a worker's schedule as a child entity.
 
     Handles 4 cases:
-    1. Gap covers entire shift - delete row(s)
+    1. Gap covers entire shift - mark as full-shift gap (counts_for_hours=False)
     2. Gap at start - adjust start time
     3. Gap at end - adjust end time
-    4. Gap in middle - split into two rows
+    4. Gap in middle - store as child entity in gaps JSON (no row split)
     """
     # Import here to avoid circular imports
     from data_manager.file_ops import backup_dataframe
@@ -525,8 +546,6 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
         if 'gaps' not in df.columns:
             # Use object dtype to preserve None values (avoid NaN conversion)
             df['gaps'] = pd.array([None] * len(df), dtype=object)
-        if 'gap_id' not in df.columns:
-            df['gap_id'] = pd.array([None] * len(df), dtype=object)
         if use_staged and 'is_manual' not in df.columns:
             df['is_manual'] = False
 
@@ -558,40 +577,62 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
             'activity': gap_type,
         }
 
-        # Get existing gap_id from row (if this shift is part of a linked gap group)
-        existing_gap_id = row.get('gap_id') if 'gap_id' in df.columns else None
-        if pd.isna(existing_gap_id):
-            existing_gap_id = None
-
         if gap_end_dt <= shift_start_dt or gap_start_dt >= shift_end_dt:
             return False, None, 'Gap is outside worker shift times'
 
-        log_prefix = "STAGED: " if use_staged else ""
-        merged_gaps = json.dumps(_merge_gap(_parse_gap_list(row.get('gaps')), gap_entry))
+        # Validate no overlap with existing gaps
+        existing_gaps = _parse_gap_list(row.get('gaps'))
+        is_valid, overlap_error = _validate_no_gap_overlap(existing_gaps, gap_entry)
+        if not is_valid:
+            return False, None, overlap_error
 
-        # Helper to update TIME column if it exists
-        def update_time_col(idx, start_t, end_t):
-            if 'TIME' in df.columns:
-                df.at[idx, 'TIME'] = f"{start_t.strftime(TIME_FORMAT)}-{end_t.strftime(TIME_FORMAT)}"
+        log_prefix = "STAGED: " if use_staged else ""
+        merged_gaps = json.dumps(_merge_gap(existing_gaps, gap_entry))
+
+        # Calculate effective working duration (shift duration minus all gaps)
+        def calc_effective_duration(gaps_json: str, s_start_dt: datetime, s_end_dt: datetime) -> float:
+            """Calculate effective working hours = shift duration - gap durations."""
+            total_shift_hours = (s_end_dt - s_start_dt).total_seconds() / 3600
+            gaps_list = _parse_gap_list(gaps_json)
+            gap_hours = 0.0
+            for g in gaps_list:
+                try:
+                    g_start = datetime.strptime(g['start'], TIME_FORMAT).time()
+                    g_end = datetime.strptime(g['end'], TIME_FORMAT).time()
+                    g_start_dt = datetime.combine(base_date, g_start)
+                    g_end_dt = datetime.combine(base_date, g_end)
+                    # Clip gap to shift boundaries
+                    g_start_dt = max(g_start_dt, s_start_dt)
+                    g_end_dt = min(g_end_dt, s_end_dt)
+                    if g_end_dt > g_start_dt:
+                        gap_hours += (g_end_dt - g_start_dt).total_seconds() / 3600
+                except (KeyError, ValueError):
+                    pass
+            return max(0.0, total_shift_hours - gap_hours)
 
         if gap_start_dt <= shift_start_dt and gap_end_dt >= shift_end_dt:
-            # Case 1: Gap covers entire shift - delete row(s)
-            if existing_gap_id:
-                data_dict['working_hours_df'] = df[df['gap_id'] != existing_gap_id].reset_index(drop=True)
-            else:
-                data_dict['working_hours_df'] = df.drop(index=row_index).reset_index(drop=True)
+            # Case 1: Gap covers entire shift - keep row as full-shift gap
+            # Store the gap, mark counts_for_hours=False so it doesn't count toward working hours
+            df.at[row_index, 'gaps'] = merged_gaps
+            df.at[row_index, 'counts_for_hours'] = False
+            df.at[row_index, 'shift_duration'] = 0.0  # Effective working time is zero
+            if use_staged:
+                df.at[row_index, 'is_manual'] = True
 
             backup_dataframe(modality, use_staged=use_staged)
-            selection_logger.info(f"{log_prefix}Gap ({gap_type}) covers entire shift for {worker_name} - row(s) deleted")
-            return True, 'deleted', None
+            selection_logger.info(f"{log_prefix}Gap ({gap_type}) covers entire shift for {worker_name} - marked as full-shift gap")
+            return True, 'full_shift_gap', None
 
         elif gap_start_dt <= shift_start_dt < gap_end_dt < shift_end_dt:
             # Case 2: Gap at start - adjust start time
             df.at[row_index, 'start_time'] = gap_end_time
-            update_time_col(row_index, gap_end_time, shift_end)
+            if 'TIME' in df.columns:
+                df.at[row_index, 'TIME'] = f"{gap_end_time.strftime(TIME_FORMAT)}-{shift_end.strftime(TIME_FORMAT)}"
             new_start_dt = datetime.combine(base_date, gap_end_time)
             df.at[row_index, 'shift_duration'] = _calc_shift_duration_seconds(new_start_dt, shift_end_dt)
             df.at[row_index, 'gaps'] = merged_gaps
+            if use_staged:
+                df.at[row_index, 'is_manual'] = True
             backup_dataframe(modality, use_staged=use_staged)
             selection_logger.info(f"{log_prefix}Gap ({gap_type}) at start for {worker_name}: new start {gap_end_time}")
             return True, 'start_adjusted', None
@@ -599,45 +640,231 @@ def _add_gap_to_schedule(modality: str, row_index: int, gap_type: str, gap_start
         elif shift_start_dt < gap_start_dt < shift_end_dt and gap_end_dt >= shift_end_dt:
             # Case 3: Gap at end - adjust end time
             df.at[row_index, 'end_time'] = gap_start_time
-            update_time_col(row_index, shift_start, gap_start_time)
+            if 'TIME' in df.columns:
+                df.at[row_index, 'TIME'] = f"{shift_start.strftime(TIME_FORMAT)}-{gap_start_time.strftime(TIME_FORMAT)}"
             new_end_dt = datetime.combine(base_date, gap_start_time)
             df.at[row_index, 'shift_duration'] = _calc_shift_duration_seconds(shift_start_dt, new_end_dt)
             df.at[row_index, 'gaps'] = merged_gaps
+            if use_staged:
+                df.at[row_index, 'is_manual'] = True
             backup_dataframe(modality, use_staged=use_staged)
             selection_logger.info(f"{log_prefix}Gap ({gap_type}) at end for {worker_name}: new end {gap_start_time}")
             return True, 'end_adjusted', None
 
         else:
-            # Case 4: Gap in middle - SPLIT into two rows
-            new_gap_id = f"gap_{uuid.uuid4().hex[:12]}"
-            new_end_dt = datetime.combine(base_date, gap_start_time)
-            new_start_dt = datetime.combine(base_date, gap_end_time)
-
-            # Update existing row (first half)
-            df.at[row_index, 'end_time'] = gap_start_time
-            update_time_col(row_index, shift_start, gap_start_time)
-            df.at[row_index, 'shift_duration'] = _calc_shift_duration_seconds(shift_start_dt, new_end_dt)
-            df.at[row_index, 'gap_id'] = new_gap_id
+            # Case 4: Gap in middle - NO SPLIT, just store gap as child entity
+            # Keep original shift times, add gap to gaps array
             df.at[row_index, 'gaps'] = merged_gaps
+            # Update shift_duration to reflect effective working time (excluding gap)
+            df.at[row_index, 'shift_duration'] = calc_effective_duration(merged_gaps, shift_start_dt, shift_end_dt)
             if use_staged:
                 df.at[row_index, 'is_manual'] = True
 
-            # Create new row (second half)
-            new_row = row.to_dict()
-            new_row['start_time'] = gap_end_time
-            new_row['end_time'] = shift_end
-            new_row['shift_duration'] = _calc_shift_duration_seconds(new_start_dt, shift_end_dt)
-            new_row['gap_id'] = new_gap_id
-            new_row['gaps'] = merged_gaps
-            if 'TIME' in df.columns:
-                new_row['TIME'] = f"{gap_end_time.strftime(TIME_FORMAT)}-{shift_end.strftime(TIME_FORMAT)}"
-            if use_staged:
-                new_row['is_manual'] = True
-
-            data_dict['working_hours_df'] = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             backup_dataframe(modality, use_staged=use_staged)
-            selection_logger.info(f"{log_prefix}Gap ({gap_type}) in middle for {worker_name}: split into two shifts with ID {new_gap_id}")
-            return True, 'split', None
+            selection_logger.info(f"{log_prefix}Gap ({gap_type}) in middle for {worker_name}: stored as child entity (no split)")
+            return True, 'gap_added', None
+
+    except ValueError as e:
+        return False, None, f'Invalid time format: {e}'
+    except Exception as e:
+        return False, None, str(e)
+
+
+def _remove_gap_from_schedule(modality: str, row_index: int, gap_index: int, use_staged: bool) -> tuple:
+    """
+    Remove a gap from a worker's schedule by index.
+
+    Args:
+        modality: The modality (e.g., 'CT', 'MRT')
+        row_index: Index of the shift row
+        gap_index: Index of the gap to remove (0-based)
+        use_staged: Whether to use staged (prep) or live data
+
+    Returns:
+        (success: bool, action_or_None: str, error_or_None: str)
+    """
+    # Import here to avoid circular imports
+    from data_manager.file_ops import backup_dataframe
+
+    data_dict = _get_schedule_data_dict(modality, use_staged)
+    df = data_dict['working_hours_df']
+
+    if not _validate_row_index(df, row_index):
+        return False, None, 'Invalid row index'
+
+    try:
+        row = df.loc[row_index]
+        worker_name = row['PPL']
+        gaps = _parse_gap_list(row.get('gaps'))
+
+        if not gaps:
+            return False, None, 'No gaps to remove'
+
+        if gap_index < 0 or gap_index >= len(gaps):
+            return False, None, f'Invalid gap index: {gap_index}'
+
+        removed_gap = gaps.pop(gap_index)
+        log_prefix = "STAGED: " if use_staged else ""
+
+        # Update the gaps column
+        df.at[row_index, 'gaps'] = json.dumps(gaps) if gaps else None
+
+        # Recalculate effective shift duration
+        shift_start = row['start_time']
+        shift_end = row['end_time']
+        base_date = datetime.today()
+        shift_start_dt = datetime.combine(base_date, shift_start)
+        shift_end_dt = datetime.combine(base_date, shift_end)
+
+        total_shift_hours = (shift_end_dt - shift_start_dt).total_seconds() / 3600
+        gap_hours = 0.0
+        for g in gaps:
+            try:
+                g_start = datetime.strptime(g['start'], TIME_FORMAT).time()
+                g_end = datetime.strptime(g['end'], TIME_FORMAT).time()
+                g_start_dt = datetime.combine(base_date, g_start)
+                g_end_dt = datetime.combine(base_date, g_end)
+                # Clip to shift boundaries
+                g_start_dt = max(g_start_dt, shift_start_dt)
+                g_end_dt = min(g_end_dt, shift_end_dt)
+                if g_end_dt > g_start_dt:
+                    gap_hours += (g_end_dt - g_start_dt).total_seconds() / 3600
+            except (KeyError, ValueError):
+                pass
+
+        effective_duration = max(0.0, total_shift_hours - gap_hours)
+        df.at[row_index, 'shift_duration'] = effective_duration
+
+        # If shift now has working time, restore counts_for_hours
+        if effective_duration >= 0.1:
+            df.at[row_index, 'counts_for_hours'] = True
+
+        if use_staged and 'is_manual' in df.columns:
+            df.at[row_index, 'is_manual'] = True
+
+        backup_dataframe(modality, use_staged=use_staged)
+        selection_logger.info(
+            f"{log_prefix}Removed gap [{removed_gap.get('activity', 'unknown')}] "
+            f"({removed_gap.get('start', '?')}-{removed_gap.get('end', '?')}) for {worker_name}"
+        )
+        return True, 'gap_removed', None
+
+    except Exception as e:
+        return False, None, str(e)
+
+
+def _update_gap_in_schedule(modality: str, row_index: int, gap_index: int,
+                            new_start: Optional[str], new_end: Optional[str],
+                            new_activity: Optional[str], use_staged: bool) -> tuple:
+    """
+    Update a gap in a worker's schedule.
+
+    Args:
+        modality: The modality (e.g., 'CT', 'MRT')
+        row_index: Index of the shift row
+        gap_index: Index of the gap to update (0-based)
+        new_start: New start time (HH:MM) or None to keep existing
+        new_end: New end time (HH:MM) or None to keep existing
+        new_activity: New activity type or None to keep existing
+        use_staged: Whether to use staged (prep) or live data
+
+    Returns:
+        (success: bool, action_or_None: str, error_or_None: str)
+    """
+    # Import here to avoid circular imports
+    from data_manager.file_ops import backup_dataframe
+
+    data_dict = _get_schedule_data_dict(modality, use_staged)
+    df = data_dict['working_hours_df']
+
+    if not _validate_row_index(df, row_index):
+        return False, None, 'Invalid row index'
+
+    try:
+        row = df.loc[row_index]
+        worker_name = row['PPL']
+        gaps = _parse_gap_list(row.get('gaps'))
+
+        if not gaps:
+            return False, None, 'No gaps to update'
+
+        if gap_index < 0 or gap_index >= len(gaps):
+            return False, None, f'Invalid gap index: {gap_index}'
+
+        gap = gaps[gap_index]
+        log_prefix = "STAGED: " if use_staged else ""
+
+        # Update gap fields
+        if new_start is not None:
+            datetime.strptime(new_start, TIME_FORMAT)  # Validate format
+            gap['start'] = new_start
+        if new_end is not None:
+            datetime.strptime(new_end, TIME_FORMAT)  # Validate format
+            gap['end'] = new_end
+        if new_activity is not None:
+            gap['activity'] = new_activity
+
+        # Validate gap times
+        gap_start_time = datetime.strptime(gap['start'], TIME_FORMAT).time()
+        gap_end_time = datetime.strptime(gap['end'], TIME_FORMAT).time()
+        if gap_start_time >= gap_end_time:
+            return False, None, 'Gap start time must be before end time'
+
+        # Validate gap is within shift bounds
+        shift_start = row['start_time']
+        shift_end = row['end_time']
+        base_date = datetime.today()
+        shift_start_dt = datetime.combine(base_date, shift_start)
+        shift_end_dt = datetime.combine(base_date, shift_end)
+        gap_start_dt = datetime.combine(base_date, gap_start_time)
+        gap_end_dt = datetime.combine(base_date, gap_end_time)
+
+        if gap_end_dt <= shift_start_dt or gap_start_dt >= shift_end_dt:
+            return False, None, 'Gap must be within shift time bounds'
+
+        # Validate no overlap with other gaps (exclude current gap index)
+        is_valid, overlap_error = _validate_no_gap_overlap(gaps, gap, exclude_index=gap_index)
+        if not is_valid:
+            return False, None, overlap_error
+
+        # Update gaps in DataFrame
+        df.at[row_index, 'gaps'] = json.dumps(gaps)
+
+        # Recalculate effective shift duration
+        total_shift_hours = (shift_end_dt - shift_start_dt).total_seconds() / 3600
+        gap_hours = 0.0
+        for g in gaps:
+            try:
+                g_start = datetime.strptime(g['start'], TIME_FORMAT).time()
+                g_end = datetime.strptime(g['end'], TIME_FORMAT).time()
+                g_start_dt = datetime.combine(base_date, g_start)
+                g_end_dt = datetime.combine(base_date, g_end)
+                # Clip to shift boundaries
+                g_start_dt = max(g_start_dt, shift_start_dt)
+                g_end_dt = min(g_end_dt, shift_end_dt)
+                if g_end_dt > g_start_dt:
+                    gap_hours += (g_end_dt - g_start_dt).total_seconds() / 3600
+            except (KeyError, ValueError):
+                pass
+
+        effective_duration = max(0.0, total_shift_hours - gap_hours)
+        df.at[row_index, 'shift_duration'] = effective_duration
+
+        # Update counts_for_hours based on effective duration
+        if effective_duration < 0.1:
+            df.at[row_index, 'counts_for_hours'] = False
+        else:
+            df.at[row_index, 'counts_for_hours'] = True
+
+        if use_staged and 'is_manual' in df.columns:
+            df.at[row_index, 'is_manual'] = True
+
+        backup_dataframe(modality, use_staged=use_staged)
+        selection_logger.info(
+            f"{log_prefix}Updated gap [{gap.get('activity', 'unknown')}] "
+            f"({gap.get('start', '?')}-{gap.get('end', '?')}) for {worker_name}"
+        )
+        return True, 'gap_updated', None
 
     except ValueError as e:
         return False, None, f'Invalid time format: {e}'
