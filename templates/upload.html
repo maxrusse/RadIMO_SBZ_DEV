@@ -27,33 +27,64 @@
       margin-bottom: 1.5rem;
     }
 
+    .page-layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) minmax(320px, 2fr);
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    .page-layout .card {
+      margin-bottom: 0;
+    }
+
+    .column {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 1100px) {
+      .page-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
     .card h2 {
-      margin-bottom: 1rem;
+      margin-bottom: 0;
       color: #333;
       font-size: 1.2rem;
       border-bottom: 2px solid #004892;
       padding-bottom: 0.5rem;
     }
 
-    .workflow-box {
-      background: #e7f3ff;
-      border-left: 4px solid #004892;
-      padding: 1rem;
-      margin-bottom: 1.5rem;
-      border-radius: 4px;
+    .section-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      margin-bottom: 1rem;
     }
 
-    .workflow-box h3 {
-      margin-bottom: 0.5rem;
-      color: #004892;
-      font-size: 1rem;
+    .section-header h2 {
+      margin-bottom: 0;
+    }
+
+    .section-subtitle {
+      color: #5f6b7a;
+      font-size: 0.9rem;
+    }
+
+    .workflow-box {
+      background: #e7f3ff;
+      border: 1px solid #cfe3ff;
+      border-radius: 8px;
+      padding: 1rem;
     }
 
     .workflow-steps {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 1rem;
-      margin-top: 1rem;
     }
 
     .step {
@@ -91,7 +122,30 @@
       padding: 1.5rem;
       border-radius: 8px;
       border: 2px dashed #004892;
-      margin-bottom: 1rem;
+    }
+
+    .upload-area small {
+      color: #666;
+      display: block;
+      margin-top: 0.5rem;
+    }
+
+    .upload-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      align-items: center;
+    }
+
+    .upload-actions .btn {
+      flex: 0 0 auto;
+    }
+
+    .upload-note {
+      font-size: 0.85rem;
+      color: #666;
+      margin-top: 0.75rem;
     }
 
     .form-group {
@@ -158,7 +212,7 @@
 
     .action-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 1rem;
     }
 
@@ -167,6 +221,13 @@
       padding: 1.5rem;
       border-radius: 8px;
       border: 1px solid #ddd;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .action-card .btn {
+      align-self: flex-start;
     }
 
     .action-card h3 {
@@ -183,6 +244,10 @@
     .message {
       padding: 1rem;
       border-radius: 4px;
+      margin-bottom: 1rem;
+    }
+
+    #message-container {
       margin-bottom: 1rem;
     }
 
@@ -251,103 +316,131 @@
 
   <div id="message-container"></div>
 
-  <!-- Workflow Overview -->
-  <div class="workflow-box">
-    <h3>System-Workflow</h3>
-    <div class="workflow-steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-title">Master CSV</div>
-        <div class="step-desc">Einmalig/Monatlich: Gesamten Dienstplan als CSV hochladen.</div>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-title">Reset Today</div>
-        <div class="step-desc">"Load Today" setzt den heutigen Plan sicher auf Master-Stand zurück.</div>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-title">Prep Tomorrow</div>
-        <div class="step-desc">Vorbereitung für morgen (Staging). Auto-Preload um {{ scheduler_config.auto_preload_time
-          }}:00 Uhr.</div>
-      </div>
-      <div class="step">
-        <div class="step-num">4</div>
-        <div class="step-title">Auto-Live</div>
-        <div class="step-desc">Staged → Live erfolgt automatisch um {{ scheduler_config.daily_reset_time }} Uhr.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Master CSV Upload -->
-  <div class="card">
-    <h2>Master CSV Upload</h2>
-
-    <div id="master-status" class="master-status empty">
-      Keine Master-CSV geladen
-    </div>
-
-    <div class="upload-area">
-      <form id="master-upload-form" enctype="multipart/form-data">
-        <div class="form-group">
-          <label>Medweb CSV (enthält ganzen Monat):</label>
-          <input type="file" id="master-csv-file" name="file" accept=".csv" required>
-          <small style="color: #666; display: block; margin-top: 0.5rem;">
-            CSV mit Spalten: Datum (DD.MM.YYYY), Beschreibung der Aktivität, Name des Mitarbeiters, Code des
-            Mitarbeiters
-          </small>
+  <div class="page-layout">
+    <div class="column">
+      <!-- Workflow Overview -->
+      <div class="card">
+        <div class="section-header">
+          <h2>System-Workflow</h2>
+          <div class="section-subtitle">Übersicht der Schritte für CSV-Planung und Tagesaktualisierung.</div>
         </div>
-        <button type="submit" class="btn btn-primary" id="master-upload-btn">
-          Upload Master CSV
-        </button>
-      </form>
-    </div>
-  </div>
+        <div class="workflow-box">
+          <div class="workflow-steps">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-title">Master CSV</div>
+              <div class="step-desc">Gesamten Dienstplan als CSV hochladen.</div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-title">Reset Today</div>
+              <div class="step-desc">"Load Today" setzt den heutigen Plan sicher auf Master-Stand zurück.</div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-title">Prep Tomorrow</div>
+              <div class="step-desc">Vorbereitung für morgen (Staging). Auto-Preload um {{ scheduler_config.auto_preload_time
+                }}:00 Uhr.</div>
+            </div>
+            <div class="step">
+              <div class="step-num">4</div>
+              <div class="step-title">Auto-Live</div>
+              <div class="step-desc">Staged → Live erfolgt automatisch um {{ scheduler_config.daily_reset_time }} Uhr.</div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-  <!-- Quick Actions -->
-  <div class="card">
-    <h2>Quick Actions</h2>
-    <div class="action-grid">
-      <div class="action-card">
-        <h3>Load Today</h3>
-        <p>Lädt heutiges Datum aus Master-CSV (setzt Zähler zurück)</p>
-        <button class="btn btn-success" id="load-today-btn" onclick="loadTodayFromMaster()">
-          Load Today
-        </button>
+      <!-- Quick Actions -->
+      <div class="card">
+        <div class="section-header">
+          <h2>Quick Actions</h2>
+          <div class="section-subtitle">Direkte Links für häufige Admin-Aufgaben.</div>
+        </div>
+        <div class="action-grid">
+          <div class="action-card">
+            <h3>Change Today</h3>
+            <p>Öffnet die Live-Planbearbeitung für heute (ohne Reset der Zähler).</p>
+            <a class="btn btn-primary" href="{{ url_for('routes.prep_today') }}">
+              Change Today
+            </a>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Worker Statistics -->
-  {% if combined_workers %}
-  <div class="card">
-    <h2>Worker Statistiken</h2>
-    <div style="overflow-x: auto;">
-      <table class="stats-table">
-        <thead>
-          <tr>
-            <th>Worker</th>
-            {% for skill in skill_counts.keys() %}
-            <th class="skill-column">{{ skill }}</th>
-            {% endfor %}
-            <th class="skill-column"><strong>Total</strong></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for worker in combined_workers %}
-          <tr>
-            <td><strong>{{ worker }}</strong></td>
-            {% for skill in skill_counts.keys() %}
-            <td class="skill-column">{{ modality_stats[worker][skill] }}</td>
-            {% endfor %}
-            <td class="skill-column"><strong>{{ modality_stats[worker].total }}</strong></td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="column">
+      <!-- Master CSV Upload -->
+      <div class="card">
+        <div class="section-header">
+          <h2>Master CSV Upload</h2>
+          <div class="section-subtitle">CSV bereitstellen und Tagesplan aus Master ableiten.</div>
+        </div>
+
+        <div id="master-status" class="master-status empty">
+          Keine Master-CSV geladen
+        </div>
+
+        <div class="upload-area">
+          <form id="master-upload-form" enctype="multipart/form-data">
+            <div class="form-group">
+              <label>Medweb CSV (enthält ganzen Monat):</label>
+              <input type="file" id="master-csv-file" name="file" accept=".csv" required>
+              <small>
+                CSV mit Spalten: Datum (DD.MM.YYYY), Beschreibung der Aktivität, Name des Mitarbeiters, Code des
+                Mitarbeiters
+              </small>
+            </div>
+            <div class="upload-actions">
+              <button type="submit" class="btn btn-primary" id="master-upload-btn">
+                Upload Master CSV
+              </button>
+              <button class="btn btn-success" id="load-today-btn" type="button" onclick="loadTodayFromMaster()">
+                Load Today
+              </button>
+            </div>
+            <div class="upload-note">
+              Load Today setzt den heutigen Plan auf den Master-Stand zurück und setzt die Zähler neu.
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Worker Statistics -->
+      {% if combined_workers %}
+      <div class="card">
+        <div class="section-header">
+          <h2>Worker Statistiken</h2>
+          <div class="section-subtitle">Aktuelle Verteilung nach Skill und Gesamtwerten.</div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="stats-table">
+            <thead>
+              <tr>
+                <th>Worker</th>
+                {% for skill in skill_counts.keys() %}
+                <th class="skill-column">{{ skill }}</th>
+                {% endfor %}
+                <th class="skill-column"><strong>Total</strong></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for worker in combined_workers %}
+              <tr>
+                <td><strong>{{ worker }}</strong></td>
+                {% for skill in skill_counts.keys() %}
+                <td class="skill-column">{{ modality_stats[worker][skill] }}</td>
+                {% endfor %}
+                <td class="skill-column"><strong>{{ modality_stats[worker].total }}</strong></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
     </div>
   </div>
-  {% endif %}
 
   <script>
     // Check master CSV status on load
