@@ -399,11 +399,14 @@ def build_working_hours_from_medweb(
             if canonical_id not in exclusions_per_worker:
                 exclusions_per_worker[canonical_id] = []
 
+            # Use label if available, otherwise fall back to raw activity
+            gap_label = rule.get('label', activity_desc)
+
             for gap_start, gap_end in gap_times:
                 exclusions_per_worker[canonical_id].append({
                     'start_time': gap_start,
                     'end_time': gap_end,
-                    'activity': activity_desc,
+                    'activity': gap_label,
                     'counts_for_hours': counts_for_hours,
                     'ppl_str': ppl_str
                 })
@@ -461,17 +464,20 @@ def build_working_hours_from_medweb(
             if canonical_id not in exclusions_per_worker:
                 exclusions_per_worker[canonical_id] = []
 
+            # Use label if available for embedded gaps
+            embedded_gap_label = rule.get('label', activity_desc)
+
             for gap_start, gap_end in embedded_gap_times:
                 exclusions_per_worker[canonical_id].append({
                     'start_time': gap_start,
                     'end_time': gap_end,
-                    'activity': f"{activity_desc} (gap)",
+                    'activity': f"{embedded_gap_label} (gap)",
                     'counts_for_hours': counts_for_hours,
                     'ppl_str': ppl_str
                 })
                 selection_logger.info(
                     f"Embedded gap for {ppl_str} ({weekday_name}): "
-                    f"{gap_start.strftime(TIME_FORMAT)}-{gap_end.strftime(TIME_FORMAT)} ({activity_desc})"
+                    f"{gap_start.strftime(TIME_FORMAT)}-{gap_end.strftime(TIME_FORMAT)} ({embedded_gap_label})"
                 )
 
         for modality in target_modalities:
@@ -496,6 +502,9 @@ def build_working_hours_from_medweb(
                 else:
                     counts_for_hours = hours_counting_config.get('shift_default', True)
 
+                # Use label for task name (shorter, cleaner than raw CSV text)
+                task_label = rule.get('label', activity_desc)
+
                 rows_per_modality[modality].append({
                     'PPL': ppl_str,
                     'canonical_id': canonical_id,
@@ -503,7 +512,7 @@ def build_working_hours_from_medweb(
                     'end_time': end_time,
                     'shift_duration': duration_hours,
                     'Modifier': rule_modifier,
-                    'tasks': activity_desc,
+                    'tasks': task_label,
                     'counts_for_hours': counts_for_hours,
                     **modality_skills
                 })

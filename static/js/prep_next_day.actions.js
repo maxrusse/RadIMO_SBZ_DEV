@@ -1214,28 +1214,41 @@ function unmergeGapToAddForm(shiftIdx, gapIdx) {
   const gap = gaps[gapIdx];
   if (!gap) return;
 
-  // Find the task dropdown and select the matching gap task (or first gap task)
+  const gapActivity = (gap.activity || '').toLowerCase().trim();
+
+  // Find the task dropdown and select the matching gap task
   const taskSelect = document.getElementById('modal-add-task');
   if (taskSelect) {
-    // Try to find an option matching the gap activity
     let matched = false;
+    let firstGapOptionIdx = -1;
+
     for (let i = 0; i < taskSelect.options.length; i++) {
       const opt = taskSelect.options[i];
-      if (opt.value === gap.activity || opt.textContent === gap.activity) {
+      const optValue = (opt.value || '').toLowerCase().trim();
+
+      // Track first gap option as fallback
+      if (firstGapOptionIdx === -1 && opt.dataset && opt.dataset.type === 'gap') {
+        firstGapOptionIdx = i;
+      }
+
+      // Match on value (labels now used from CSV parser)
+      if (optValue === gapActivity) {
+        taskSelect.selectedIndex = i;
+        matched = true;
+        break;
+      }
+
+      // Also match if activity starts with label (for "Label (gap)" format from embedded gaps)
+      if (opt.dataset && opt.dataset.type === 'gap' && gapActivity.startsWith(optValue)) {
         taskSelect.selectedIndex = i;
         matched = true;
         break;
       }
     }
-    // If no exact match, try to select any gap-type task
-    if (!matched) {
-      for (let i = 0; i < taskSelect.options.length; i++) {
-        const opt = taskSelect.options[i];
-        if (opt.dataset && opt.dataset.type === 'gap') {
-          taskSelect.selectedIndex = i;
-          break;
-        }
-      }
+
+    // Fallback: select first gap option if available
+    if (!matched && firstGapOptionIdx >= 0) {
+      taskSelect.selectedIndex = firstGapOptionIdx;
     }
   }
 
