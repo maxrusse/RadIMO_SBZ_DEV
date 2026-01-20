@@ -823,6 +823,20 @@ function buildEntriesByWorker(data, tab = 'today') {
         timeSegments: segments
       };
     });
+
+    const nonGapShifts = group.shiftsArray.filter(shift => !isGapTask(shift.task));
+    if (nonGapShifts.length > 0) {
+      group.shiftsArray = group.shiftsArray.filter(shift => {
+        if (!isGapTask(shift.task)) return true;
+        const shiftStart = shift.start_time || '';
+        const shiftEnd = shift.end_time || '';
+        return !nonGapShifts.some(other => {
+          const otherStart = other.start_time || '';
+          const otherEnd = other.end_time || '';
+          return shiftStart < otherEnd && shiftEnd > otherStart;
+        });
+      });
+    }
   });
 
   // Sort workers (default by name)
@@ -1042,7 +1056,12 @@ async function deleteShiftFromModal(shiftIdx) {
   const shift = shifts[shiftIdx];
   if (!shift) return;
 
-  if (!confirm(`Delete this shift (${shift.start_time}-${shift.end_time})?`)) return;
+  const isLastShift = shifts.length === 1;
+  const confirmMessage = isLastShift
+    ? `Delete this shift (${shift.start_time}-${shift.end_time})? This is the last shift for ${group.worker}, so the worker will be removed. Continue?`
+    : `Delete this shift (${shift.start_time}-${shift.end_time})?`;
+
+  if (!confirm(confirmMessage)) return;
 
   const endpoint = tab === 'today' ? '/api/live-schedule/delete-worker' : '/api/prep-next-day/delete-worker';
 
@@ -1216,6 +1235,55 @@ async function updateGapCountsForHoursInline(tab, gIdx, shiftIdx, gapIdx, counts
       renderTable(tab);
     } else {
       showMessage('error', 'Failed to update gap hours flag');
+    }
+  } catch (error) {
+    showMessage('error', error.message);
+  }
+}
+
+// Remove a gap from inline quickedit mode
+async function removeGapInline(tab, gIdx, shiftIdx, gapIdx) {
+  const group = entriesData[tab]?.[gIdx];
+  if (!group) return;
+
+  const shifts = getModalShifts(group);
+  const shift = shifts[shiftIdx];
+  if (!shift) return;
+
+  const gaps = shift.gaps || [];
+  const gap = gaps[gapIdx];
+  if (!gap) return;
+
+  if (!confirm(`Remove gap ${gap.start}-${gap.end} (${gap.activity || 'Gap'})?`)) return;
+
+  const endpoint = tab === 'today' ? '/api/live-schedule/remove-gap' : '/api/prep-next-day/remove-gap';
+
+  try {
+    let anySuccess = false;
+    for (const [modKey, modData] of Object.entries(shift.modalities)) {
+      if (modData.row_index !== undefined && modData.row_index >= 0) {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modality: modKey,
+            row_index: modData.row_index,
+            gap_start: gap.start,
+            gap_end: gap.end,
+            gap_activity: gap.activity || null
+          })
+        });
+        if (response.ok) {
+          anySuccess = true;
+        }
+      }
+    }
+    if (anySuccess) {
+      showMessage('success', 'Gap removed');
+      await loadData();
+      renderTable(tab);
+    } else {
+      showMessage('error', 'Failed to remove gap');
     }
   } catch (error) {
     showMessage('error', error.message);

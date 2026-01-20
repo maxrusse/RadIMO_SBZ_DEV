@@ -322,6 +322,7 @@ function renderTable(tab) {
                 <input type="checkbox" ${checked} onchange="updateGapCountsForHoursInline('${tab}', ${gIdx}, ${shiftIdx}, ${gapIdx}, this.checked)">
                 <span>${g.counts_for_hours === true ? 'Counts' : 'No count'}</span>
               </label>
+              <button type="button" class="btn-gap-remove" onclick="removeGapInline('${tab}', ${gIdx}, ${shiftIdx}, ${gapIdx})" title="Remove this gap">×</button>
             </div>`;
           });
         } else if (isGapRow) {
@@ -528,7 +529,6 @@ function renderEditModalContent() {
       .filter(([_, data]) => data.row_index !== undefined && data.row_index >= 0)
       .map(([mod]) => mod);
 
-    const anyAssigned = assignedMods.length > 0;
     const primaryMod = assignedMods[0] || MODALITIES[0]?.toLowerCase() || 'ct';
     const modData = shift.modalities[primaryMod] || { skills: {}, row_index: -1, modifier: shift.modifier || 1.0 };
 
@@ -560,7 +560,6 @@ function renderEditModalContent() {
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
   <span style="font-weight: 600; color: #333;">Shift ${shiftIdx + 1}${isGapEntry ? ' <span style="background:#f8d7da;color:#721c24;padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;">GAP</span>' : ''}</span>
   <div style="display:flex; gap:0.35rem; align-items:center;">
-    <span style="font-size:0.75rem; color:#555;">${anyAssigned ? 'Edit per modality' : 'Choose modalities'}</span>
     <button class="btn btn-small" style="background: #dc3545; color: white;" onclick="deleteShiftFromModal(${shiftIdx})">✕ Delete</button>
   </div>
 </div>
