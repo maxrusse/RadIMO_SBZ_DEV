@@ -585,10 +585,10 @@ function buildEntriesByWorker(data, tab = 'today') {
       }));
 
       // Check if this is a gap row using config (task list or skill exclusions)
-      const isGapRow = taskParts.some(part => isGapTask(part)) || SKILLS.every(skill => {
+      const isGapRow = taskParts.some(part => isGapTask(part)) || (SKILLS.length > 0 && SKILLS.every(skill => {
         const val = row[skill];
         return val === -1 || val === '-1';
-      });
+      }));
 
       // Pull default times from configured shifts/roles when missing
       let roleConfig = TASK_ROLES.find(t => t.name === taskStr);
