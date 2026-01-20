@@ -598,12 +598,8 @@ function buildEntriesByWorker(data, tab = 'today') {
           // Use 'times' field (unified with shifts)
           const times = roleConfig.times || {};
           const dayTimes = times[targetDay] || times.default;
-          if (dayTimes) {
-            // Handle both array format and string format
-            const firstTime = Array.isArray(dayTimes) ? dayTimes[0] : dayTimes;
-            if (firstTime) {
-              [startTime, endTime] = firstTime.split('-');
-            }
+          if (typeof dayTimes === 'string') {
+            [startTime, endTime] = dayTimes.split('-');
           }
         } else {
           // Use getShiftTimes helper for day-specific times
@@ -969,16 +965,12 @@ function onEditShiftTaskChange(shiftIdx, taskName) {
     const times = taskConfig.times || {};
     const targetDay = getTargetWeekdayName(tab || currentTab);
     const dayTimes = times[targetDay] || times.default;
-    if (dayTimes) {
-      // Handle both array format and string format
-      const firstTime = Array.isArray(dayTimes) ? dayTimes[0] : dayTimes;
-      if (firstTime) {
-        const [startTime, endTime] = firstTime.split('-');
-        const startEl = document.getElementById(`edit-shift-${shiftIdx}-start`);
-        const endEl = document.getElementById(`edit-shift-${shiftIdx}-end`);
-        if (startEl) startEl.value = startTime;
-        if (endEl) endEl.value = endTime;
-      }
+    if (typeof dayTimes === 'string') {
+      const [startTime, endTime] = dayTimes.split('-');
+      const startEl = document.getElementById(`edit-shift-${shiftIdx}-start`);
+      const endEl = document.getElementById(`edit-shift-${shiftIdx}-end`);
+      if (startEl) startEl.value = startTime;
+      if (endEl) endEl.value = endTime;
     }
     const modifierEl = document.getElementById(`edit-shift-${shiftIdx}-modifier`);
     if (modifierEl) modifierEl.value = '1.0';
@@ -1135,14 +1127,10 @@ function onModalTaskChange() {
   const times = taskConfig?.times || {};
   const dayTimes = times[targetDay] || times.default;
 
-  if (isGap && dayTimes) {
-    // Handle both array format and string format
-    const firstTime = Array.isArray(dayTimes) ? dayTimes[0] : dayTimes;
-    if (firstTime) {
-      const [startTime, endTime] = firstTime.split('-');
-      document.getElementById('modal-add-start').value = startTime;
-      document.getElementById('modal-add-end').value = endTime;
-    }
+  if (isGap && typeof dayTimes === 'string') {
+    const [startTime, endTime] = dayTimes.split('-');
+    document.getElementById('modal-add-start').value = startTime;
+    document.getElementById('modal-add-end').value = endTime;
   } else if (!isGap && taskConfig) {
     // Use day-specific times from task config
     const times = getShiftTimes(taskConfig, targetDay);
@@ -1373,13 +1361,10 @@ function onEditGapTypeChange() {
     const { tab } = currentEditEntry || {};
     const targetDay = getTargetWeekdayName(tab || currentTab);
     const dayTimes = times[targetDay] || times.default;
-    if (dayTimes) {
-      const firstTime = Array.isArray(dayTimes) ? dayTimes[0] : dayTimes;
-      if (firstTime) {
-        const [start, end] = firstTime.split('-');
-        startInput.value = start;
-        endInput.value = end;
-      }
+    if (typeof dayTimes === 'string') {
+      const [start, end] = dayTimes.split('-');
+      startInput.value = start;
+      endInput.value = end;
     }
   }
 }
@@ -1747,13 +1732,10 @@ function updateAddWorkerTask(idx, field, value) {
         const times = taskConfig.times || {};
         const targetDay = getTargetWeekdayName(addWorkerModalState.tab || currentTab);
         const dayTimes = times[targetDay] || times.default;
-        if (dayTimes) {
-          const firstTime = Array.isArray(dayTimes) ? dayTimes[0] : dayTimes;
-          if (firstTime) {
-            const [startTime, endTime] = firstTime.split('-');
-            task.start_time = startTime;
-            task.end_time = endTime;
-          }
+        if (typeof dayTimes === 'string') {
+          const [startTime, endTime] = dayTimes.split('-');
+          task.start_time = startTime;
+          task.end_time = endTime;
         } else {
           task.start_time = '12:00';
           task.end_time = '13:00';
