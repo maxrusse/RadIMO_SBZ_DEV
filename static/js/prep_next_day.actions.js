@@ -2000,7 +2000,8 @@ async function saveAddWorkerModal() {
   }
 
   // Parse "Full Name (ID)" format to extract the worker ID
-  const { id: workerId } = parseWorkerInput(inputValue);
+  const { id: workerId, fullName } = parseWorkerInput(inputValue);
+  const workerLabel = fullName || getWorkerDisplayName(workerId);
 
   if (addWorkerModalState.tasks.length === 0) {
     showMessage('error', 'Please add at least one task');
@@ -2045,7 +2046,7 @@ async function saveAddWorkerModal() {
           body: JSON.stringify({
             modality: modKey,
             worker_data: {
-              PPL: workerId,
+              PPL: workerLabel,
               start_time: task.start_time,
               end_time: task.end_time,
               Modifier: task.modifier,
@@ -2076,7 +2077,7 @@ async function saveAddWorkerModal() {
     // 2. Process Gap Tasks (check for overlaps)
     // For gaps, we need to check against all modalities
     const groups = entriesData[tab] || [];
-    const existingGroup = groups.find(g => g.worker === workerId);
+    const existingGroup = groups.find(g => parseWorkerInput(g.worker).id === workerId);
 
     for (const gap of gapTasks) {
       const gapStart = gap.start_time;
@@ -2118,7 +2119,7 @@ async function saveAddWorkerModal() {
             body: JSON.stringify({
               modality: modKey,
               worker_data: {
-                PPL: workerId,
+                PPL: workerLabel,
                 start_time: gapStart,
                 end_time: gapEnd,
                 Modifier: gap.modifier,
