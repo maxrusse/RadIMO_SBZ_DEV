@@ -75,8 +75,8 @@
     }
 
     .workflow-box {
-      background: #e7f3ff;
-      border: 1px solid #cfe3ff;
+      background: #f5f6f8;
+      border: 1px solid #d8dce3;
       border-radius: 8px;
       padding: 1rem;
     }
@@ -88,14 +88,15 @@
     }
 
     .step {
-      background: #f8f9fa;
+      background: #ffffff;
+      border: 1px solid #e2e6ec;
       padding: 1rem;
       border-radius: 4px;
       text-align: center;
     }
 
     .step-num {
-      background: #004892;
+      background: #365b7d;
       color: white;
       width: 28px;
       height: 28px;
@@ -118,10 +119,10 @@
     }
 
     .upload-area {
-      background: #f8f9fa;
+      background: #f7f7f9;
       padding: 1.5rem;
       border-radius: 8px;
-      border: 2px dashed #004892;
+      border: 2px dashed #90a4b8;
     }
 
     .upload-area small {
@@ -322,7 +323,6 @@
       <div class="card">
         <div class="section-header">
           <h2>System-Workflow</h2>
-          <div class="section-subtitle">Übersicht der Schritte für CSV-Planung und Tagesaktualisierung.</div>
         </div>
         <div class="workflow-box">
           <div class="workflow-steps">
@@ -334,36 +334,23 @@
             <div class="step">
               <div class="step-num">2</div>
               <div class="step-title">Reset Today</div>
-              <div class="step-desc">"Load Today" setzt den heutigen Plan sicher auf Master-Stand zurück.</div>
+              <div class="step-desc">Setzt den heutigen Plan auf Master-Stand zurück und setzt Zähler neu. NUR wenn ein Reset am selben Tag nötig ist.</div>
             </div>
             <div class="step">
               <div class="step-num">3</div>
               <div class="step-title">Prep Tomorrow</div>
-              <div class="step-desc">Vorbereitung für morgen (Staging). Auto-Preload um {{ scheduler_config.auto_preload_time
-                }}:00 Uhr.</div>
+              <div class="step-desc">Vorbereitung für morgen (Staging).</div>
             </div>
             <div class="step">
               <div class="step-num">4</div>
               <div class="step-title">Auto-Live</div>
               <div class="step-desc">Staged → Live erfolgt automatisch um {{ scheduler_config.daily_reset_time }} Uhr.</div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Quick Actions -->
-      <div class="card">
-        <div class="section-header">
-          <h2>Quick Actions</h2>
-          <div class="section-subtitle">Direkte Links für häufige Admin-Aufgaben.</div>
-        </div>
-        <div class="action-grid">
-          <div class="action-card">
-            <h3>Change Today</h3>
-            <p>Öffnet die Live-Planbearbeitung für heute (ohne Reset der Zähler).</p>
-            <a class="btn btn-primary" href="{{ url_for('routes.prep_today') }}">
-              Change Today
-            </a>
+            <div class="step">
+              <div class="step-num">5</div>
+              <div class="step-title">Change Today</div>
+              <div class="step-desc">In-Day Anpassungen ohne Reset der Zähler durchführen.</div>
+            </div>
           </div>
         </div>
       </div>
@@ -374,7 +361,6 @@
       <div class="card">
         <div class="section-header">
           <h2>Master CSV Upload</h2>
-          <div class="section-subtitle">CSV bereitstellen und Tagesplan aus Master ableiten.</div>
         </div>
 
         <div id="master-status" class="master-status empty">
@@ -384,61 +370,23 @@
         <div class="upload-area">
           <form id="master-upload-form" enctype="multipart/form-data">
             <div class="form-group">
-              <label>Medweb CSV (enthält ganzen Monat):</label>
+              <label>Medweb CSV:</label>
               <input type="file" id="master-csv-file" name="file" accept=".csv" required>
-              <small>
-                CSV mit Spalten: Datum (DD.MM.YYYY), Beschreibung der Aktivität, Name des Mitarbeiters, Code des
-                Mitarbeiters
-              </small>
             </div>
             <div class="upload-actions">
               <button type="submit" class="btn btn-primary" id="master-upload-btn">
                 Upload Master CSV
               </button>
               <button class="btn btn-success" id="load-today-btn" type="button" onclick="loadTodayFromMaster()">
-                Load Today
+                Reset Today
               </button>
             </div>
             <div class="upload-note">
-              Load Today setzt den heutigen Plan auf den Master-Stand zurück und setzt die Zähler neu.
+              Reset Today setzt den heutigen Plan auf den Master-Stand zurück und setzt die Zähler neu. NUR wenn ein Reset am selben Tag nötig ist.
             </div>
           </form>
         </div>
       </div>
-
-      <!-- Worker Statistics -->
-      {% if combined_workers %}
-      <div class="card">
-        <div class="section-header">
-          <h2>Worker Statistiken</h2>
-          <div class="section-subtitle">Aktuelle Verteilung nach Skill und Gesamtwerten.</div>
-        </div>
-        <div style="overflow-x: auto;">
-          <table class="stats-table">
-            <thead>
-              <tr>
-                <th>Worker</th>
-                {% for skill in skill_counts.keys() %}
-                <th class="skill-column">{{ skill }}</th>
-                {% endfor %}
-                <th class="skill-column"><strong>Total</strong></th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for worker in combined_workers %}
-              <tr>
-                <td><strong>{{ worker }}</strong></td>
-                {% for skill in skill_counts.keys() %}
-                <td class="skill-column">{{ modality_stats[worker][skill] }}</td>
-                {% endfor %}
-                <td class="skill-column"><strong>{{ modality_stats[worker].total }}</strong></td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {% endif %}
     </div>
   </div>
 
@@ -499,7 +447,7 @@
       const btn = document.getElementById('load-today-btn');
       const msgContainer = document.getElementById('message-container');
 
-      if (!confirm('Load today from Master CSV? (Resets counters)')) return;
+      if (!confirm('Reset today from Master CSV? (Resets counters)')) return;
 
       btn.disabled = true;
       btn.textContent = 'Loading...';
@@ -540,7 +488,7 @@
       }
 
       btn.disabled = false;
-      btn.textContent = 'Load Today';
+      btn.textContent = 'Reset Today';
     }
 
   </script>
