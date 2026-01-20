@@ -1222,54 +1222,27 @@ function unmergeGapToAddForm(shiftIdx, gapIdx) {
     let matched = false;
     let firstGapOptionIdx = -1;
 
-    // First pass: try to find exact or partial match
     for (let i = 0; i < taskSelect.options.length; i++) {
       const opt = taskSelect.options[i];
       const optValue = (opt.value || '').toLowerCase().trim();
-      const optText = (opt.textContent || '').toLowerCase().trim();
 
       // Track first gap option as fallback
       if (firstGapOptionIdx === -1 && opt.dataset && opt.dataset.type === 'gap') {
         firstGapOptionIdx = i;
       }
 
-      // Exact match on value or text
-      if (optValue === gapActivity || optText === gapActivity) {
+      // Match on value (labels now used from CSV parser)
+      if (optValue === gapActivity) {
         taskSelect.selectedIndex = i;
         matched = true;
         break;
       }
 
-      // Partial match: activity contains option name or vice versa
-      if (opt.dataset && opt.dataset.type === 'gap') {
-        if (gapActivity.includes(optValue) || optValue.includes(gapActivity) ||
-            gapActivity.includes(optText) || optText.includes(gapActivity)) {
-          taskSelect.selectedIndex = i;
-          matched = true;
-          break;
-        }
-      }
-    }
-
-    // If still no match, try matching against TASK_ROLES config (match field)
-    if (!matched && typeof TASK_ROLES !== 'undefined') {
-      const gapTasks = TASK_ROLES.filter(t => t.type === 'gap');
-      for (const task of gapTasks) {
-        // Check if the gap activity matches or contains the task match pattern
-        const taskName = (task.name || '').toLowerCase();
-        const taskMatch = (task.match || '').toLowerCase();
-        if (gapActivity.includes(taskName) || taskName.includes(gapActivity) ||
-            (taskMatch && (gapActivity.includes(taskMatch) || taskMatch.includes(gapActivity)))) {
-          // Find the option with this task name
-          for (let i = 0; i < taskSelect.options.length; i++) {
-            if ((taskSelect.options[i].value || '').toLowerCase() === taskName) {
-              taskSelect.selectedIndex = i;
-              matched = true;
-              break;
-            }
-          }
-          if (matched) break;
-        }
+      // Also match if activity starts with label (for "Label (gap)" format from embedded gaps)
+      if (opt.dataset && opt.dataset.type === 'gap' && gapActivity.startsWith(optValue)) {
+        taskSelect.selectedIndex = i;
+        matched = true;
+        break;
       }
     }
 
