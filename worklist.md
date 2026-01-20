@@ -346,6 +346,35 @@ These files already handle the new gap model correctly:
 - `config.py` — No gap-related config
 - No JSON config files reference gaps
 
+### Open Bugs / Gaps in Current Implementation (Verified in Code)
+1. **Edge gap duration ignores existing gaps**  
+   In `_add_gap_to_schedule`, Case 2/3 recompute `shift_duration` using only the trimmed shift bounds. Existing gaps in `gaps` are not subtracted, so effective working time can be overstated when multiple gaps exist.
+
+2. **Edge gap becomes “out of bounds” on updates**  
+   When a gap at the start/end adjusts `start_time`/`end_time`, the stored gap entry can fall outside the new shift bounds. `_update_gap_in_schedule` rejects gaps outside bounds, which makes edge-gap updates fail.
+
+3. **CSV exclusions can create overlapping gaps**  
+   `apply_exclusions_to_shifts` appends every overlapping exclusion without overlap merging/validation. Overlapping exclusions can double-subtract time and violate the “no overlap” rule from the target model.
+
+4. **UI still derives implicit gaps from segments**  
+   `buildEntriesByWorker` derives gaps from time segments and merges consecutive shifts, which reintroduces synthetic gaps instead of relying solely on explicit `gaps` data.
+
+5. **Gap removal by index is fragile if UI merges gaps**  
+   The edit modal uses a merged/derived gap list and sends a positional `gap_index` to the backend. If derived gaps are present or gap ordering differs across modalities, removal can target the wrong entry or fail.
+
+### Open Points to Resolve Next
+1. **Align edge-gap handling with effective duration rules**  
+   Decide whether edge gaps should be stored as child gaps (without trimming shift bounds) or continue trimming but recalc duration using all gaps; document the rule and update both add/update logic.
+
+2. **Unify gap validation rules across code paths**  
+   Gap overlap validation exists in `_add_gap_to_schedule`/`_update_gap_in_schedule` but not in `apply_exclusions_to_shifts`. Decide on a single validation policy and enforce it across CSV imports and manual edits.
+
+3. **Remove implicit-gap derivation in UI**  
+   Update `buildEntriesByWorker` and timeline rendering to display only explicit `gaps` from the backend, or clearly mark inferred gaps if legacy rows still exist.
+
+4. **Switch remove-gap API to stable identifiers**  
+   Replace index-based deletes with a stable gap identifier (e.g., a generated `gap_id` or a `{start,end,activity}` match) to avoid ordering-related deletions across modalities.
+
 ### Potential Enhancements (Not Required)
 1. **Gap editing UI** — Currently only removal is supported; could add inline time editing
 2. **Gap type dropdown** — Pre-populate with configured gap activities from `TASK_ROLES`
