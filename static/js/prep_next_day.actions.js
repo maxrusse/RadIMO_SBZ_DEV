@@ -561,8 +561,15 @@ function buildEntriesByWorker(data, tab = 'today') {
 
       // Parse task - handle both string and array formats
       let taskStr = row.tasks || '';
+      let taskParts = [];
       if (Array.isArray(taskStr)) {
-        taskStr = taskStr.filter(t => t && t.trim()).join(', ');
+        taskParts = taskStr.filter(t => t && t.trim());
+        taskStr = taskParts.join(', ');
+      } else {
+        taskParts = String(taskStr)
+          .split(',')
+          .map(t => t.trim())
+          .filter(Boolean);
       }
 
       // Parse gaps from JSON if present
@@ -577,11 +584,20 @@ function buildEntriesByWorker(data, tab = 'today') {
         counts_for_hours: gap.counts_for_hours === true
       }));
 
-      // Check if this is a gap row using config (not string matching)
-      const isGapRow = isGapTask(taskStr);
+      // Check if this is a gap row using config (task list or skill exclusions)
+      const isGapRow = taskParts.some(part => isGapTask(part)) || SKILLS.every(skill => {
+        const val = row[skill];
+        return val === -1 || val === '-1';
+      });
 
       // Pull default times from configured shifts/roles when missing
-      const roleConfig = TASK_ROLES.find(t => t.name === taskStr);
+      let roleConfig = TASK_ROLES.find(t => t.name === taskStr);
+      if (isGapRow && !roleConfig && taskParts.length > 0) {
+        const gapTaskName = taskParts.find(part => isGapTask(part));
+        if (gapTaskName) {
+          roleConfig = TASK_ROLES.find(t => t.name === gapTaskName);
+        }
+      }
       let startTime = row.start_time;
       let endTime = row.end_time;
       if ((!startTime || !endTime) && roleConfig) {
@@ -629,7 +645,25 @@ function buildEntriesByWorker(data, tab = 'today') {
           const rawVal = row[skill];
           const hasRaw = rawVal !== undefined && rawVal !== '';
           if (isGapRow) {
-            acc[skill] = hasRaw ? normalizeSkillValueJS(rawVal) : -1;
+            if (hasRaw) {
+              acc[skill] = normalizeSkillValueJS(rawVal);
+              return acc;
+            }
+            const overrides = roleConfig?.skill_overrides || {};
+            const skillModKey = `${skill}_${mod.toLowerCase()}`;
+            if (overrides[skillModKey] !== undefined) {
+              acc[skill] = normalizeSkillValueJS(overrides[skillModKey]);
+              return acc;
+            }
+            if (overrides[skill] !== undefined) {
+              acc[skill] = normalizeSkillValueJS(overrides[skill]);
+              return acc;
+            }
+            if (overrides.all !== undefined) {
+              acc[skill] = normalizeSkillValueJS(overrides.all);
+              return acc;
+            }
+            acc[skill] = -1;
             return acc;
           }
 
@@ -777,8 +811,6 @@ function buildEntriesByWorker(data, tab = 'today') {
       .map(([key, shift]) => ({ ...shift, shiftKey: key }))
       .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
 
-    group.modalShiftsArray = modalShiftsArr;
-
     // Collect all gaps for this worker
     const workerGaps = group.allGaps || [];
 
@@ -790,6 +822,35 @@ function buildEntriesByWorker(data, tab = 'today') {
         return gapStart < end && gapEnd >= start;
       });
     };
+
+    group.modalShiftsArray = modalShiftsArr.map(shift => {
+      const segments = (shift.timeSegments || []).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+      const firstStart = segments[0]?.start || shift.start_time;
+      const lastEnd = segments[segments.length - 1]?.end || shift.end_time;
+
+      const gapsInRange = (workerGaps || [])
+        .filter(g => {
+          const gapStart = g.start || '';
+          const gapEnd = g.end || '';
+          return gapStart < (lastEnd || '') && gapEnd > (firstStart || '');
+        })
+        .map(g => {
+          const gapStart = g.start || '';
+          const gapEnd = g.end || '';
+          const clippedStart = gapStart < (firstStart || '') ? firstStart : gapStart;
+          const clippedEnd = gapEnd > (lastEnd || '') ? lastEnd : gapEnd;
+          return { ...g, start: clippedStart, end: clippedEnd };
+        });
+      const combinedGaps = mergeUniqueGaps([...(shift.gaps || []), ...gapsInRange]);
+
+      return {
+        ...shift,
+        start_time: firstStart,
+        end_time: lastEnd,
+        gaps: combinedGaps,
+        timeSegments: segments
+      };
+    });
 
     // Merge consecutive shifts with same task and gap between
     const mergedShifts = [];
