@@ -907,6 +907,7 @@ def _render_prep_page(initial_tab):
 
         task_role = {
             'name': rule.get('label', rule.get('match', '')),
+            'match': rule.get('match', ''),  # Original match pattern for reverse lookup
             'type': rule_type,
             'modalities': modalities_list,
             'times': rule.get('times', {}),
