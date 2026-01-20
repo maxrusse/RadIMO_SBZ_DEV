@@ -82,7 +82,8 @@ Replace the current “split rows with gap_id” behavior with a clean, first-cl
 - Create a shift → add gap in middle → ensure shift remains single row.
 - Remove gap → shift returns to continuous timeline.
 - Add multiple gaps → ensure no overlap allowed.
-- Load legacy split data → migration yields one row with correct gaps.
+- Add overlapping gap → ensure error is returned.
+- Full-shift gap → ensure `counts_for_hours=False` and `shift_duration=0`.
 
 ---
 
@@ -301,3 +302,42 @@ All 6 steps have been successfully implemented. The gap model has been refactore
 5. `static/js/prep_next_day.render.js`
 6. `docs/WORKFLOW.md`
 7. `worklist.md` (this file)
+
+---
+
+## Open Points & Future Work
+
+### Legacy `gap_id` Handling (Low Priority)
+The following code still references `gap_id` for **legacy data compatibility**. This is intentional and should NOT be removed until all legacy split-row data is confirmed cleared:
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `routes.py` | 120-144 | Returns `gap_id` in API response for display |
+| `data_manager/schedule_crud.py` | 513-521 | Deletes all rows with same `gap_id` on delete |
+| `data_manager/schedule_crud.py` | 555-556 | Ensures `gap_id` column exists |
+| `data_manager/file_ops.py` | 186 | Column order includes `gap_id` |
+| `static/js/prep_next_day.actions.js` | 750-803 | Merges shifts by `gap_id` for display |
+| `static/js/prep_next_day.render.js` | 293-294 | Shows 🔗 icon for legacy split shifts |
+
+**Future cleanup:** Once confirmed no legacy data exists, these can be simplified/removed.
+
+### Comments to Update (Low Priority)
+The following comments reference old "split" behavior but logic is kept for legacy:
+- `prep_next_day.actions.js:750` — "Merge consecutive shifts with same task or same gap_id (split shifts due to gaps)"
+- `prep_next_day.actions.js:762` — "1. Same gap_id (CSV-split shifts) - always merge"
+
+### Testing Plan ✅ Fixed
+Updated Testing Plan (line 81-86) to remove legacy migration test case and add:
+- Overlap validation test
+- Full-shift gap test
+
+### Adjunct Files NOT Modified (Already Compatible)
+These files already handle the new gap model correctly:
+- `static/js/timeline.js` — Renders gaps from `gaps` array, no changes needed
+- `config.py` — No gap-related config
+- No JSON config files reference gaps
+
+### Potential Enhancements (Not Required)
+1. **Gap editing UI** — Currently only removal is supported; could add inline time editing
+2. **Gap type dropdown** — Pre-populate with configured gap activities from `TASK_ROLES`
+3. **Visual gap preview** — Show gap effect on timeline before confirming
