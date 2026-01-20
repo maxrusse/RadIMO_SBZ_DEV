@@ -319,7 +319,7 @@ function renderTable(tab) {
             shiftEditor += `<div class="gap-indicator" style="margin-top:0.1rem;" title="${escapeHtml(g.activity || 'Gap')}">
               ${escapeHtml(g.start)}-${escapeHtml(g.end)}
               <label style="margin-left: 0.3rem; font-size: 0.65rem; display: inline-flex; align-items: center; gap: 0.2rem;">
-                <input type="checkbox" ${checked} onchange="updateGapCountsForHours(${shiftIdx}, ${gapIdx}, this.checked)">
+                <input type="checkbox" ${checked} onchange="updateGapCountsForHoursInline('${tab}', ${gIdx}, ${shiftIdx}, ${gapIdx}, this.checked)">
                 <span>${g.counts_for_hours === true ? 'Counts' : 'No count'}</span>
               </label>
             </div>`;
