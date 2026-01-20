@@ -1175,6 +1175,53 @@ async function updateGapCountsForHours(shiftIdx, gapIdx, countsForHours) {
   await updateGapDetailsFromModal(shiftIdx, gapIdx, { new_counts_for_hours: countsForHours });
 }
 
+// Update a gap's counts_for_hours flag from inline quickedit mode (uses explicit tab/gIdx)
+async function updateGapCountsForHoursInline(tab, gIdx, shiftIdx, gapIdx, countsForHours) {
+  const group = entriesData[tab]?.[gIdx];
+  if (!group) return;
+
+  const shifts = getModalShifts(group);
+  const shift = shifts[shiftIdx];
+  if (!shift) return;
+
+  const gaps = shift.gaps || [];
+  const gap = gaps[gapIdx];
+  if (!gap) return;
+
+  const endpoint = tab === 'today' ? '/api/live-schedule/update-gap' : '/api/prep-next-day/update-gap';
+
+  try {
+    let anySuccess = false;
+    for (const [modKey, modData] of Object.entries(shift.modalities)) {
+      if (modData.row_index !== undefined && modData.row_index >= 0) {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modality: modKey,
+            row_index: modData.row_index,
+            gap_start: gap.start,
+            gap_end: gap.end,
+            gap_activity: gap.activity || null,
+            new_counts_for_hours: countsForHours
+          })
+        });
+        if (response.ok) {
+          anySuccess = true;
+        }
+      }
+    }
+    if (anySuccess) {
+      await loadData();
+      renderTable(tab);
+    } else {
+      showMessage('error', 'Failed to update gap hours flag');
+    }
+  } catch (error) {
+    showMessage('error', error.message);
+  }
+}
+
 // Delete shift inline from quick edit mode
 async function deleteShiftInline(tab, groupIdx, shiftIdx) {
   const group = entriesData[tab]?.[groupIdx];
@@ -1383,7 +1430,7 @@ async function addShiftFromModal() {
                 gap_type: taskName,
                 gap_start: startTime,
                 gap_end: endTime,
-                gap_counts_for_hours: gapCountsForHours
+                gap_counts_for_hours: countsForHours  // Use form checkbox, not config default
               })
             });
 

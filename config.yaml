@@ -279,9 +279,10 @@ balancer:
 
   # Quick break button settings (☕ button in prep page)
   # Creates a gap entry (all skills = -1) at current time
+  # NOTE: gap_type must match a task with type: "gap" in medweb_mapping.rules
   quick_break:
     duration_minutes: 30          # Duration of the break in minutes
-    gap_type: "Break"             # Gap type label used for the break
+    gap_type: "Break"             # Gap type label - must match a gap task name below
 
   # Exclusion-based routing configuration
   # Define which workers to EXCLUDE when requesting each skill
@@ -1002,6 +1003,16 @@ vendor_mappings:
       times:
         Mittwoch:
           - "13:30-16:30"
+      skill_overrides:
+        all: -1
+
+    # =========================================================================
+    # QUICK BREAK - Used by the ☕ quick break button (matches QUICK_BREAK.gap_type)
+    # =========================================================================
+    - match: "Break"
+      label: "Break"
+      type: "gap"
+      times: {}
       skill_overrides:
         all: -1
 
