@@ -5,6 +5,7 @@ let rawData = { today: {}, tomorrow: {} };  // Raw modality data
 let entriesData = { today: [], tomorrow: [] };  // Grouped by worker -> shifts (time-based)
 let workerCounts = { today: {}, tomorrow: {} };  // Count entries per worker for duplicate detection
 let currentEditEntry = null;
+let editPlanDraft = null;
 let dataLoaded = { today: false, tomorrow: false };  // Track which tabs have been loaded
 let editMode = { today: false, tomorrow: false };  // Inline edit mode defaults to OFF - user decides which edit mode to use
 let pendingChanges = { today: {}, tomorrow: {} };  // Track unsaved inline changes
@@ -105,7 +106,68 @@ function isWeightedSkill(value) {
 
 function getModalShifts(group) {
   if (!group) return [];
+  if (currentEditEntry && editPlanDraft && editPlanDraft.worker === group.worker) {
+    return editPlanDraft.shifts || [];
+  }
   return group.modalShiftsArray || group.shiftsArray || [];
+}
+
+function setEditPlanDraftFromGroup(group, options = {}) {
+  if (!group) return;
+  const shouldReset = options.force || !editPlanDraft || editPlanDraft.worker !== group.worker;
+  if (!shouldReset) return;
+  const sourceShifts = group.modalShiftsArray || group.shiftsArray || [];
+  editPlanDraft = {
+    worker: group.worker,
+    shifts: JSON.parse(JSON.stringify(sourceShifts))
+  };
+}
+
+function clearEditPlanDraft() {
+  editPlanDraft = null;
+}
+
+function updateEditPlanDraftShift(shiftIdx, updates) {
+  if (!editPlanDraft || !editPlanDraft.shifts) return;
+  const shift = editPlanDraft.shifts[shiftIdx];
+  if (!shift) return;
+  if (updates.start_time !== undefined) shift.start_time = updates.start_time;
+  if (updates.end_time !== undefined) shift.end_time = updates.end_time;
+  if (updates.Modifier !== undefined) shift.modifier = updates.Modifier;
+  if (updates.counts_for_hours !== undefined) shift.counts_for_hours = updates.counts_for_hours;
+  if (updates.tasks !== undefined) shift.task = updates.tasks;
+}
+
+function updateEditPlanDraftShiftSkills(shiftIdx, skillUpdatesByMod) {
+  if (!editPlanDraft || !editPlanDraft.shifts) return;
+  const shift = editPlanDraft.shifts[shiftIdx];
+  if (!shift || !shift.modalities) return;
+  Object.entries(skillUpdatesByMod || {}).forEach(([modKey, skillUpdates]) => {
+    if (!shift.modalities[modKey]) return;
+    if (!shift.modalities[modKey].skills) shift.modalities[modKey].skills = {};
+    Object.entries(skillUpdates || {}).forEach(([skill, value]) => {
+      shift.modalities[modKey].skills[skill] = value;
+    });
+  });
+}
+
+function updateEditPlanDraftGap(shiftIdx, gapIdx, updates) {
+  if (!editPlanDraft || !editPlanDraft.shifts) return;
+  const shift = editPlanDraft.shifts[shiftIdx];
+  if (!shift) return;
+  const gaps = shift.gaps || [];
+  const gap = gaps[gapIdx];
+  if (!gap) return;
+  if (updates.new_start !== undefined) gap.start = updates.new_start;
+  if (updates.new_end !== undefined) gap.end = updates.new_end;
+  if (updates.new_counts_for_hours !== undefined) gap.counts_for_hours = updates.new_counts_for_hours;
+}
+
+function removeEditPlanDraftGap(shiftIdx, gapIdx) {
+  if (!editPlanDraft || !editPlanDraft.shifts) return;
+  const shift = editPlanDraft.shifts[shiftIdx];
+  if (!shift || !shift.gaps) return;
+  shift.gaps.splice(gapIdx, 1);
 }
 
 function displaySkillValue(value) {

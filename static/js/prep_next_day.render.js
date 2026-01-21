@@ -490,6 +490,7 @@ function renderEditModalContent() {
   const { tab, groupIdx } = currentEditEntry;
   const group = entriesData[tab][groupIdx];
   if (!group) return;
+  setEditPlanDraftFromGroup(group);
 
   let html = '';
 
@@ -512,6 +513,9 @@ function renderEditModalContent() {
       </div>
       <div style="font-size: 1rem; padding: 0.5rem; background: #e9ecef; border-radius: 4px;">
         <strong>${escapedWorker}</strong> ${duplicateBadge}
+      </div>
+      <div style="margin-top: 0.4rem; font-size: 0.75rem; color: #666;">
+        Changes are saved only when you click <strong>Apply Changes</strong>.
       </div>
     </div>
   </div>`;
@@ -574,13 +578,13 @@ function renderEditModalContent() {
   <div style="min-width: 90px;">
     <label style="font-size: 0.75rem; color: #666; display: block;">Start</label>
     <input type="time" id="edit-shift-${shiftIdx}-start" value="${shift.start_time || '07:00'}" style="padding: 0.4rem; font-size: 0.85rem;"
-      onchange="updateShiftFromModal(${shiftIdx}, { start_time: this.value })">
+      onblur="commitModalTimeEdit(${shiftIdx}, 'start_time', this)" onkeydown="commitModalTimeOnEnter(event, ${shiftIdx}, 'start_time', this)">
   </div>
 
   <div style="min-width: 90px;">
     <label style="font-size: 0.75rem; color: #666; display: block;">End</label>
     <input type="time" id="edit-shift-${shiftIdx}-end" value="${shift.end_time || '15:00'}" style="padding: 0.4rem; font-size: 0.85rem;"
-      onchange="updateShiftFromModal(${shiftIdx}, { end_time: this.value })">
+      onblur="commitModalTimeEdit(${shiftIdx}, 'end_time', this)" onkeydown="commitModalTimeOnEnter(event, ${shiftIdx}, 'end_time', this)">
   </div>
 
   <div style="min-width: 70px;">
@@ -616,11 +620,11 @@ ${gaps.length > 0 ? `
     ${gaps.map((g, gapIdx) => `
       <span class="gap-chip" style="display: inline-flex; align-items: center; background: #f8d7da; color: #721c24; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.75rem;">
         <span style="margin-right: 0.3rem; font-weight: 600;">${escapeHtml(g.activity || 'Break')}</span>
-        <input type="time" value="${escapeHtml(g.start)}" style="width: 80px; font-size: 0.7rem; margin-right: 0.2rem;"
-          onchange="updateGapDetailsFromModal(${shiftIdx}, ${gapIdx}, { new_start: this.value })">
+        <input type="time" id="edit-gap-${shiftIdx}-${gapIdx}-start" value="${escapeHtml(g.start)}" style="width: 80px; font-size: 0.7rem; margin-right: 0.2rem;"
+          onblur="commitModalGapTimeEdit(${shiftIdx}, ${gapIdx}, 'new_start', this)" onkeydown="commitModalGapTimeOnEnter(event, ${shiftIdx}, ${gapIdx}, 'new_start', this)">
         <span>-</span>
-        <input type="time" value="${escapeHtml(g.end)}" style="width: 80px; font-size: 0.7rem; margin: 0 0.3rem 0 0.2rem;"
-          onchange="updateGapDetailsFromModal(${shiftIdx}, ${gapIdx}, { new_end: this.value })">
+        <input type="time" id="edit-gap-${shiftIdx}-${gapIdx}-end" value="${escapeHtml(g.end)}" style="width: 80px; font-size: 0.7rem; margin: 0 0.3rem 0 0.2rem;"
+          onblur="commitModalGapTimeEdit(${shiftIdx}, ${gapIdx}, 'new_end', this)" onkeydown="commitModalGapTimeOnEnter(event, ${shiftIdx}, ${gapIdx}, 'new_end', this)">
         <label style="margin-right: 0.35rem; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 0.2rem;">
           <input type="checkbox" ${g.counts_for_hours === true ? 'checked' : ''} onchange="updateGapCountsForHours(${shiftIdx}, ${gapIdx}, this.checked)">
           <span>${g.counts_for_hours === true ? 'Counts' : 'No count'}</span>
