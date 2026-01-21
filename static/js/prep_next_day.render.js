@@ -573,17 +573,20 @@ function renderEditModalContent() {
 
   <div style="min-width: 90px;">
     <label style="font-size: 0.75rem; color: #666; display: block;">Start</label>
-    <input type="time" id="edit-shift-${shiftIdx}-start" value="${shift.start_time || '07:00'}" style="padding: 0.4rem; font-size: 0.85rem;">
+    <input type="time" id="edit-shift-${shiftIdx}-start" value="${shift.start_time || '07:00'}" style="padding: 0.4rem; font-size: 0.85rem;"
+      onchange="updateShiftFromModal(${shiftIdx}, { start_time: this.value })">
   </div>
 
   <div style="min-width: 90px;">
     <label style="font-size: 0.75rem; color: #666; display: block;">End</label>
-    <input type="time" id="edit-shift-${shiftIdx}-end" value="${shift.end_time || '15:00'}" style="padding: 0.4rem; font-size: 0.85rem;">
+    <input type="time" id="edit-shift-${shiftIdx}-end" value="${shift.end_time || '15:00'}" style="padding: 0.4rem; font-size: 0.85rem;"
+      onchange="updateShiftFromModal(${shiftIdx}, { end_time: this.value })">
   </div>
 
   <div style="min-width: 70px;">
     <label style="font-size: 0.75rem; color: #666; display: block;">Modifier</label>
-    <select id="edit-shift-${shiftIdx}-modifier" style="padding: 0.4rem; font-size: 0.85rem;">
+    <select id="edit-shift-${shiftIdx}-modifier" style="padding: 0.4rem; font-size: 0.85rem;"
+      onchange="updateShiftFromModal(${shiftIdx}, { Modifier: parseFloat(this.value) })">
       <option value="0.5" ${shift.modifier === 0.5 ? 'selected' : ''}>0.5x</option>
       <option value="0.75" ${shift.modifier === 0.75 ? 'selected' : ''}>0.75x</option>
       <option value="1.0" ${!shift.modifier || shift.modifier === 1.0 ? 'selected' : ''}>1.0x</option>
@@ -595,7 +598,7 @@ function renderEditModalContent() {
   <div style="min-width: 100px;">
     <label style="font-size: 0.75rem; color: #666; display: block;">Hrs Count</label>
     <label class="hours-toggle" title="Checked = hours count towards load balancing. Unchecked = hours do NOT count.">
-      <input type="checkbox" id="edit-shift-${shiftIdx}-counts-hours" ${shift.counts_for_hours !== false ? 'checked' : ''} onchange="updateHoursToggleLabel(this)">
+      <input type="checkbox" id="edit-shift-${shiftIdx}-counts-hours" ${shift.counts_for_hours !== false ? 'checked' : ''} onchange="updateHoursToggleLabel(this); updateShiftFromModal(${shiftIdx}, { counts_for_hours: this.checked })">
       <span class="hours-toggle-label ${shift.counts_for_hours !== false ? 'counts' : 'no-count'}">${shift.counts_for_hours !== false ? 'Counts' : 'No count'}</span>
     </label>
   </div>
@@ -666,7 +669,8 @@ ${gaps.length > 0 ? `
       SKILLS.forEach(skill => {
         const val = data.skills[skill] !== undefined ? data.skills[skill] : (isGapEntry ? -1 : 0);
         const selectId = `edit-shift-${shiftIdx}-${modKey}-skill-${skill}`;
-        html += `<td>${renderSkillSelect(selectId, val)}</td>`;
+        const onchangeHandler = `updateShiftSkillFromModal(${shiftIdx}, '${modKey}', '${skill}', this.value)`;
+        html += `<td>${renderSkillSelect(selectId, val, onchangeHandler)}</td>`;
       });
 
       html += `</tr>`;
