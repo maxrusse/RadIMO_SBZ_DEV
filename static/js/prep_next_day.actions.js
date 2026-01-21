@@ -531,20 +531,25 @@ function buildEntriesByWorker(data, tab = 'today') {
   function mergeUniqueGaps(list) {
     const merged = new Map();
     list.filter(Boolean).forEach(gap => {
-      const key = `${gap.start || ''}-${gap.end || ''}`;
+      // Use original times for deduplication key (handles clipped gaps correctly)
+      const keyStart = gap.originalStart || gap.start || '';
+      const keyEnd = gap.originalEnd || gap.end || '';
+      const key = `${keyStart}-${keyEnd}`;
       const existing = merged.get(key);
       if (!existing) {
         merged.set(key, gap);
         return;
       }
+      // Prefer gap with activity over one without
       const existingActivity = existing.activity || '';
       const nextActivity = gap.activity || '';
-      const existingCounts = existing.counts_for_hours === true;
-      const nextCounts = gap.counts_for_hours === true;
       if (!existingActivity && nextActivity) {
         merged.set(key, gap);
         return;
       }
+      // Prefer gap that doesn't count for hours (more restrictive)
+      const existingCounts = existing.counts_for_hours === true;
+      const nextCounts = gap.counts_for_hours === true;
       if (existingCounts && !nextCounts) {
         merged.set(key, gap);
       }
