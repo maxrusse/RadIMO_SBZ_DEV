@@ -1082,7 +1082,8 @@ function openEditModal(tab, groupIdx) {
   if (!group) return;
 
   currentEditEntry = { tab, groupIdx };
-  setModalMode('edit');
+  setEditPlanDraftFromGroup(group, { force: true });
+  setModalMode('edit-plan');
   renderEditModalContent();
   document.getElementById('edit-modal').classList.add('show');
 }
@@ -1195,6 +1196,15 @@ async function onEditShiftTaskChange(shiftIdx, taskName) {
         });
       }
     }
+  }
+
+  updateEditPlanDraftShift(shiftIdx, updates);
+  updateEditPlanDraftShiftSkills(shiftIdx, skillUpdates);
+  if (modalMode === 'edit-plan') {
+    const modalState = captureModalState();
+    renderEditModalContent();
+    restoreModalState(modalState);
+    return;
   }
 
   // Live save to backend
@@ -1416,6 +1426,13 @@ async function removeGapFromModal(shiftIdx, gapIdx) {
   try {
     // Remove gap from all modality entries for this shift
     let anySuccess = false;
+    removeEditPlanDraftGap(shiftIdx, gapIdx);
+    if (modalMode === 'edit-plan') {
+      const modalState = captureModalState();
+      renderEditModalContent();
+      restoreModalState(modalState);
+      return;
+    }
     for (const [modKey, modData] of Object.entries(shift.modalities)) {
       if (modData.row_index !== undefined && modData.row_index >= 0) {
         // Use original gap times for backend matching (may differ from clipped display times)
@@ -1472,6 +1489,8 @@ async function updateGapDetailsFromModal(shiftIdx, gapIdx, updates) {
 
   try {
     let anySuccess = false;
+    updateEditPlanDraftGap(shiftIdx, gapIdx, updates);
+    if (modalMode === 'edit-plan') return;
     for (const [modKey, modData] of Object.entries(shift.modalities)) {
       if (modData.row_index !== undefined && modData.row_index >= 0) {
         // Use original gap times for backend matching (may differ from clipped display times)
@@ -1495,12 +1514,14 @@ async function updateGapDetailsFromModal(shiftIdx, gapIdx, updates) {
     if (anySuccess) {
       // Preserve form state before re-render
       const formState = saveModalAddFormState();
+      const modalState = captureModalState();
       await loadData();
       if (entriesData[tab] && entriesData[tab][groupIdx]) {
         currentEditEntry = { tab, groupIdx };
         renderEditModalContent();
         // Restore form state after re-render
         restoreModalAddFormState(formState);
+        restoreModalState(modalState);
       }
     } else {
       showMessage('error', 'Failed to update gap');
@@ -1577,6 +1598,8 @@ async function updateShiftFromModal(shiftIdx, updates) {
 
   try {
     let anySuccess = false;
+    updateEditPlanDraftShift(shiftIdx, updates);
+    if (modalMode === 'edit-plan') return;
     for (const [modKey, modData] of Object.entries(shift.modalities)) {
       if (modData.row_index !== undefined && modData.row_index >= 0) {
         const response = await fetch(endpoint, {
@@ -1596,11 +1619,13 @@ async function updateShiftFromModal(shiftIdx, updates) {
     if (anySuccess) {
       // Preserve form state before re-render
       const formState = saveModalAddFormState();
+      const modalState = captureModalState();
       await loadData();
       if (entriesData[tab] && entriesData[tab][groupIdx]) {
         currentEditEntry = { tab, groupIdx };
         renderEditModalContent();
         restoreModalAddFormState(formState);
+        restoreModalState(modalState);
       }
     } else {
       showMessage('error', 'Failed to update shift');
@@ -1627,7 +1652,10 @@ async function updateShiftSkillFromModal(shiftIdx, modKey, skill, value) {
 
   try {
     const skillUpdates = {};
-    skillUpdates[skill] = normalizeSkillValueJS(value);
+    const normalizedValue = normalizeSkillValueJS(value);
+    skillUpdates[skill] = normalizedValue;
+    updateEditPlanDraftShiftSkills(shiftIdx, { [modKey]: { [skill]: normalizedValue } });
+    if (modalMode === 'edit-plan') return;
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -1645,6 +1673,80 @@ async function updateShiftSkillFromModal(shiftIdx, modKey, skill, value) {
     // No re-render needed for skill changes - they're local to the row
   } catch (error) {
     showMessage('error', error.message);
+  }
+}
+
+function isValidTimeValue(value) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function commitModalTimeEdit(shiftIdx, field, inputEl) {
+  if (!inputEl || !isValidTimeValue(inputEl.value)) return;
+  const shift = getCurrentModalShift(shiftIdx);
+  if (shift && shift[field] === inputEl.value) return;
+  updateShiftFromModal(shiftIdx, { [field]: inputEl.value });
+}
+
+function commitModalTimeOnEnter(event, shiftIdx, field, inputEl) {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  if (inputEl) inputEl.blur();
+}
+
+function commitModalGapTimeEdit(shiftIdx, gapIdx, field, inputEl) {
+  if (!inputEl || !isValidTimeValue(inputEl.value)) return;
+  const gap = getCurrentModalGap(shiftIdx, gapIdx);
+  const currentValue = field === 'new_start' ? gap?.start : gap?.end;
+  if (currentValue === inputEl.value) return;
+  updateGapDetailsFromModal(shiftIdx, gapIdx, { [field]: inputEl.value });
+}
+
+function commitModalGapTimeOnEnter(event, shiftIdx, gapIdx, field, inputEl) {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  if (inputEl) inputEl.blur();
+}
+
+function getCurrentModalShift(shiftIdx) {
+  const { tab, groupIdx } = currentEditEntry || {};
+  const group = entriesData[tab]?.[groupIdx];
+  if (!group) return null;
+  const shifts = getModalShifts(group);
+  return shifts?.[shiftIdx] || null;
+}
+
+function getCurrentModalGap(shiftIdx, gapIdx) {
+  const shift = getCurrentModalShift(shiftIdx);
+  if (!shift) return null;
+  const gaps = shift.gaps || [];
+  return gaps[gapIdx] || null;
+}
+
+function captureModalState() {
+  const modalContent = document.getElementById('modal-content');
+  const activeEl = document.activeElement;
+  return {
+    scrollTop: modalContent ? modalContent.scrollTop : 0,
+    activeId: activeEl && activeEl.id ? activeEl.id : null,
+    selectionStart: activeEl && typeof activeEl.selectionStart === 'number' ? activeEl.selectionStart : null,
+    selectionEnd: activeEl && typeof activeEl.selectionEnd === 'number' ? activeEl.selectionEnd : null
+  };
+}
+
+function restoreModalState(state) {
+  if (!state) return;
+  const modalContent = document.getElementById('modal-content');
+  if (modalContent && typeof state.scrollTop === 'number') {
+    modalContent.scrollTop = state.scrollTop;
+  }
+  if (state.activeId) {
+    const activeEl = document.getElementById(state.activeId);
+    if (activeEl && typeof activeEl.focus === 'function') {
+      activeEl.focus();
+      if (typeof activeEl.setSelectionRange === 'function' && state.selectionStart !== null && state.selectionEnd !== null) {
+        activeEl.setSelectionRange(state.selectionStart, state.selectionEnd);
+      }
+    }
   }
 }
 
@@ -2239,6 +2341,34 @@ async function saveModalChanges() {
   const updateEndpoint = tab === 'today' ? '/api/live-schedule/update-row' : '/api/prep-next-day/update-row';
   const shifts = getModalShifts(group);
 
+  if (modalMode === 'edit-plan') {
+    if (!editPlanDraft || !editPlanDraft.worker) {
+      showMessage('error', 'No edit plan available');
+      return;
+    }
+    const applyEndpoint = tab === 'today'
+      ? '/api/live-schedule/apply-worker-plan'
+      : '/api/prep-next-day/apply-worker-plan';
+    try {
+      const response = await fetch(applyEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ worker: editPlanDraft.worker, shifts: editPlanDraft.shifts || [] })
+      });
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || 'Failed to apply worker plan');
+      }
+      closeModal();
+      showMessage('success', 'Worker entries updated');
+      await loadData();
+      return;
+    } catch (error) {
+      showMessage('error', error.message);
+      return;
+    }
+  }
+
   try {
     for (let shiftIdx = 0; shiftIdx < shifts.length; shiftIdx++) {
       const shift = shifts[shiftIdx];
@@ -2304,6 +2434,7 @@ async function saveModalChanges() {
 function closeModal() {
   document.getElementById('edit-modal').classList.remove('show');
   currentEditEntry = null;
+  clearEditPlanDraft();
   if (modalMode === 'add-worker') {
     resetAddWorkerModalState();
   }
@@ -2318,6 +2449,10 @@ function setModalMode(mode) {
     saveButton.textContent = 'Add Worker';
     saveButton.className = 'btn btn-success';
     saveButton.style.display = '';
+  } else if (mode === 'edit-plan') {
+    saveButton.textContent = 'Apply Changes';
+    saveButton.className = 'btn btn-primary';
+    saveButton.style.display = '';
   } else {
     // Edit mode: all edits are live, no Save button needed
     saveButton.style.display = 'none';
@@ -2327,6 +2462,10 @@ function setModalMode(mode) {
 function saveModalAction() {
   if (modalMode === 'add-worker') {
     saveAddWorkerModal();
+    return;
+  }
+  if (modalMode === 'edit-plan') {
+    saveModalChanges();
     return;
   }
   saveModalChanges();
@@ -2847,6 +2986,10 @@ function addMinutes(timeStr, minutes) {
 function onQuickGapFromModal() {
   if (!currentEditEntry) {
     showMessage('error', 'No entry selected');
+    return;
+  }
+  if (modalMode === 'edit-plan') {
+    showMessage('info', 'Quick break is disabled in edit mode. Add a gap in the modal list instead.');
     return;
   }
   // Show break duration popup

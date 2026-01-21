@@ -61,6 +61,7 @@ from data_manager import (
     _update_schedule_row,
     _add_worker_to_schedule,
     _delete_worker_from_schedule,
+    _replace_worker_schedule,
     _add_gap_to_schedule,
     preload_next_workday,
     extract_modalities_from_skill_overrides,
@@ -88,6 +89,57 @@ def _format_time(value: Any) -> str:
     if pd.notnull(value):
         return value.strftime(TIME_FORMAT)
     return ''
+
+
+def _normalize_gap_entries(gaps: Any) -> list:
+    if not isinstance(gaps, list):
+        return []
+    normalized = []
+    for gap in gaps:
+        if not isinstance(gap, dict):
+            continue
+        normalized.append({
+            'start': gap.get('start'),
+            'end': gap.get('end'),
+            'activity': gap.get('activity'),
+            'counts_for_hours': gap.get('counts_for_hours'),
+        })
+    return normalized
+
+
+def _modality_has_active_skills(mod_data: dict) -> bool:
+    skills = (mod_data or {}).get('skills', {}) or {}
+    for val in skills.values():
+        if val is None:
+            continue
+        if str(val).strip() != '-1':
+            return True
+    return False
+
+
+def _build_rows_from_plan(worker: str, shifts: list, modality: str) -> list:
+    rows = []
+    for shift in shifts:
+        for mod_key, mod_data in (shift.get('modalities') or {}).items():
+            if mod_key != modality:
+                continue
+            row_index = mod_data.get('row_index', -1)
+            if row_index is None:
+                row_index = -1
+            if row_index < 0 and not _modality_has_active_skills(mod_data):
+                continue
+            skills = mod_data.get('skills', {}) or {}
+            rows.append({
+                'PPL': worker,
+                'start_time': shift.get('start_time'),
+                'end_time': shift.get('end_time'),
+                'Modifier': shift.get('modifier', 1.0),
+                'counts_for_hours': shift.get('counts_for_hours', True),
+                'tasks': shift.get('task', ''),
+                'gaps': _normalize_gap_entries(shift.get('gaps', [])),
+                **{skill: skills.get(skill) for skill in SKILL_COLUMNS if skill in skills},
+            })
+    return rows
 
 
 def _parse_tasks(value: Any) -> list[str]:
@@ -1019,6 +1071,29 @@ def update_prep_row() -> Any:
         return jsonify({'success': True, 'schedule_reindexed': result.get('reindexed', False)})
     return jsonify({'error': result}), 400
 
+
+@routes.route('/api/prep-next-day/apply-worker-plan', methods=['POST'])
+@admin_required
+def apply_prep_worker_plan() -> Any:
+    data = request.json or {}
+    worker = data.get('worker')
+    shifts = data.get('shifts', [])
+
+    if not worker:
+        return jsonify({'error': 'Missing worker'}), 400
+
+    errors = []
+    for modality in allowed_modalities:
+        rows = _build_rows_from_plan(worker, shifts, modality)
+
+        success, result, error = _replace_worker_schedule(modality, worker, rows, use_staged=True)
+        if not success:
+            errors.append(f"{modality.upper()}: {error}")
+
+    if errors:
+        return jsonify({'error': '; '.join(errors)}), 400
+    return jsonify({'success': True})
+
 @routes.route('/api/prep-next-day/add-worker', methods=['POST'])
 @admin_required
 def add_prep_worker() -> Any:
@@ -1084,6 +1159,29 @@ def update_live_row() -> Any:
         # result is {'reindexed': bool} on success
         return jsonify({'success': True, 'schedule_reindexed': result.get('reindexed', False)})
     return jsonify({'error': result}), 400
+
+
+@routes.route('/api/live-schedule/apply-worker-plan', methods=['POST'])
+@admin_required
+def apply_live_worker_plan() -> Any:
+    data = request.json or {}
+    worker = data.get('worker')
+    shifts = data.get('shifts', [])
+
+    if not worker:
+        return jsonify({'error': 'Missing worker'}), 400
+
+    errors = []
+    for modality in allowed_modalities:
+        rows = _build_rows_from_plan(worker, shifts, modality)
+
+        success, result, error = _replace_worker_schedule(modality, worker, rows, use_staged=False)
+        if not success:
+            errors.append(f"{modality.upper()}: {error}")
+
+    if errors:
+        return jsonify({'error': '; '.join(errors)}), 400
+    return jsonify({'success': True})
 
 @routes.route('/api/live-schedule/add-worker', methods=['POST'])
 @admin_required
