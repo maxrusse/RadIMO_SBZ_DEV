@@ -1277,8 +1277,24 @@ async function deleteShiftFromModal(shiftIdx) {
       }
     }
     showMessage('success', 'Shift deleted');
-    closeModal();
-    await loadData();
+
+    if (isLastShift) {
+      // Worker removed - close modal
+      closeModal();
+      await loadData();
+    } else {
+      // More shifts remain - reload and re-render modal
+      const formState = saveModalAddFormState();
+      await loadData();
+      if (entriesData[tab] && entriesData[tab][groupIdx]) {
+        currentEditEntry = { tab, groupIdx };
+        renderEditModalContent();
+        restoreModalAddFormState(formState);
+      } else {
+        // Worker no longer exists (edge case) - close modal
+        closeModal();
+      }
+    }
   } catch (error) {
     showMessage('error', error.message);
   }
@@ -1487,7 +1503,7 @@ async function updateGapDetailsFromModal(shiftIdx, gapIdx, updates) {
         restoreModalAddFormState(formState);
       }
     } else {
-      showMessage('error', 'Failed to update gap hours flag');
+      showMessage('error', 'Failed to update gap');
     }
   } catch (error) {
     showMessage('error', error.message);
@@ -2886,10 +2902,14 @@ async function confirmBreakDuration() {
   }
 
   const { tab, groupIdx } = currentEditEntry;
-  // Close popup and modal, then add gap
+  // Close popup, add gap (which calls loadData internally)
   closeBreakPopup();
-  closeModal();
   await onQuickGap30(tab, groupIdx, 0, duration);
+  // Re-render modal to show the new gap (data already loaded by onQuickGap30)
+  if (entriesData[tab] && entriesData[tab][groupIdx]) {
+    currentEditEntry = { tab, groupIdx };
+    renderEditModalContent();
+  }
 }
 
 // =============================================
