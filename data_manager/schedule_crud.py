@@ -656,15 +656,26 @@ def _add_gap_to_schedule(
         gap_end_dt = datetime.combine(base_date, gap_end_time)
 
         normalized_gap_counts = _coerce_bool(gap_counts_for_hours)
+
+        if gap_end_dt <= shift_start_dt or gap_start_dt >= shift_end_dt:
+            return False, None, 'Gap is outside worker shift times'
+
+        # Cap gap times to shift boundaries
+        capped_start_dt = max(gap_start_dt, shift_start_dt)
+        capped_end_dt = min(gap_end_dt, shift_end_dt)
+        capped_start_time = capped_start_dt.time()
+        capped_end_time = capped_end_dt.time()
+
         gap_entry = {
-            'start': gap_start_time.strftime(TIME_FORMAT),
-            'end': gap_end_time.strftime(TIME_FORMAT),
+            'start': capped_start_time.strftime(TIME_FORMAT),
+            'end': capped_end_time.strftime(TIME_FORMAT),
             'activity': gap_type,
             'counts_for_hours': normalized_gap_counts if normalized_gap_counts is not None else False,
         }
 
-        if gap_end_dt <= shift_start_dt or gap_start_dt >= shift_end_dt:
-            return False, None, 'Gap is outside worker shift times'
+        # Use capped times for all subsequent logic
+        gap_start_dt = capped_start_dt
+        gap_end_dt = capped_end_dt
 
         # Validate no overlap with existing gaps
         existing_gaps = _parse_gap_list(row.get('gaps'))
@@ -900,6 +911,12 @@ def _update_gap_in_schedule(
 
         if gap_end_dt < shift_start_dt or gap_start_dt > shift_end_dt:
             return False, None, 'Gap must be within shift time bounds'
+
+        # Cap gap times to shift boundaries
+        capped_start_dt = max(gap_start_dt, shift_start_dt)
+        capped_end_dt = min(gap_end_dt, shift_end_dt)
+        gap['start'] = capped_start_dt.time().strftime(TIME_FORMAT)
+        gap['end'] = capped_end_dt.time().strftime(TIME_FORMAT)
 
         # Validate no overlap with other gaps (exclude current gap index)
         is_valid, overlap_error = _validate_no_gap_overlap(gaps, gap, exclude_index=gap_index)
