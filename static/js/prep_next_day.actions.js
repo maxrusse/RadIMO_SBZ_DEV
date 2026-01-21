@@ -1335,11 +1335,15 @@ async function removeGapFromModal(shiftIdx, gapIdx) {
     }
     if (anySuccess) {
       showMessage('success', 'Gap removed');
+      // Preserve form state before re-render
+      const formState = saveModalAddFormState();
       await loadData();
       // Re-open modal to show updated data
       if (entriesData[tab] && entriesData[tab][groupIdx]) {
         currentEditEntry = { tab, groupIdx };
         renderEditModalContent();
+        // Restore form state after re-render
+        restoreModalAddFormState(formState);
       }
     } else {
       showMessage('error', 'Failed to remove gap');
@@ -1386,10 +1390,14 @@ async function updateGapDetailsFromModal(shiftIdx, gapIdx, updates) {
       }
     }
     if (anySuccess) {
+      // Preserve form state before re-render
+      const formState = saveModalAddFormState();
       await loadData();
       if (entriesData[tab] && entriesData[tab][groupIdx]) {
         currentEditEntry = { tab, groupIdx };
         renderEditModalContent();
+        // Restore form state after re-render
+        restoreModalAddFormState(formState);
       }
     } else {
       showMessage('error', 'Failed to update gap hours flag');
@@ -1621,6 +1629,68 @@ function onModalTaskChange() {
         });
       });
     }
+  }
+}
+
+// Save the current state of the modal add form (to preserve user edits during re-renders)
+function saveModalAddFormState() {
+  const formState = {};
+  const taskSelect = document.getElementById('modal-add-task');
+  if (taskSelect) formState.task = taskSelect.value;
+  const startInput = document.getElementById('modal-add-start');
+  if (startInput) formState.start = startInput.value;
+  const endInput = document.getElementById('modal-add-end');
+  if (endInput) formState.end = endInput.value;
+  const modifierInput = document.getElementById('modal-add-modifier');
+  if (modifierInput) formState.modifier = modifierInput.value;
+  const countsCheckbox = document.getElementById('modal-add-counts-hours');
+  if (countsCheckbox) formState.countsForHours = countsCheckbox.checked;
+
+  // Save skill values for all modalities
+  formState.skills = {};
+  MODALITIES.forEach(mod => {
+    const modKey = mod.toLowerCase();
+    formState.skills[modKey] = {};
+    SKILLS.forEach(skill => {
+      const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
+      if (el) formState.skills[modKey][skill] = el.value;
+    });
+  });
+  return formState;
+}
+
+// Restore the modal add form state (after re-render)
+function restoreModalAddFormState(formState) {
+  if (!formState) return;
+  const taskSelect = document.getElementById('modal-add-task');
+  if (taskSelect && formState.task !== undefined) taskSelect.value = formState.task;
+  const startInput = document.getElementById('modal-add-start');
+  if (startInput && formState.start !== undefined) startInput.value = formState.start;
+  const endInput = document.getElementById('modal-add-end');
+  if (endInput && formState.end !== undefined) endInput.value = formState.end;
+  const modifierInput = document.getElementById('modal-add-modifier');
+  if (modifierInput && formState.modifier !== undefined) modifierInput.value = formState.modifier;
+  const countsCheckbox = document.getElementById('modal-add-counts-hours');
+  if (countsCheckbox && formState.countsForHours !== undefined) {
+    countsCheckbox.checked = formState.countsForHours;
+    // Update the label styling
+    const label = countsCheckbox.parentElement?.querySelector('.hours-toggle-label');
+    if (label) {
+      label.textContent = formState.countsForHours ? 'Counts' : 'No count';
+      label.className = `hours-toggle-label ${formState.countsForHours ? 'counts' : 'no-count'}`;
+    }
+  }
+
+  // Restore skill values
+  if (formState.skills) {
+    MODALITIES.forEach(mod => {
+      const modKey = mod.toLowerCase();
+      const modSkills = formState.skills[modKey] || {};
+      SKILLS.forEach(skill => {
+        const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
+        if (el && modSkills[skill] !== undefined) el.value = modSkills[skill];
+      });
+    });
   }
 }
 
