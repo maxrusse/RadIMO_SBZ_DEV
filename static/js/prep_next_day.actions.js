@@ -840,7 +840,14 @@ function buildEntriesByWorker(data, tab = 'today') {
           const gapEnd = g.end || '';
           const clippedStart = gapStart < (firstStart || '') ? firstStart : gapStart;
           const clippedEnd = gapEnd > (lastEnd || '') ? lastEnd : gapEnd;
-          return { ...g, start: clippedStart, end: clippedEnd };
+          // Preserve original gap times for backend matching (clipped times may differ)
+          return {
+            ...g,
+            start: clippedStart,
+            end: clippedEnd,
+            originalStart: g.originalStart || gapStart,
+            originalEnd: g.originalEnd || gapEnd
+          };
         });
       const combinedGaps = mergeUniqueGaps([...(shift.gaps || []), ...gapsInRange]);
 
@@ -926,7 +933,14 @@ function buildEntriesByWorker(data, tab = 'today') {
           const gapEnd = g.end || '';
           const clippedStart = gapStart < (firstStart || '') ? firstStart : gapStart;
           const clippedEnd = gapEnd > (lastEnd || '') ? lastEnd : gapEnd;
-          return { ...g, start: clippedStart, end: clippedEnd };
+          // Preserve original gap times for backend matching (clipped times may differ)
+          return {
+            ...g,
+            start: clippedStart,
+            end: clippedEnd,
+            originalStart: g.originalStart || gapStart,
+            originalEnd: g.originalEnd || gapEnd
+          };
         });
       const combinedGaps = mergeUniqueGaps([...(shift.gaps || []), ...gapsInRange]);
 
@@ -1317,14 +1331,15 @@ async function removeGapFromModal(shiftIdx, gapIdx) {
     let anySuccess = false;
     for (const [modKey, modData] of Object.entries(shift.modalities)) {
       if (modData.row_index !== undefined && modData.row_index >= 0) {
+        // Use original gap times for backend matching (may differ from clipped display times)
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             modality: modKey,
             row_index: modData.row_index,
-            gap_start: gap.start,
-            gap_end: gap.end,
+            gap_start: gap.originalStart || gap.start,
+            gap_end: gap.originalEnd || gap.end,
             gap_activity: gap.activity || null
           })
         });
@@ -1372,14 +1387,15 @@ async function updateGapDetailsFromModal(shiftIdx, gapIdx, updates) {
     let anySuccess = false;
     for (const [modKey, modData] of Object.entries(shift.modalities)) {
       if (modData.row_index !== undefined && modData.row_index >= 0) {
+        // Use original gap times for backend matching (may differ from clipped display times)
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             modality: modKey,
             row_index: modData.row_index,
-            gap_start: gap.start,
-            gap_end: gap.end,
+            gap_start: gap.originalStart || gap.start,
+            gap_end: gap.originalEnd || gap.end,
             gap_activity: gap.activity || null,
             ...updates
           })
@@ -1431,14 +1447,15 @@ async function updateGapCountsForHoursInline(tab, gIdx, shiftIdx, gapIdx, counts
     let anySuccess = false;
     for (const [modKey, modData] of Object.entries(shift.modalities)) {
       if (modData.row_index !== undefined && modData.row_index >= 0) {
+        // Use original gap times for backend matching (may differ from clipped display times)
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             modality: modKey,
             row_index: modData.row_index,
-            gap_start: gap.start,
-            gap_end: gap.end,
+            gap_start: gap.originalStart || gap.start,
+            gap_end: gap.originalEnd || gap.end,
             gap_activity: gap.activity || null,
             new_counts_for_hours: countsForHours
           })
@@ -1480,14 +1497,15 @@ async function removeGapInline(tab, gIdx, shiftIdx, gapIdx) {
     let anySuccess = false;
     for (const [modKey, modData] of Object.entries(shift.modalities)) {
       if (modData.row_index !== undefined && modData.row_index >= 0) {
+        // Use original gap times for backend matching (may differ from clipped display times)
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             modality: modKey,
             row_index: modData.row_index,
-            gap_start: gap.start,
-            gap_end: gap.end,
+            gap_start: gap.originalStart || gap.start,
+            gap_end: gap.originalEnd || gap.end,
             gap_activity: gap.activity || null
           })
         });
