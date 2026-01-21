@@ -1087,13 +1087,17 @@ function openEditModal(tab, groupIdx) {
   document.getElementById('edit-modal').classList.add('show');
 }
 
-// Handle task change in existing shift (edit modal)
-function onEditShiftTaskChange(shiftIdx, taskName) {
+// Handle task change in existing shift (edit modal) - live update
+async function onEditShiftTaskChange(shiftIdx, taskName) {
   const taskConfig = TASK_ROLES.find(t => t.name === taskName);
   if (!taskConfig) return;
 
   const isGap = taskConfig.type === 'gap';
   const { tab, groupIdx } = currentEditEntry || {};
+
+  // Prepare updates for API call
+  const updates = { tasks: taskName };
+  const skillUpdates = {};
 
   if (isGap) {
     // Gap selected - set all skills to -1 and use times for target day
@@ -1102,11 +1106,14 @@ function onEditShiftTaskChange(shiftIdx, taskName) {
     const dayTimes = times[targetDay] || times.default;
     if (typeof dayTimes === 'string') {
       const [startTime, endTime] = dayTimes.split('-');
+      updates.start_time = startTime;
+      updates.end_time = endTime;
       const startEl = document.getElementById(`edit-shift-${shiftIdx}-start`);
       const endEl = document.getElementById(`edit-shift-${shiftIdx}-end`);
       if (startEl) startEl.value = startTime;
       if (endEl) endEl.value = endTime;
     }
+    updates.Modifier = 1.0;
     const modifierEl = document.getElementById(`edit-shift-${shiftIdx}-modifier`);
     if (modifierEl) modifierEl.value = '1.0';
 
@@ -1116,21 +1123,29 @@ function onEditShiftTaskChange(shiftIdx, taskName) {
       SKILLS.forEach(skill => {
         const skillSelect = document.getElementById(`edit-shift-${shiftIdx}-${modKey}-skill-${skill}`);
         if (skillSelect) skillSelect.value = '-1';
+        if (!skillUpdates[modKey]) skillUpdates[modKey] = {};
+        skillUpdates[modKey][skill] = -1;
       });
     });
   } else {
     // Regular shift selected - preload skills from task's skill_overrides (like CSV loading)
     const targetDay = getTargetWeekdayName(tab || currentTab);
     const times = getShiftTimes(taskConfig, targetDay);
+    updates.start_time = times.start;
+    updates.end_time = times.end;
     const startEl = document.getElementById(`edit-shift-${shiftIdx}-start`);
     const endEl = document.getElementById(`edit-shift-${shiftIdx}-end`);
     if (startEl) startEl.value = times.start;
     if (endEl) endEl.value = times.end;
 
+    if (taskConfig.modifier) {
+      updates.Modifier = taskConfig.modifier;
+    }
     const modifierEl = document.getElementById(`edit-shift-${shiftIdx}-modifier`);
     if (modifierEl && taskConfig.modifier) modifierEl.value = taskConfig.modifier.toString();
 
     // Also update counts_for_hours based on task config
+    updates.counts_for_hours = taskConfig.counts_for_hours !== false;
     const countsEl = document.getElementById(`edit-shift-${shiftIdx}-counts-hours`);
     if (countsEl) {
       countsEl.checked = taskConfig.counts_for_hours !== false;
@@ -1141,21 +1156,23 @@ function onEditShiftTaskChange(shiftIdx, taskName) {
     const overrides = taskConfig.skill_overrides || {};
     MODALITIES.forEach(mod => {
       const modKey = mod.toLowerCase();
+      if (!skillUpdates[modKey]) skillUpdates[modKey] = {};
       SKILLS.forEach(skill => {
         const skillSelect = document.getElementById(`edit-shift-${shiftIdx}-${modKey}-skill-${skill}`);
+        // Check for skill_modality format (e.g., "notfall_ct") first, then skill-only
+        const skillModKey = `${skill}_${modKey}`;
+        let val = 0;  // Default to passive
+        if (overrides[skillModKey] !== undefined) {
+          val = overrides[skillModKey];
+        } else if (overrides[skill] !== undefined) {
+          val = overrides[skill];
+        } else if (overrides['all'] !== undefined) {
+          val = overrides['all'];
+        }
         if (skillSelect) {
-          // Check for skill_modality format (e.g., "notfall_ct") first, then skill-only
-          const skillModKey = `${skill}_${modKey}`;
-          let val = 0;  // Default to passive
-          if (overrides[skillModKey] !== undefined) {
-            val = overrides[skillModKey];
-          } else if (overrides[skill] !== undefined) {
-            val = overrides[skill];
-          } else if (overrides['all'] !== undefined) {
-            val = overrides['all'];
-          }
           skillSelect.value = val.toString();
         }
+        skillUpdates[modKey][skill] = normalizeSkillValueJS(val);
       });
     });
 
@@ -1170,13 +1187,62 @@ function onEditShiftTaskChange(shiftIdx, taskName) {
           const modalityRoster = workerRoster[modKey] || {};
           SKILLS.forEach(skill => {
             const skillSelect = document.getElementById(`edit-shift-${shiftIdx}-${modKey}-skill-${skill}`);
-            if (skillSelect && modalityRoster[skill] === -1) {
-              skillSelect.value = '-1';  // Roster -1 always wins
+            if (modalityRoster[skill] === -1) {
+              if (skillSelect) skillSelect.value = '-1';
+              skillUpdates[modKey][skill] = -1;  // Roster -1 always wins
             }
           });
         });
       }
     }
+  }
+
+  // Live save to backend
+  const group = entriesData[tab]?.[groupIdx];
+  if (!group) return;
+  const shifts = getModalShifts(group);
+  const shift = shifts[shiftIdx];
+  if (!shift) return;
+
+  const endpoint = tab === 'today' ? '/api/live-schedule/update-row' : '/api/prep-next-day/update-row';
+
+  try {
+    let anySuccess = false;
+    for (const [modKey, modData] of Object.entries(shift.modalities)) {
+      if (modData.row_index !== undefined && modData.row_index >= 0) {
+        // Combine base updates with modality-specific skill updates
+        const modUpdates = { ...updates };
+        if (skillUpdates[modKey]) {
+          Object.assign(modUpdates, skillUpdates[modKey]);
+        }
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modality: modKey,
+            row_index: modData.row_index,
+            updates: modUpdates
+          })
+        });
+        if (response.ok) {
+          anySuccess = true;
+        }
+      }
+    }
+    if (anySuccess) {
+      // Preserve form state before re-render
+      const formState = saveModalAddFormState();
+      await loadData();
+      if (entriesData[tab] && entriesData[tab][groupIdx]) {
+        currentEditEntry = { tab, groupIdx };
+        renderEditModalContent();
+        restoreModalAddFormState(formState);
+      }
+    } else {
+      showMessage('error', 'Failed to update task');
+    }
+  } catch (error) {
+    showMessage('error', error.message);
   }
 }
 
@@ -1476,6 +1542,91 @@ async function updateGapCountsForHoursInline(tab, gIdx, shiftIdx, gapIdx, counts
     } else {
       showMessage('error', 'Failed to update gap hours flag');
     }
+  } catch (error) {
+    showMessage('error', error.message);
+  }
+}
+
+// Live update shift fields from edit modal (no Save button needed)
+async function updateShiftFromModal(shiftIdx, updates) {
+  const { tab, groupIdx } = currentEditEntry || {};
+  const group = entriesData[tab]?.[groupIdx];
+  if (!group) return;
+
+  const shifts = getModalShifts(group);
+  const shift = shifts[shiftIdx];
+  if (!shift) return;
+
+  const endpoint = tab === 'today' ? '/api/live-schedule/update-row' : '/api/prep-next-day/update-row';
+
+  try {
+    let anySuccess = false;
+    for (const [modKey, modData] of Object.entries(shift.modalities)) {
+      if (modData.row_index !== undefined && modData.row_index >= 0) {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modality: modKey,
+            row_index: modData.row_index,
+            updates
+          })
+        });
+        if (response.ok) {
+          anySuccess = true;
+        }
+      }
+    }
+    if (anySuccess) {
+      // Preserve form state before re-render
+      const formState = saveModalAddFormState();
+      await loadData();
+      if (entriesData[tab] && entriesData[tab][groupIdx]) {
+        currentEditEntry = { tab, groupIdx };
+        renderEditModalContent();
+        restoreModalAddFormState(formState);
+      }
+    } else {
+      showMessage('error', 'Failed to update shift');
+    }
+  } catch (error) {
+    showMessage('error', error.message);
+  }
+}
+
+// Live update a single skill from edit modal
+async function updateShiftSkillFromModal(shiftIdx, modKey, skill, value) {
+  const { tab, groupIdx } = currentEditEntry || {};
+  const group = entriesData[tab]?.[groupIdx];
+  if (!group) return;
+
+  const shifts = getModalShifts(group);
+  const shift = shifts[shiftIdx];
+  if (!shift) return;
+
+  const modData = shift.modalities[modKey];
+  if (!modData || modData.row_index === undefined || modData.row_index < 0) return;
+
+  const endpoint = tab === 'today' ? '/api/live-schedule/update-row' : '/api/prep-next-day/update-row';
+
+  try {
+    const skillUpdates = {};
+    skillUpdates[skill] = normalizeSkillValueJS(value);
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        modality: modKey,
+        row_index: modData.row_index,
+        updates: skillUpdates
+      })
+    });
+
+    if (!response.ok) {
+      showMessage('error', `Failed to update ${skill} skill`);
+    }
+    // No re-render needed for skill changes - they're local to the row
   } catch (error) {
     showMessage('error', error.message);
   }
@@ -2150,9 +2301,10 @@ function setModalMode(mode) {
   if (mode === 'add-worker') {
     saveButton.textContent = 'Add Worker';
     saveButton.className = 'btn btn-success';
+    saveButton.style.display = '';
   } else {
-    saveButton.textContent = 'Save';
-    saveButton.className = 'btn btn-primary';
+    // Edit mode: all edits are live, no Save button needed
+    saveButton.style.display = 'none';
   }
 }
 
