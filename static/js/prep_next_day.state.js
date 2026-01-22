@@ -26,6 +26,10 @@ let addWorkerModalState = {
   containerId: 'modal-content'
 };
 
+// Track gap being edited (for Overwrite functionality)
+// When set, shows "Overwrite" button instead of just "Add"
+let editingGapInfo = null;  // { shiftIdx, gapIdx, originalGap }
+
 /**
  * Parse worker input like "Dr. Name (ID)" or just "ID".
  * Returns { id, fullName } where id is the canonical worker ID.

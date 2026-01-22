@@ -1082,6 +1082,7 @@ function openEditModal(tab, groupIdx) {
   if (!group) return;
 
   currentEditEntry = { tab, groupIdx };
+  editingGapInfo = null;  // Clear any gap editing state from previous modal
   setEditPlanDraftFromGroup(group, { force: true });
   setModalMode('edit-plan');
   renderEditModalContent();
@@ -1390,19 +1391,229 @@ function unmergeGapToAddForm(shiftIdx, gapIdx) {
     });
   });
 
-  // Scroll to the Add form section to make it visible
-  const addSection = document.querySelector('[style*="background: #d4edda"]');
+  // Store the editing gap info for overwrite functionality
+  editingGapInfo = {
+    shiftIdx: shiftIdx,
+    gapIdx: gapIdx,
+    originalGap: { ...gap },
+    shift: shift  // Store shift reference for accessing modality data during overwrite
+  };
+
+  // Re-render modal to show Overwrite button
+  const modalState = captureModalState();
+  renderEditModalContent();
+  restoreModalState(modalState);
+
+  // Scroll to the Add form section to make it visible (now yellow when editing)
+  const addSection = document.querySelector('[style*="background: #fff3cd"]') || document.querySelector('[style*="background: #d4edda"]');
   if (addSection) {
     addSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    // Flash the add section to draw attention
+    // Flash the add section to draw attention (yellow/orange for edit mode)
     addSection.style.transition = 'box-shadow 0.3s';
-    addSection.style.boxShadow = '0 0 10px 3px #28a745';
+    addSection.style.boxShadow = '0 0 10px 3px #ffc107';
     setTimeout(() => {
       addSection.style.boxShadow = '';
     }, 1500);
   }
 
-  showMessage('info', `Gap copied to Add form below. Edit and click "Add", then remove old gap above.`);
+  showMessage('info', `Gap copied to form below. Click "Overwrite" to replace, or "Add" to create new.`);
+}
+
+// Cancel gap editing mode - clear the editing state and reset form
+function cancelGapEdit() {
+  editingGapInfo = null;
+  // Re-render modal to hide Overwrite button
+  renderEditModalContent();
+  showMessage('info', 'Gap edit cancelled');
+}
+
+// Overwrite gap: delete the old gap and add the new one from the form
+async function overwriteGapFromModal() {
+  if (!editingGapInfo) {
+    showMessage('error', 'No gap being edited');
+    return;
+  }
+
+  const { tab, groupIdx } = currentEditEntry || {};
+  const group = entriesData[tab]?.[groupIdx];
+  if (!group) {
+    showMessage('error', 'Worker data not found');
+    editingGapInfo = null;
+    return;
+  }
+
+  const { shiftIdx, gapIdx, originalGap, shift: storedShift } = editingGapInfo;
+
+  // Get fresh shift data (gaps may have changed indices)
+  const shifts = getModalShifts(group);
+  const currentShift = shifts[shiftIdx];
+  if (!currentShift) {
+    showMessage('error', 'Shift not found');
+    editingGapInfo = null;
+    return;
+  }
+
+  // Find the original gap by its times (in case indices changed)
+  const currentGaps = currentShift.gaps || [];
+  let actualGapIdx = currentGaps.findIndex(g =>
+    (g.start === originalGap.start || g.originalStart === originalGap.start) &&
+    (g.end === originalGap.end || g.originalEnd === originalGap.end)
+  );
+
+  // Fallback to stored index if times match
+  if (actualGapIdx === -1 && currentGaps[gapIdx]) {
+    const g = currentGaps[gapIdx];
+    if ((g.start === originalGap.start || g.originalStart === originalGap.start) &&
+        (g.end === originalGap.end || g.originalEnd === originalGap.end)) {
+      actualGapIdx = gapIdx;
+    }
+  }
+
+  if (actualGapIdx === -1) {
+    showMessage('error', 'Original gap not found - it may have been modified. Cancelling edit.');
+    editingGapInfo = null;
+    renderEditModalContent();
+    return;
+  }
+
+  const gapToDelete = currentGaps[actualGapIdx];
+
+  // Get new values from the form
+  const taskSelect = document.getElementById('modal-add-task');
+  const taskName = taskSelect?.value;
+  if (!taskName) {
+    showMessage('error', 'Please select a task/gap type');
+    return;
+  }
+
+  const isGap = isGapTask(taskName);
+  if (!isGap) {
+    showMessage('error', 'Cannot overwrite a gap with a shift. Use Add instead.');
+    return;
+  }
+
+  const startTime = document.getElementById('modal-add-start').value;
+  const endTime = document.getElementById('modal-add-end').value;
+  const countsHoursEl = document.getElementById('modal-add-counts-hours');
+  const countsForHours = countsHoursEl ? countsHoursEl.checked : false;
+
+  const removeEndpoint = tab === 'today' ? '/api/live-schedule/remove-gap' : '/api/prep-next-day/remove-gap';
+  const addEndpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
+
+  try {
+    // Handle edit-plan mode (local draft only)
+    if (modalMode === 'edit-plan') {
+      // Remove old gap from draft
+      removeEditPlanDraftGap(shiftIdx, actualGapIdx);
+
+      // Add new gap to draft
+      const draftShift = editPlanDraft?.shifts?.[shiftIdx];
+      if (draftShift) {
+        if (!draftShift.gaps) draftShift.gaps = [];
+        draftShift.gaps.push({
+          start: startTime,
+          end: endTime,
+          activity: taskName,
+          counts_for_hours: countsForHours
+        });
+      }
+
+      editingGapInfo = null;
+      const modalState = captureModalState();
+      renderEditModalContent();
+      restoreModalState(modalState);
+      showMessage('success', 'Gap updated in draft (save to apply)');
+      return;
+    }
+
+    // Step 1: Delete the old gap from all modalities
+    let deleteSuccess = false;
+    for (const [modKey, modData] of Object.entries(currentShift.modalities)) {
+      if (modData.row_index !== undefined && modData.row_index >= 0) {
+        const response = await fetch(removeEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modality: modKey,
+            row_index: modData.row_index,
+            gap_start: gapToDelete.originalStart || gapToDelete.start,
+            gap_end: gapToDelete.originalEnd || gapToDelete.end,
+            gap_activity: gapToDelete.activity || null
+          })
+        });
+        if (response.ok) {
+          deleteSuccess = true;
+        }
+      }
+    }
+
+    if (!deleteSuccess) {
+      showMessage('error', 'Failed to remove old gap');
+      return;
+    }
+
+    // Step 2: Add the new gap to all modalities
+    // First reload data to get updated row indices after delete
+    await loadData();
+
+    // Re-fetch group after reload
+    const updatedGroup = entriesData[tab]?.[groupIdx];
+    if (!updatedGroup) {
+      showMessage('error', 'Worker data not found after reload');
+      editingGapInfo = null;
+      return;
+    }
+
+    // Find the target shift for the new gap time
+    const updatedShifts = updatedGroup.shiftsArray || [];
+    const targetShift = updatedShifts.find(s => !(endTime <= s.start_time || startTime >= s.end_time));
+
+    if (targetShift) {
+      // Add gap to existing shift
+      let addSuccess = false;
+      for (const [modKey, modData] of Object.entries(targetShift.modalities)) {
+        if (modData.row_index !== undefined && modData.row_index >= 0) {
+          const response = await fetch(addEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              modality: modKey,
+              row_index: modData.row_index,
+              gap_type: taskName,
+              gap_start: startTime,
+              gap_end: endTime,
+              gap_counts_for_hours: countsForHours
+            })
+          });
+          if (response.ok) {
+            addSuccess = true;
+          }
+        }
+      }
+
+      if (!addSuccess) {
+        showMessage('warning', 'Old gap deleted but failed to add new gap');
+      } else {
+        showMessage('success', 'Gap overwritten successfully');
+      }
+    } else {
+      showMessage('warning', 'Old gap deleted but no overlapping shift found for new gap time');
+    }
+
+    // Clear editing state and refresh
+    editingGapInfo = null;
+    await loadData();
+
+    // Re-open modal if worker still exists
+    if (entriesData[tab] && entriesData[tab][groupIdx]) {
+      currentEditEntry = { tab, groupIdx };
+      renderEditModalContent();
+    }
+
+  } catch (error) {
+    showMessage('error', error.message);
+    editingGapInfo = null;
+  }
 }
 
 // Remove a gap from a shift via edit modal
@@ -2434,6 +2645,7 @@ async function saveModalChanges() {
 function closeModal() {
   document.getElementById('edit-modal').classList.remove('show');
   currentEditEntry = null;
+  editingGapInfo = null;  // Clear gap editing state
   clearEditPlanDraft();
   if (modalMode === 'add-worker') {
     resetAddWorkerModalState();
