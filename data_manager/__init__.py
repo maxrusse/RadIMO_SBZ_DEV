@@ -99,6 +99,7 @@ from data_manager.schedule_crud import (
     _add_worker_to_schedule,
     _delete_worker_from_schedule,
     _add_gap_to_schedule,
+    _replace_worker_schedule,
 )
 
 # CSV parser
@@ -176,6 +177,7 @@ __all__ = [
     '_add_worker_to_schedule',
     '_delete_worker_from_schedule',
     '_add_gap_to_schedule',
+    '_replace_worker_schedule',
 
     # CSV parser
     'match_mapping_rule',
