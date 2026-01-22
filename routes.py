@@ -91,22 +91,6 @@ def _format_time(value: Any) -> str:
     return ''
 
 
-def _normalize_gap_entries(gaps: Any) -> list:
-    if not isinstance(gaps, list):
-        return []
-    normalized = []
-    for gap in gaps:
-        if not isinstance(gap, dict):
-            continue
-        normalized.append({
-            'start': gap.get('start'),
-            'end': gap.get('end'),
-            'activity': gap.get('activity'),
-            'counts_for_hours': gap.get('counts_for_hours'),
-        })
-    return normalized
-
-
 def _modality_has_active_skills(mod_data: dict) -> bool:
     skills = (mod_data or {}).get('skills', {}) or {}
     for val in skills.values():
@@ -136,7 +120,7 @@ def _build_rows_from_plan(worker: str, shifts: list, modality: str) -> list:
                 'Modifier': shift.get('modifier', 1.0),
                 'counts_for_hours': shift.get('counts_for_hours', True),
                 'tasks': shift.get('task', ''),
-                'gaps': _normalize_gap_entries(shift.get('gaps', [])),
+                'row_type': 'shift',
                 **{skill: skills.get(skill) for skill in SKILL_COLUMNS if skill in skills},
             })
     return rows
@@ -165,9 +149,9 @@ def _df_to_api_response(df: pd.DataFrame) -> list[dict[str, Any]]:
 
     data: list[dict[str, Any]] = []
     columns = df.columns
-    has_gaps = 'gaps' in columns
     has_counts_for_hours = 'counts_for_hours' in columns
     has_manual = 'is_manual' in columns
+    has_row_type = 'row_type' in columns
     for idx, row in df.iterrows():
         worker_data = {
             'row_index': int(idx),
@@ -177,15 +161,12 @@ def _df_to_api_response(df: pd.DataFrame) -> list[dict[str, Any]]:
             'Modifier': float(row.get('Modifier', 1.0)) if pd.notnull(row.get('Modifier')) else 1.0,
         }
 
-        if has_gaps:
-            gaps_value = row.get('gaps', None)
-            worker_data['gaps'] = None if pd.isna(gaps_value) else gaps_value
-
         for skill in SKILL_COLUMNS:
             worker_data[skill] = skill_value_to_display(row.get(skill, None))
 
         worker_data['tasks'] = _parse_tasks(row.get('tasks', ''))
         worker_data['counts_for_hours'] = _get_counts_for_hours(row, has_counts_for_hours)
+        worker_data['row_type'] = row.get('row_type', 'shift') if has_row_type else 'shift'
 
         if has_manual:
             worker_data['is_manual'] = bool(row.get('is_manual', False))
@@ -1295,7 +1276,6 @@ def _handle_remove_gap(use_staged: bool) -> Any:
     data = request.json
     modality = data.get('modality')
     row_index = data.get('row_index')
-    gap_index = data.get('gap_index')
     gap_start = data.get('gap_start')
     gap_end = data.get('gap_end')
     gap_activity = data.get('gap_activity')
@@ -1304,16 +1284,16 @@ def _handle_remove_gap(use_staged: bool) -> Any:
     if modality not in data_store:
         return jsonify({'error': 'Invalid modality'}), 400
 
-    if gap_index is None and (gap_start is None or gap_end is None):
-        return jsonify({'error': 'gap_start and gap_end are required when gap_index is missing'}), 400
+    if gap_start is None or gap_end is None:
+        return jsonify({'error': 'gap_start and gap_end are required'}), 400
 
     gap_match = {'start': gap_start, 'end': gap_end, 'activity': gap_activity}
     success, action, error = _remove_gap_from_schedule(
         modality,
         row_index,
-        gap_index,
+        None,
         use_staged=use_staged,
-        gap_match=gap_match if gap_index is None else None
+        gap_match=gap_match
     )
 
     if success:
@@ -1326,7 +1306,6 @@ def _handle_update_gap(use_staged: bool) -> Any:
     data = request.json
     modality = data.get('modality')
     row_index = data.get('row_index')
-    gap_index = data.get('gap_index')
     gap_start = data.get('gap_start')
     gap_end = data.get('gap_end')
     gap_activity = data.get('gap_activity')
@@ -1339,14 +1318,14 @@ def _handle_update_gap(use_staged: bool) -> Any:
     if modality not in data_store:
         return jsonify({'error': 'Invalid modality'}), 400
 
-    if gap_index is None and (gap_start is None or gap_end is None):
-        return jsonify({'error': 'gap_start and gap_end are required when gap_index is missing'}), 400
+    if gap_start is None or gap_end is None:
+        return jsonify({'error': 'gap_start and gap_end are required'}), 400
 
-    gap_match = {'start': gap_start, 'end': gap_end, 'activity': gap_activity} if gap_index is None else None
+    gap_match = {'start': gap_start, 'end': gap_end, 'activity': gap_activity}
     success, action, error = _update_gap_in_schedule(
         modality,
         row_index,
-        gap_index,
+        None,
         new_start,
         new_end,
         new_activity,

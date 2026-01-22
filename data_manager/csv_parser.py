@@ -3,12 +3,11 @@ CSV parser module for medweb CSV transformation.
 
 This module handles:
 - Medweb CSV parsing and conversion to modality-specific DataFrames
-- 4-pass algorithm: collect shifts, create unavailable entries, apply gaps, resolve overlaps
+- Multi-pass algorithm: collect shifts, create unavailable entries, add gap rows, resolve overlaps
 - Skill overrides and time range computation
-- Gap handling (standalone and embedded)
+- Gap handling (standalone and embedded) as independent rows
 """
-import json
-from datetime import datetime, time, date, timedelta
+from datetime import datetime, time, date
 from typing import Dict, List, Optional, Tuple, Any, Iterable
 
 import pandas as pd
@@ -184,113 +183,93 @@ def build_ppl_from_row(row: pd.Series, cols: Optional[dict] = None) -> str:
     return f"{name} ({code})"
 
 
-def apply_exclusions_to_shifts(work_shifts: List[dict], exclusions: List[dict], target_date: date) -> List[dict]:
-    """Apply exclusions (gaps) to shifts. Same-day operations only.
+def _merge_intervals(intervals: List[tuple]) -> List[tuple]:
+    if not intervals:
+        return []
+    intervals = sorted(intervals, key=lambda x: x[0])
+    merged = [intervals[0]]
+    for start, end in intervals[1:]:
+        last_start, last_end = merged[-1]
+        if start <= last_end:
+            merged[-1] = (last_start, max(last_end, end))
+        else:
+            merged.append((start, end))
+    return merged
 
-    NEW MODEL (no row splitting):
-    - Gaps are stored as child entities in the shift's 'gaps' JSON array
-    - Shift times are preserved (no splitting into segments)
-    - shift_duration reflects effective working time (total minus gap durations)
-    - Full-shift gaps set counts_for_hours=False
-    """
-    if not exclusions:
-        return work_shifts
 
-    result_shifts = []
-
-    for shift in work_shifts:
-        shift_start = shift['start_time']
-        shift_end = shift['end_time']
-
-        shift_start_dt = datetime.combine(target_date, shift_start)
-        shift_end_dt = datetime.combine(target_date, shift_end)
-        # Same-day only: skip invalid shifts where end <= start
-        if shift_end_dt <= shift_start_dt:
-            continue
-
-        overlapping_exclusions = []
-        for excl in exclusions:
-            excl_start = excl['start_time']
-            excl_end = excl['end_time']
-
-            excl_start_dt = datetime.combine(target_date, excl_start)
-            excl_end_dt = datetime.combine(target_date, excl_end)
-            # Same-day only: skip invalid exclusions where end <= start
-            if excl_end_dt <= excl_start_dt:
+def _subtract_intervals(base: tuple, gaps: List[tuple]) -> List[tuple]:
+    remaining = [base]
+    for gap_start, gap_end in gaps:
+        next_remaining = []
+        for start, end in remaining:
+            if gap_end <= start or gap_start >= end:
+                next_remaining.append((start, end))
                 continue
+            if gap_start > start:
+                next_remaining.append((start, gap_start))
+            if gap_end < end:
+                next_remaining.append((gap_end, end))
+        remaining = next_remaining
+        if not remaining:
+            break
+    return remaining
 
-            if excl_start_dt < shift_end_dt and excl_end_dt > shift_start_dt:
-                overlapping_exclusions.append((
-                    excl_start_dt,
-                    excl_end_dt,
-                    excl.get('activity', 'Gap'),
-                    excl.get('counts_for_hours', False)
-                ))
 
-        if not overlapping_exclusions:
-            result_shifts.append(shift)
-            continue
+def _apply_gap_overlaps_to_shifts(rows: List[dict], target_date: date) -> List[dict]:
+    if not rows:
+        return rows
 
-        overlapping_exclusions.sort(key=lambda x: x[0])
+    rows_by_worker: Dict[str, List[dict]] = {}
+    for row in rows:
+        rows_by_worker.setdefault(row.get('PPL'), []).append(row)
 
-        # Build gaps array (clipped to shift boundaries) with overlap merging
-        clipped_exclusions = []
-        for excl_start_dt, excl_end_dt, excl_activity, excl_counts_for_hours in overlapping_exclusions:
-            # Clip gap to shift boundaries
-            clipped_start = max(excl_start_dt, shift_start_dt)
-            clipped_end = min(excl_end_dt, shift_end_dt)
-
-            if clipped_end > clipped_start:
-                clipped_exclusions.append((clipped_start, clipped_end, excl_activity, excl_counts_for_hours))
-
-        clipped_exclusions.sort(key=lambda x: x[0])
-
-        merged_exclusions = []
-        for excl_start_dt, excl_end_dt, excl_activity, excl_counts_for_hours in clipped_exclusions:
-            if not merged_exclusions:
-                merged_exclusions.append([excl_start_dt, excl_end_dt, excl_activity, excl_counts_for_hours])
+    for worker_name, worker_rows in rows_by_worker.items():
+        gap_intervals = []
+        for row in worker_rows:
+            if row.get('row_type', 'shift') != 'gap':
                 continue
+            if row.get('counts_for_hours', False):
+                continue
+            start = row.get('start_time')
+            end = row.get('end_time')
+            if not start or not end:
+                continue
+            start_dt = datetime.combine(target_date, start)
+            end_dt = datetime.combine(target_date, end)
+            if end_dt <= start_dt:
+                continue
+            gap_intervals.append((start_dt, end_dt))
 
-            last_start, last_end, last_activity, last_counts_for_hours = merged_exclusions[-1]
-            if excl_start_dt < last_end:
-                merged_end = max(last_end, excl_end_dt)
-                merged_activity = last_activity if last_activity == excl_activity else 'Gap'
-                merged_counts_for_hours = last_counts_for_hours and excl_counts_for_hours
-                merged_exclusions[-1] = [last_start, merged_end, merged_activity, merged_counts_for_hours]
-            else:
-                merged_exclusions.append([excl_start_dt, excl_end_dt, excl_activity, excl_counts_for_hours])
+        gap_intervals = _merge_intervals(gap_intervals)
 
-        gap_activities = []
-        total_gap_hours = 0.0
-        for excl_start_dt, excl_end_dt, excl_activity, excl_counts_for_hours in merged_exclusions:
-            gap_activities.append({
-                'start': excl_start_dt.time().strftime(TIME_FORMAT),
-                'end': excl_end_dt.time().strftime(TIME_FORMAT),
-                'activity': excl_activity,
-                'counts_for_hours': excl_counts_for_hours
-            })
-            if not excl_counts_for_hours:
-                total_gap_hours += (excl_end_dt - excl_start_dt).total_seconds() / 3600
+        for row in worker_rows:
+            if row.get('row_type', 'shift') == 'gap':
+                continue
+            shift_start = row.get('start_time')
+            shift_end = row.get('end_time')
+            if not shift_start or not shift_end:
+                row['shift_duration'] = 0.0
+                row['counts_for_hours'] = False
+                continue
+            shift_start_dt = datetime.combine(target_date, shift_start)
+            shift_end_dt = datetime.combine(target_date, shift_end)
+            if shift_end_dt <= shift_start_dt:
+                row['shift_duration'] = 0.0
+                row['counts_for_hours'] = False
+                continue
+            remaining = _subtract_intervals(
+                (shift_start_dt, shift_end_dt),
+                gap_intervals
+            )
+            total_minutes = sum(
+                (seg_end - seg_start).total_seconds() / 60
+                for seg_start, seg_end in remaining
+            )
+            row['shift_duration'] = round(total_minutes / 60.0, 4)
+            if total_minutes <= 0:
+                row['counts_for_hours'] = False
 
-        # Calculate effective working duration (shift minus gaps)
-        total_shift_hours = (shift_end_dt - shift_start_dt).total_seconds() / 3600
-        effective_duration = max(0.0, total_shift_hours - total_gap_hours)
-
-        # Keep shift as single row with gaps stored as child entities
-        result_shift = {
-            **shift,
-            'gaps': json.dumps(gap_activities) if gap_activities else None,
-            'shift_duration': effective_duration
-        }
-
-        # Check if gaps cover entire shift (full-shift gap)
-        if effective_duration < 0.1:  # Less than 6 minutes of working time
-            result_shift['counts_for_hours'] = False
-            result_shift['shift_duration'] = 0.0
-
-        result_shifts.append(result_shift)
-
-    return result_shifts
+    return rows
 
 
 def build_working_hours_from_medweb(
@@ -367,6 +346,7 @@ def build_working_hours_from_medweb(
     rows_per_modality = {mod: [] for mod in allowed_modalities}
     exclusions_per_worker: Dict[str, List[dict]] = {}
     workers_with_shifts: set = set()
+    workers_with_shifts_by_modality: Dict[str, set] = {mod: set() for mod in allowed_modalities}
     unmatched_activities = []
 
     # FIRST PASS: Collect all shifts and gaps for each worker
@@ -514,8 +494,10 @@ def build_working_hours_from_medweb(
                     'Modifier': rule_modifier,
                     'tasks': task_label,
                     'counts_for_hours': counts_for_hours,
+                    'row_type': 'shift',
                     **modality_skills
                 })
+                workers_with_shifts_by_modality[modality].add(canonical_id)
 
     # SECOND PASS: Create "unavailable" entries for workers with gaps but no shifts
     for canonical_id, exclusions in exclusions_per_worker.items():
@@ -536,8 +518,6 @@ def build_working_hours_from_medweb(
                 continue
             duration_hours = (end_dt - start_dt).total_seconds() / 3600
             counts_for_hours = excl.get('counts_for_hours', False)
-            effective_duration = duration_hours if counts_for_hours else 0.0
-
             # Create an entry in all modalities (or just first one) with all skills = -1
             unavailable_skills = {skill: -1 for skill in SKILL_COLUMNS}
 
@@ -548,16 +528,11 @@ def build_working_hours_from_medweb(
                 'canonical_id': canonical_id,
                 'start_time': gap_start,
                 'end_time': gap_end,
-                'shift_duration': effective_duration,
+                'shift_duration': 0.0,
                 'Modifier': 1.0,
                 'tasks': f"[Unavailable] {activity}",
                 'counts_for_hours': counts_for_hours,
-                'gaps': json.dumps([{
-                    'start': gap_start.strftime(TIME_FORMAT),
-                    'end': gap_end.strftime(TIME_FORMAT),
-                    'activity': activity,
-                    'counts_for_hours': counts_for_hours
-                }]),
+                'row_type': 'gap',
                 **unavailable_skills
             })
 
@@ -566,46 +541,30 @@ def build_working_hours_from_medweb(
                 f"{gap_start.strftime(TIME_FORMAT)}-{gap_end.strftime(TIME_FORMAT)} ({activity})"
             )
 
-    # THIRD PASS: Apply gaps to shifts (gaps always win)
+    # THIRD PASS: Add gap rows for workers with shifts
     if exclusions_per_worker:
-        selection_logger.info(f"Applying time exclusions for {len(exclusions_per_worker)} workers on {weekday_name}")
-
-        for modality in rows_per_modality:
-            if not rows_per_modality[modality]:
+        selection_logger.info(f"Adding gap rows for {len(exclusions_per_worker)} workers on {weekday_name}")
+        for worker_id, exclusions in exclusions_per_worker.items():
+            if worker_id not in workers_with_shifts:
                 continue
 
-            shifts_by_worker: Dict[str, List[dict]] = {}
-            for shift in rows_per_modality[modality]:
-                worker_id = shift['canonical_id']
-                if worker_id not in shifts_by_worker:
-                    shifts_by_worker[worker_id] = []
-                shifts_by_worker[worker_id].append(shift)
-
-            new_shifts = []
-            for worker_id, worker_shifts in shifts_by_worker.items():
-                worker_exclusions = exclusions_per_worker.get(worker_id, [])
-                if worker_exclusions and worker_id in workers_with_shifts:
-                    worker_shifts = apply_exclusions_to_shifts(
-                        worker_shifts,
-                        worker_exclusions,
-                        target_date_obj
-                    )
-
-                    # NOTE: Gap overwrite edge case - if a shift already has gaps from a
-                    # previous operation (e.g., duplicate worker entries), this will overwrite
-                    # them. All exclusions for a worker are combined into a single gaps_json.
-                    gaps_json = json.dumps([{
-                        'start': excl['start_time'].strftime(TIME_FORMAT),
-                        'end': excl['end_time'].strftime(TIME_FORMAT),
-                        'activity': excl['activity']
-                    } for excl in worker_exclusions])
-
-                    for shift in worker_shifts:
-                        shift['gaps'] = gaps_json
-
-                new_shifts.extend(worker_shifts)
-
-            rows_per_modality[modality] = new_shifts
+            for modality in rows_per_modality:
+                if worker_id not in workers_with_shifts_by_modality.get(modality, set()):
+                    continue
+                ppl_str = exclusions[0].get('ppl_str', f'Unknown ({worker_id})')
+                for excl in exclusions:
+                    rows_per_modality[modality].append({
+                        'PPL': ppl_str,
+                        'canonical_id': worker_id,
+                        'start_time': excl['start_time'],
+                        'end_time': excl['end_time'],
+                        'shift_duration': 0.0,
+                        'Modifier': 1.0,
+                        'tasks': excl.get('activity', 'Gap'),
+                        'counts_for_hours': excl.get('counts_for_hours', False),
+                        'row_type': 'gap',
+                        **{skill: -1 for skill in SKILL_COLUMNS},
+                    })
 
     if unmatched_activities:
         selection_logger.debug(f"Unmatched activities: {set(unmatched_activities)}")
@@ -613,15 +572,25 @@ def build_working_hours_from_medweb(
     # FOURTH PASS: Resolve overlapping shifts (later shift ends prior)
     for modality in rows_per_modality:
         if rows_per_modality[modality]:
-            original_count = len(rows_per_modality[modality])
-            rows_per_modality[modality] = resolve_overlapping_shifts(
-                rows_per_modality[modality], target_date_obj
-            )
-            resolved_count = len(rows_per_modality[modality])
+            shift_rows = [row for row in rows_per_modality[modality] if row.get('row_type', 'shift') != 'gap']
+            gap_rows = [row for row in rows_per_modality[modality] if row.get('row_type') == 'gap']
+            original_count = len(shift_rows)
+            if shift_rows:
+                shift_rows = resolve_overlapping_shifts(shift_rows, target_date_obj)
+            resolved_count = len(shift_rows)
             if original_count != resolved_count:
                 selection_logger.info(
                     f"Resolved overlapping shifts for {modality}: {original_count} -> {resolved_count} shifts"
                 )
+            rows_per_modality[modality] = shift_rows + gap_rows
+
+    # FIFTH PASS: Apply gap overlaps to shift durations
+    for modality in rows_per_modality:
+        if rows_per_modality[modality]:
+            rows_per_modality[modality] = _apply_gap_overlaps_to_shifts(
+                rows_per_modality[modality],
+                target_date_obj
+            )
 
     result = {}
     for modality, rows in rows_per_modality.items():

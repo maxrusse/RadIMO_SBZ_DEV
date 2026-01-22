@@ -577,21 +577,8 @@ function buildEntriesByWorker(data, tab = 'today') {
           .filter(Boolean);
       }
 
-      // Parse gaps from JSON if present
-      let gaps = [];
-      if (row.gaps) {
-        try {
-          gaps = typeof row.gaps === 'string' ? JSON.parse(row.gaps) : row.gaps;
-        } catch (e) { gaps = []; }
-      }
-      gaps = gaps.map(gap => ({
-        ...gap,
-        counts_for_hours: gap.counts_for_hours === true
-      }));
-
-      // Check if this is a gap row - ONLY based on task name matching config
-      // No fallback to "all skills = -1" - tasks must be explicitly defined
-      const isGapRow = taskParts.some(part => isGapTask(part));
+      const rowType = row.row_type || 'shift';
+      const isGapRow = rowType === 'gap';
 
       // Pull default times from configured shifts/roles when missing
       let roleConfig = TASK_ROLES.find(t => t.name === taskStr);
@@ -643,7 +630,7 @@ function buildEntriesByWorker(data, tab = 'today') {
         counts_for_hours: countsForHours !== false,  // Default true
         is_manual: Boolean(row.is_manual),
         is_gap_entry: isGapRow,
-        gaps: gaps,
+        gaps: [],
         skills: SKILLS.reduce((acc, skill) => {
           const rawVal = row[skill];
           const hasRaw = rawVal !== undefined && rawVal !== '';
@@ -694,15 +681,12 @@ function buildEntriesByWorker(data, tab = 'today') {
         };
       }
       grouped[workerName].allEntries.push(entry);
-      const gapCandidates = [...gaps];
-      if (isGapRow) {
-        gapCandidates.push({
-          start: startTime,
-          end: endTime,
-          activity: taskStr,
-          counts_for_hours: roleConfig?.counts_for_hours === true
-        });
-      }
+      const gapCandidates = isGapRow ? [{
+        start: startTime,
+        end: endTime,
+        activity: taskStr,
+        counts_for_hours: countsForHours === true
+      }] : [];
       grouped[workerName].allGaps = mergeUniqueGaps([...(grouped[workerName].allGaps || []), ...gapCandidates]);
 
       // Group by time slot (shift key = start_time-end_time)
@@ -715,7 +699,7 @@ function buildEntriesByWorker(data, tab = 'today') {
           modifier: entry.modifier,
           counts_for_hours: entry.counts_for_hours,
           task: entry.task,
-          gaps: gaps,
+          gaps: [],
           modalities: {},
           timeSegments: [{ start: entry.start_time, end: entry.end_time }],
           originalShifts: [entry],
@@ -730,7 +714,7 @@ function buildEntriesByWorker(data, tab = 'today') {
           modifier: entry.modifier,
           counts_for_hours: entry.counts_for_hours,
           task: entry.task,
-          gaps: gaps,
+          gaps: [],
           modalities: {},
           timeSegments: [{ start: entry.start_time, end: entry.end_time }],
           originalShifts: [entry],
@@ -771,14 +755,7 @@ function buildEntriesByWorker(data, tab = 'today') {
       }
       // Merge gaps from all modality entries for the same shift
       // Use mergeUniqueGaps to deduplicate based on start-end time
-      if (gaps.length > 0) {
-        const existingGaps = grouped[workerName].shifts[shiftKey].gaps || [];
-        grouped[workerName].shifts[shiftKey].gaps = mergeUniqueGaps([...existingGaps, ...gaps]);
-      }
-      if (gaps.length > 0) {
-        const existingModalGaps = grouped[workerName].modalShifts[modalShiftKey].gaps || [];
-        grouped[workerName].modalShifts[modalShiftKey].gaps = mergeUniqueGaps([...existingModalGaps, ...gaps]);
-      }
+      // No embedded gaps on shift rows; gaps are tracked separately via gap rows.
     });
   });
 
@@ -2305,13 +2282,6 @@ async function addShiftFromModal() {
           const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
           skills[skill] = normalizeSkillValueJS(el ? el.value : 0);
         });
-        const gapEntries = isGap ? [{
-          start: startTime,
-          end: endTime,
-          activity: taskName,
-          counts_for_hours: countsForHours
-        }] : undefined;
-
         const response = await fetch(workerEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2324,7 +2294,7 @@ async function addShiftFromModal() {
               Modifier: modifier,
               counts_for_hours: countsForHours,
               tasks: taskName,
-              gaps: gapEntries,
+              row_type: isGap ? 'gap' : 'shift',
               ...skills
             }
           })
@@ -3158,12 +3128,7 @@ async function onQuickGap30(tab, gIdx, shiftIdx, durationMinutes) {
             Modifier: 1.0,
             counts_for_hours: getGapCountsForHours(gapType),
             tasks: gapType,
-            gaps: [{
-              start: gapStart,
-              end: gapEnd,
-              activity: gapType,
-              counts_for_hours: getGapCountsForHours(gapType)
-            }],
+            row_type: 'gap',
             ...skills
           }
         })
