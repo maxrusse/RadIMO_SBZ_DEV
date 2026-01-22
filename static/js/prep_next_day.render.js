@@ -688,10 +688,20 @@ ${gaps.length > 0 ? `
 
 
   // Add New Shift/Gap section (same styling as Add Worker modal)
-  html += `<div style="margin-bottom: 1rem; padding: 0.75rem; background: #d4edda; border: 2px solid #28a745; border-radius: 8px;">
+  // Check if we're in gap edit mode
+  const isEditingGap = editingGapInfo !== null;
+  const editSectionStyle = isEditingGap ? 'background: #fff3cd; border: 2px solid #ffc107;' : 'background: #d4edda; border: 2px solid #28a745;';
+  const editLabelColor = isEditingGap ? '#856404' : '#155724';
+  const editLabel = isEditingGap ? '✎ Edit Gap (Overwrite Mode)' : '+ Add New Shift / Gap';
+
+  html += `<div style="margin-bottom: 1rem; padding: 0.75rem; ${editSectionStyle} border-radius: 8px;">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-<label style="font-weight: 600; color: #155724;">+ Add New Shift / Gap</label>
-<button class="btn btn-small btn-success" type="button" onclick="addShiftFromModal()">Add</button>
+<label style="font-weight: 600; color: ${editLabelColor};">${editLabel}</label>
+<div style="display: flex; gap: 0.5rem;">
+  ${isEditingGap ? `<button class="btn btn-small" style="background: #ffc107; color: #856404; border: 1px solid #e0a800;" type="button" onclick="overwriteGapFromModal()">Overwrite</button>
+  <button class="btn btn-small" style="background: #f8f9fa; color: #6c757d; border: 1px solid #ccc;" type="button" onclick="cancelGapEdit()">Cancel</button>` : ''}
+  <button class="btn btn-small btn-success" type="button" onclick="addShiftFromModal()">Add</button>
+</div>
   </div>
   <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 0.5rem;">
 <div style="flex: 1; min-width: 180px;">
