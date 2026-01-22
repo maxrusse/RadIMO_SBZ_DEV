@@ -108,7 +108,6 @@ from data_manager.csv_parser import (
     compute_time_ranges,
     parse_gap_times,
     build_ppl_from_row,
-    apply_exclusions_to_shifts,
     build_working_hours_from_medweb,
 )
 
@@ -184,7 +183,6 @@ __all__ = [
     'compute_time_ranges',
     'parse_gap_times',
     'build_ppl_from_row',
-    'apply_exclusions_to_shifts',
     'build_working_hours_from_medweb',
 
     # Scheduled tasks
