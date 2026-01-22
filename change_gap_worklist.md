@@ -27,48 +27,55 @@
 ## Detailed implementation worklist
 
 ### 1) Data model & persistence
-- [ ] Add `row_type` column to working hours DataFrames (defaults to `shift` when missing).
-- [ ] Ensure CSV export/import includes `row_type`.
-- [ ] Update file column order to include `row_type` (remove `gaps`).
+- [x] Add `row_type` column to working hours DataFrames (defaults to `shift` when missing).
+  - Implemented via `_ensure_row_type_column()` in schedule_crud.py
+- [x] Ensure CSV export/import includes `row_type`.
+  - csv_parser.py creates rows with explicit `row_type`
+- [x] Update file column order to include `row_type` (remove `gaps`).
+  - No `gaps` column is written to DataFrames
+
 ### 2) CSV parsing: produce gap rows
-- [ ] In `build_working_hours_from_medweb`, replace “apply gaps to shifts” logic with explicit row creation:
-  - For each gap rule, add a `gap` row (per gap time range).
-  - For embedded shift rule gaps, add separate `gap` rows.
-  - Shifts remain unchanged (no `gaps` JSON).
-- [ ] Remove `apply_exclusions_to_shifts` usage and the “third pass” logic that overwrites gaps inside shifts.
+- [x] In `build_working_hours_from_medweb`, replace "apply gaps to shifts" logic with explicit row creation:
+  - For each gap rule, add a `gap` row (per gap time range). ✓
+  - For embedded shift rule gaps, add separate `gap` rows. ✓
+  - Shifts remain unchanged (no `gaps` JSON). ✓
+- [x] Remove `apply_exclusions_to_shifts` usage and the "third pass" logic that overwrites gaps inside shifts.
+  - Function removed; dead export cleaned up.
 
 ### 3) CRUD: gap add/update/remove as row operations
-- [ ] Replace `_add_gap_to_schedule` to insert a new `gap` row, not update a shift row.
-- [ ] Replace `_remove_gap_from_schedule` to delete a gap row.
-- [ ] Replace `_update_gap_in_schedule` to edit a gap row’s times/activity.
-- [ ] Ensure row selection and UI wiring handles “gap rows” directly.
+- [x] Replace `_add_gap_to_schedule` to insert a new `gap` row, not update a shift row.
+- [x] Replace `_remove_gap_from_schedule` to delete a gap row.
+- [x] Replace `_update_gap_in_schedule` to edit a gap row's times/activity.
+- [x] Ensure row selection and UI wiring handles "gap rows" directly.
 
 ### 4) Hour calculation updates
-- [ ] Replace `_calc_effective_duration_from_gaps` usage with a new overlap-based function:
-  - For each worker/day, compute effective working minutes by subtracting merged gap intervals.
-- [ ] Ensure `shift_duration` is recomputed based on gap overlaps for each shift row (or computed on demand).
-- [ ] Ensure `counts_for_hours` logic is applied after gap subtraction.
+- [x] Replace `_calc_effective_duration_from_gaps` usage with a new overlap-based function:
+  - Implemented via `_recalculate_worker_shift_durations()` using `_subtract_intervals()`
+- [x] Ensure `shift_duration` is recomputed based on gap overlaps for each shift row (or computed on demand).
+- [x] Ensure `counts_for_hours` logic is applied after gap subtraction.
 
 ### 5) Frontend model: treat gaps as first-class rows
-- [ ] Update `buildEntriesByWorker` to build two collections:
-  - `shiftEntries` from `row_type=shift` rows.
-  - `gapEntries` from `row_type=gap` rows.
-- [ ] Remove merge logic that pulls `row.gaps` into shift entries.
-- [ ] Timeline rendering: overlay gap bars onto shift bars by clipping gaps into shift ranges.
-- [ ] Editing: update edit modal flows to edit/delete gap rows directly.
+- [x] Update `buildEntriesByWorker` to build two collections:
+  - Uses `row_type === 'gap'` to identify gap rows
+  - Collects gaps in `allGaps` array per worker
+- [x] Remove merge logic that pulls `row.gaps` into shift entries.
+  - No DataFrame `gaps` column; frontend `shift.gaps` is a view-model for UI display
+- [x] Timeline rendering: overlay gap bars onto shift bars by clipping gaps into shift ranges.
+- [x] Editing: update edit modal flows to edit/delete gap rows directly.
 
 ### 6) API contracts
-- [ ] Update `/api/*/add-gap`, `/remove-gap`, `/update-gap` endpoints to operate on gap rows.
-- [ ] Update server responses to include `row_type` and avoid `gaps` field.
-- [ ] Ensure any downstream consumers handle the new schema.
+- [x] Update `/api/*/add-gap`, `/remove-gap`, `/update-gap` endpoints to operate on gap rows.
+- [x] Update server responses to include `row_type` and avoid `gaps` field.
+- [x] Ensure any downstream consumers handle the new schema.
 
 ### 7) Legacy code removal
-- [ ] Remove `gaps` JSON column handling in:
-  - CSV parser
-  - schedule_crud
-  - frontend data assembly
-  - any UI gap merge helpers
-- [ ] Delete helpers specific to embedded gaps if no longer used.
+- [x] Remove `gaps` JSON column handling in:
+  - CSV parser: No `gaps` column written
+  - schedule_crud: Gap operations are row-based
+  - frontend data assembly: Uses `row_type` as primary indicator
+  - any UI gap merge helpers: `mergeUniqueGaps` is for UI display deduplication only
+- [x] Delete helpers specific to embedded gaps if no longer used.
+  - `apply_exclusions_to_shifts` removed
 
 ### 8) Testing plan (must cover overlaps)
 - [ ] Unit tests for overlap logic:
