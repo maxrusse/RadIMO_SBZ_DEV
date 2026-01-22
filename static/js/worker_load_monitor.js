@@ -211,8 +211,11 @@ function renderGlobalTable() {
   const maxBarWeight = Math.max(maxWeight, 1);
   let html = '';
 
+  let totalWeight = 0;
+
   sorted.forEach(function(worker) {
     const weight = worker.global_weight || 0;
+    totalWeight += weight;
     const color = getLoadColor(weight);
     const colorClass = getLoadColorClass(weight);
     const barWidth = Math.min((weight / maxBarWeight) * 100, 100);
@@ -227,6 +230,18 @@ function renderGlobalTable() {
       </td>
     </tr>`;
   });
+
+  // Add totals row
+  const totalBarWidth = Math.min((totalWeight / maxBarWeight) * 100, 100);
+  html += `<tr class="totals-row">
+    <td class="worker-col" style="font-weight: 700;">Total</td>
+    <td class="weight-value" style="font-weight: 700;">${totalWeight.toFixed(1)}</td>
+    <td>
+      <div class="weight-bar">
+        <div class="weight-bar-fill" style="width: ${totalBarWidth}%; max-width: 200px; background: #6c757d;"></div>
+      </div>
+    </td>
+  </tr>`;
 
   tbody.innerHTML = html;
 }
@@ -247,6 +262,11 @@ function renderModalityTable() {
 
   let html = '';
 
+  // Track column totals
+  const modalityTotals = {};
+  MODALITIES.forEach(function(mod) { modalityTotals[mod] = 0; });
+  let grandTotal = 0;
+
   sorted.forEach(function(worker) {
     let total = 0;
     let modCells = '';
@@ -255,11 +275,13 @@ function renderModalityTable() {
       const modData = worker.modalities[mod];
       const weight = modData?.weighted_count || 0;
       total += weight;
+      modalityTotals[mod] += weight;
       const color = getLoadColor(weight);
 
       modCells += `<td class="${color.text}" style="text-align: center;">${weight > 0 ? weight.toFixed(1) : '-'}</td>`;
     });
 
+    grandTotal += total;
     const totalColor = getLoadColor(total);
 
     html += `<tr>
@@ -268,6 +290,18 @@ function renderModalityTable() {
       <td class="${totalColor.text}" style="text-align: center; font-weight: 600;">${total.toFixed(1)}</td>
     </tr>`;
   });
+
+  // Add totals row
+  let totalModCells = '';
+  MODALITIES.forEach(function(mod) {
+    const weight = modalityTotals[mod];
+    totalModCells += `<td style="text-align: center; font-weight: 700;">${weight > 0 ? weight.toFixed(1) : '-'}</td>`;
+  });
+  html += `<tr class="totals-row">
+    <td class="worker-col" style="font-weight: 700;">Total</td>
+    ${totalModCells}
+    <td style="text-align: center; font-weight: 700;">${grandTotal.toFixed(1)}</td>
+  </tr>`;
 
   tbody.innerHTML = html;
 }
@@ -288,6 +322,11 @@ function renderSkillTable() {
 
   let html = '';
 
+  // Track column totals
+  const skillTotals = {};
+  SKILLS.forEach(function(skill) { skillTotals[skill] = 0; });
+  let grandTotal = 0;
+
   sorted.forEach(function(worker) {
     let total = 0;
     let skillCells = '';
@@ -295,11 +334,13 @@ function renderSkillTable() {
     SKILLS.forEach(function(skill) {
       const count = worker.skills[skill] || 0;
       total += count;
+      skillTotals[skill] += count;
       const color = getLoadColor(count);
 
       skillCells += `<td class="${color.text}" style="text-align: center;">${count > 0 ? count : '-'}</td>`;
     });
 
+    grandTotal += total;
     const totalColor = getLoadColor(total);
 
     html += `<tr>
@@ -308,6 +349,18 @@ function renderSkillTable() {
       <td class="${totalColor.text}" style="text-align: center; font-weight: 600;">${total}</td>
     </tr>`;
   });
+
+  // Add totals row
+  let totalSkillCells = '';
+  SKILLS.forEach(function(skill) {
+    const count = skillTotals[skill];
+    totalSkillCells += `<td style="text-align: center; font-weight: 700;">${count > 0 ? count : '-'}</td>`;
+  });
+  html += `<tr class="totals-row">
+    <td class="worker-col" style="font-weight: 700;">Total</td>
+    ${totalSkillCells}
+    <td style="text-align: center; font-weight: 700;">${grandTotal}</td>
+  </tr>`;
 
   tbody.innerHTML = html;
 }
@@ -357,6 +410,16 @@ function renderAdvancedTable() {
 
   let html = '';
 
+  // Track column totals for each modality-skill combination
+  const cellTotals = {};
+  showModalities.forEach(function(mod) {
+    cellTotals[mod] = {};
+    showSkills.forEach(function(skill) {
+      cellTotals[mod][skill] = 0;
+    });
+  });
+  let grandTotal = 0;
+
   sorted.forEach(function(worker) {
     html += '<tr>';
     html += `<td class="worker-col">${escapeHtml(worker.name)}</td>`;
@@ -366,6 +429,7 @@ function renderAdvancedTable() {
 
       showSkills.forEach(function(skill) {
         const count = modData?.skill_counts?.[skill] || 0;
+        cellTotals[mod][skill] += count;
         const color = getLoadColor(count);
 
         if (count > 0) {
@@ -376,10 +440,23 @@ function renderAdvancedTable() {
       });
     });
 
+    grandTotal += worker.global_weight || 0;
     const totalColor = getLoadColor(worker.global_weight);
     html += `<td class="${totalColor.text}" style="font-weight: 700;">${worker.global_weight.toFixed(1)}</td>`;
     html += '</tr>';
   });
+
+  // Add totals row
+  html += '<tr class="totals-row">';
+  html += '<td class="worker-col" style="font-weight: 700;">Total</td>';
+  showModalities.forEach(function(mod) {
+    showSkills.forEach(function(skill) {
+      const count = cellTotals[mod][skill];
+      html += `<td style="font-weight: 700;">${count > 0 ? count : '-'}</td>`;
+    });
+  });
+  html += `<td style="font-weight: 700;">${grandTotal.toFixed(1)}</td>`;
+  html += '</tr>';
 
   tbody.innerHTML = html;
 }
