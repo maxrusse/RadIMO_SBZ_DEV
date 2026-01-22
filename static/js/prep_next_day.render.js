@@ -501,15 +501,11 @@ function renderEditModalContent() {
   const duplicateBadge = numShifts > 1 ? `<span class="duplicate-badge">${numShifts}x</span>` : '';
   const borderColor = tab === 'today' ? (UI_COLORS.today_tab || '#28a745') : (UI_COLORS.tomorrow_tab || '#ffc107');
 
-  // Header with worker name and quick break button
-  const quickBreakButton = tab === 'today'
-    ? `<button type="button" class="btn-quick-gap" onclick="onQuickGapFromModal()" title="Add ${QUICK_BREAK.duration_minutes}-min break at current time">☕ Break NOW</button>`
-    : '';
+  // Header with worker name
   html += `<div style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border-radius: 8px;">
     <div class="form-group" style="margin-bottom: 0;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
         <label style="font-weight: 600;">Worker</label>
-        ${quickBreakButton}
       </div>
       <div style="font-size: 1rem; padding: 0.5rem; background: #e9ecef; border-radius: 4px;">
         <strong>${escapedWorker}</strong> ${duplicateBadge}
