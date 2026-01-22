@@ -1326,6 +1326,21 @@ function unmergeGapToAddForm(shiftIdx, gapIdx) {
   const gap = gaps[gapIdx];
   if (!gap) return;
 
+  // Store the editing gap info for overwrite functionality
+  // Must be set BEFORE re-render so the Overwrite button appears
+  editingGapInfo = {
+    shiftIdx: shiftIdx,
+    gapIdx: gapIdx,
+    originalGap: { ...gap },
+    shift: shift  // Store shift reference for accessing modality data during overwrite
+  };
+
+  // Re-render modal to show Overwrite button (this resets the form)
+  const modalState = captureModalState();
+  renderEditModalContent();
+  restoreModalState(modalState);
+
+  // NOW populate the form AFTER re-render (so it doesn't get wiped by initializeModalAddForm)
   const gapActivity = (gap.activity || '').toLowerCase().trim();
 
   // Find the task dropdown and select the matching gap task
@@ -1390,19 +1405,6 @@ function unmergeGapToAddForm(shiftIdx, gapIdx) {
       if (el) el.value = '-1';
     });
   });
-
-  // Store the editing gap info for overwrite functionality
-  editingGapInfo = {
-    shiftIdx: shiftIdx,
-    gapIdx: gapIdx,
-    originalGap: { ...gap },
-    shift: shift  // Store shift reference for accessing modality data during overwrite
-  };
-
-  // Re-render modal to show Overwrite button
-  const modalState = captureModalState();
-  renderEditModalContent();
-  restoreModalState(modalState);
 
   // Scroll to the Add form section to make it visible (now yellow when editing)
   const addSection = document.querySelector('[style*="background: #fff3cd"]') || document.querySelector('[style*="background: #d4edda"]');
