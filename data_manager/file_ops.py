@@ -111,6 +111,11 @@ def _calculate_total_work_hours(df: pd.DataFrame) -> dict[str, float]:
     if 'shift_duration' not in df.columns:
         return {}
 
+    if 'row_type' in df.columns:
+        df = df[df['row_type'].fillna('shift') != 'gap']
+        if df.empty:
+            return {}
+
     if 'counts_for_hours' in df.columns:
         # Default to True (count for hours) if value is missing
         hours_df = df[df['counts_for_hours'].fillna(True).astype(bool)]
@@ -141,6 +146,10 @@ def _load_dataframe_from_backup_payload(data: dict) -> pd.DataFrame:
 
     if 'counts_for_hours' not in df.columns:
         df['counts_for_hours'] = True
+
+    if 'row_type' not in df.columns:
+        df['row_type'] = 'shift'
+    df.loc[df['row_type'] == 'gap', 'shift_duration'] = 0.0
 
     return df
 
@@ -183,9 +192,13 @@ def _build_dataframe_from_records(records: list[dict], modality: str, *, validat
         axis=1
     )
 
-    col_order = ['PPL', 'Modifier', 'TIME', 'start_time', 'end_time', 'shift_duration', 'tasks', 'counts_for_hours', 'gaps', 'is_manual']
+    if 'row_type' not in df.columns:
+        df['row_type'] = 'shift'
+    df.loc[df['row_type'] == 'gap', 'shift_duration'] = 0.0
+
+    col_order = ['PPL', 'row_type', 'Modifier', 'TIME', 'start_time', 'end_time', 'shift_duration', 'tasks', 'counts_for_hours', 'is_manual']
     skill_cols = [skill for skill in SKILL_COLUMNS if skill in df.columns]
-    col_order = col_order[:3] + skill_cols + col_order[3:]
+    col_order = col_order[:4] + skill_cols + col_order[4:]
 
     if 'tasks' not in df.columns:
         df['tasks'] = ''
