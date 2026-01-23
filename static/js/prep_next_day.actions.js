@@ -3050,10 +3050,9 @@ function getGapCountsForHours(taskName) {
  * Falls back to standalone gap entry if no shift exists at that time.
  * @param {string} tab - 'today' or 'tomorrow'
  * @param {number} gIdx - Group index
- * @param {number} shiftIdx - Shift index (unused, for compatibility)
  * @param {number} [durationMinutes] - Duration in minutes (optional, defaults to QUICK_BREAK.duration_minutes)
  */
-async function onQuickGap30(tab, gIdx, shiftIdx, durationMinutes) {
+async function onQuickGap30(tab, gIdx, durationMinutes) {
   if (tab === 'tomorrow') {
     showMessage('error', 'Break NOW actions are disabled in prep mode.');
     return;
@@ -3226,7 +3225,7 @@ async function confirmBreakDuration() {
   const { tab, groupIdx } = currentEditEntry;
   // Close popup, add gap (which calls loadData internally)
   closeBreakPopup();
-  await onQuickGap30(tab, groupIdx, 0, duration);
+  await onQuickGap30(tab, groupIdx, duration);
   // Re-render modal to show the new gap (data already loaded by onQuickGap30)
   if (entriesData[tab] && entriesData[tab][groupIdx]) {
     currentEditEntry = { tab, groupIdx };

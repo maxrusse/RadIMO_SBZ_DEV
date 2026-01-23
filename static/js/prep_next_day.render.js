@@ -292,12 +292,13 @@ function renderTable(tab) {
         let workerHtml = `<span class="worker-name ${isDuplicate ? 'duplicate' : ''}">${escapedWorker}</span>${duplicateBadge}`;
         // Add quick break button at worker level (today tab only)
         if (tab === 'today') {
-          workerHtml += `<button type="button" class="btn-quick-gap" onclick="onQuickGap30('${tab}', ${gIdx}, 0)" title="Add ${QUICK_BREAK.duration_minutes}-min break NOW">☕</button>`;
+          workerHtml += `<button type="button" class="btn-quick-gap" onclick="onQuickGap30('${tab}', ${gIdx})" title="Add ${QUICK_BREAK.duration_minutes}-min break NOW">☕</button>`;
         }
         tr.innerHTML += `<td rowspan="${totalRows}" style="vertical-align: middle;">${workerHtml}</td>`;
       }
 
-      const isGapRow = shift.is_gap_entry !== undefined ? shift.is_gap_entry : isGapTask(shift.task);
+      // is_gap_entry is set from row_type in buildEntriesByWorker
+      const isGapRow = Boolean(shift.is_gap_entry);
       // Build timeline display with gaps shown inline
       const segments = shift.timeSegments || [{ start: shift.start_time, end: shift.end_time }];
       const gaps = shift.gaps || [];
@@ -532,10 +533,8 @@ function renderEditModalContent() {
     const primaryMod = assignedMods[0] || MODALITIES[0]?.toLowerCase() || 'ct';
     const modData = shift.modalities[primaryMod] || { skills: {}, row_index: -1, modifier: shift.modifier || 1.0 };
 
-    // Detect if this is a gap entry (prefer explicit flag or task type)
-    const isGapEntry = shift.is_gap_entry !== undefined
-      ? shift.is_gap_entry
-      : isGapTask(shift.task);
+    // is_gap_entry is set from row_type in buildEntriesByWorker
+    const isGapEntry = Boolean(shift.is_gap_entry);
 
     // Build timeline with gaps to make split shifts explicit
     const segments = shift.timeSegments || [{ start: shift.start_time, end: shift.end_time }];

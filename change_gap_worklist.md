@@ -103,5 +103,46 @@
 ## Completion criteria
 - No code path writes or reads `gaps` JSON on shift rows.
 - Gap operations are row-based and fully independent.
-- Hour calculations match “gap wins” semantics with multiple overlaps.
+- Hour calculations match "gap wins" semantics with multiple overlaps.
 - UI timeline shows gap overlays without embedding gap data in shift rows.
+
+---
+
+## Additional cleanup notes (2026-01-23)
+
+### Cleanup completed
+
+1. **Removed legacy `is_gap_entry` fallback patterns in `prep_next_day.render.js`**
+   - Lines 300, 536-538: Previously used fallback `isGapTask(shift.task)` when `is_gap_entry` was undefined
+   - Since `is_gap_entry` is now reliably set from `row_type` in `buildEntriesByWorker`, the fallback is unnecessary
+   - Simplified to: `const isGapRow = Boolean(shift.is_gap_entry);`
+
+2. **Removed unused `shiftIdx` parameter from `onQuickGap30` function**
+   - `prep_next_day.actions.js`: Function signature changed from `onQuickGap30(tab, gIdx, shiftIdx, durationMinutes)` to `onQuickGap30(tab, gIdx, durationMinutes)`
+   - Updated callers in `prep_next_day.actions.js` and `prep_next_day.render.js`
+   - Parameter was documented as "unused, for compatibility" and always passed as 0
+
+### Items reviewed and kept
+
+1. **`is_gap_entry` field in view model** — Intentionally kept
+   - Derived from `row_type` in `buildEntriesByWorker` at line 632
+   - Propagated through the shift/entry objects for use in rendering
+   - Serves as a computed boolean property for easier conditionals in UI code
+
+2. **`shift.gaps` array in view model** — Intentionally kept
+   - This is a UI-only view model array for rendering gap overlays visually within shift rows
+   - NOT persisted to database; computed from separate gap rows for display purposes
+   - Used by `timeline.js` and rendering code to show gaps inline with shifts
+
+3. **`isGapTask()` function** — Intentionally kept
+   - Still used in multiple places for config-based gap detection:
+     - Finding gap task names in multi-task entries (line 586)
+     - Filtering non-gap shifts for display logic (lines 938, 941)
+     - Determining gap type when adding/updating entries (lines 1468, 2229)
+   - Reads from `TASK_ROLES` config to identify gap task names
+
+### Architecture notes
+
+- **Data flow**: Backend uses `row_type` column → Frontend derives `is_gap_entry` in `buildEntriesByWorker` → Render code uses `is_gap_entry` boolean
+- **Gap visualization**: Separate gap rows are collected in `allGaps`, then clipped into shift time ranges for the `shift.gaps` view model used by timeline rendering
+- **No redundancy**: The `is_gap_entry` boolean and `shift.gaps` array serve distinct purposes (row identification vs. visual overlay)
