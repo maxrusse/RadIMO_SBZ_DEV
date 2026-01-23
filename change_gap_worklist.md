@@ -146,3 +146,43 @@
 - **Data flow**: Backend uses `row_type` column → Frontend derives `is_gap_entry` in `buildEntriesByWorker` → Render code uses `is_gap_entry` boolean
 - **Gap visualization**: Separate gap rows are collected in `allGaps`, then clipped into shift time ranges for the `shift.gaps` view model used by timeline rendering
 - **No redundancy**: The `is_gap_entry` boolean and `shift.gaps` array serve distinct purposes (row identification vs. visual overlay)
+
+---
+
+## Additional cleanup notes (2026-01-23, continued)
+
+### Aligned gap handling to new standalone row model
+
+3. **Simplified `onQuickGap30` (quick break NOW feature)**
+   - Removed legacy "overlapping shifts" detection logic
+   - Previously: looped through overlapping shifts/modalities and called `callAddGap` for each (could create duplicates)
+   - Now: always creates a single standalone gap row via `/api/*/add-worker` with `row_type: 'gap'`
+   - Confirmation message simplified (no longer mentions "add to shifts" vs "create gap entry")
+
+4. **Simplified add-worker modal gap handling (`addShiftFromModal`)**
+   - Removed legacy overlap checking that called add-gap API for each overlapping shift
+   - Now: always creates standalone gap rows with `row_type: 'gap'`
+   - Fixed missing `row_type: 'gap'` that was previously unset in some code paths
+
+5. **Simplified add-worker modal batch processing (`executeAddWorkerModal`)**
+   - Removed overlap detection loop for gap tasks
+   - Gap tasks now always create standalone rows with `row_type: 'gap'`
+   - Removed unused `gapEndpoint` variable
+
+6. **Removed unused `callAddGap` helper function**
+   - Was a wrapper for the add-gap API endpoint
+   - No longer needed since all gap creation now uses add-worker endpoint with `row_type: 'gap'`
+
+7. **Consolidated `_subtract_intervals` function**
+   - Previously duplicated in `schedule_crud.py` and `csv_parser.py`
+   - Moved to `lib/utils.py` as `subtract_intervals()` with generic type hints
+   - Works with both integer (minutes) and datetime intervals
+   - Both modules now import from shared location
+
+### API endpoint status
+
+The add-gap/remove-gap/update-gap endpoints are still used for:
+- **remove-gap**: Deleting gap rows from the edit modal
+- **update-gap**: Editing gap times/properties from the edit modal
+
+The add-gap endpoint is no longer needed for creating gaps (use add-worker with `row_type: 'gap'` instead) but remains for backward compatibility.

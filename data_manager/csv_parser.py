@@ -20,6 +20,7 @@ from config import (
 from lib.utils import (
     TIME_FORMAT,
     get_weekday_name_german,
+    subtract_intervals,
 )
 from data_manager.worker_management import (
     get_canonical_worker_id,
@@ -197,24 +198,6 @@ def _merge_intervals(intervals: List[tuple]) -> List[tuple]:
     return merged
 
 
-def _subtract_intervals(base: tuple, gaps: List[tuple]) -> List[tuple]:
-    remaining = [base]
-    for gap_start, gap_end in gaps:
-        next_remaining = []
-        for start, end in remaining:
-            if gap_end <= start or gap_start >= end:
-                next_remaining.append((start, end))
-                continue
-            if gap_start > start:
-                next_remaining.append((start, gap_start))
-            if gap_end < end:
-                next_remaining.append((gap_end, end))
-        remaining = next_remaining
-        if not remaining:
-            break
-    return remaining
-
-
 def _apply_gap_overlaps_to_shifts(rows: List[dict], target_date: date) -> List[dict]:
     if not rows:
         return rows
@@ -257,7 +240,7 @@ def _apply_gap_overlaps_to_shifts(rows: List[dict], target_date: date) -> List[d
                 row['shift_duration'] = 0.0
                 row['counts_for_hours'] = False
                 continue
-            remaining = _subtract_intervals(
+            remaining = subtract_intervals(
                 (shift_start_dt, shift_end_dt),
                 gap_intervals
             )
