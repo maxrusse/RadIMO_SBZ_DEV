@@ -138,6 +138,12 @@ const TimelineChart = (function() {
 
     sorted.forEach((entry, idx) => {
       if (entry._modality) merged.modalities.add(entry._modality.toUpperCase());
+      if (entry.modalities) {
+        const modalList = entry.modalities instanceof Set ? Array.from(entry.modalities) : entry.modalities;
+        if (Array.isArray(modalList)) {
+          modalList.forEach(mod => merged.modalities.add(String(mod).toUpperCase()));
+        }
+      }
 
       // Merge skills - mark active if any modality has it active
       skillColumns.forEach(s => {
@@ -208,8 +214,12 @@ const TimelineChart = (function() {
       }
 
       const modalities = new Set();
-      if (entry.modalities && entry.modalities.size) {
-        entry.modalities.forEach(m => modalities.add(m));
+      if (entry.modalities) {
+        if (entry.modalities instanceof Set) {
+          entry.modalities.forEach(m => modalities.add(m));
+        } else if (Array.isArray(entry.modalities)) {
+          entry.modalities.forEach(m => modalities.add(m));
+        }
       }
       if (entry._modality || entry.modality) {
         modalities.add((entry._modality || entry.modality).toUpperCase());
