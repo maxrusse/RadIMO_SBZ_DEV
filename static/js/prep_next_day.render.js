@@ -278,6 +278,28 @@ function renderTable(tab) {
     const totalRows = shiftsToRender.length;
     const isDuplicate = shifts.length > 1;
     const duplicateBadge = isDuplicate ? `<span class="duplicate-badge">${shifts.length} shifts</span>` : '';
+    const hasNonGapShift = shifts.some(shift => !shift.is_gap_entry);
+    const hasGapRows = (group.allGaps || []).length > 0;
+    const hasGapOutsideShift = hasGapRows && hasNonGapShift && (group.allGaps || []).some(gap => {
+      const gapStart = gap.start || '';
+      const gapEnd = gap.end || '';
+      return !shifts.some(shift => {
+        if (shift.is_gap_entry) return false;
+        const shiftStart = shift.start_time || '';
+        const shiftEnd = shift.end_time || '';
+        return gapStart < shiftEnd && gapEnd > shiftStart;
+      });
+    });
+    const warningMessages = [];
+    if (!hasNonGapShift && hasGapRows) {
+      warningMessages.push('Gaps only (no shifts)');
+    }
+    if (hasGapOutsideShift) {
+      warningMessages.push('Gap outside shift window');
+    }
+    const warningTitle = warningMessages.length
+      ? ` title="${escapeHtml(warningMessages.join(' | '))}"`
+      : '';
 
     shiftsToRender.forEach((shift, shiftIdx) => {
       const tr = document.createElement('tr');
@@ -289,7 +311,7 @@ function renderTable(tab) {
 
       if (shiftIdx === 0) {
         tr.classList.add('worker-group-first');
-        let workerHtml = `<span class="worker-name ${isDuplicate ? 'duplicate' : ''}">${escapedWorker}</span>${duplicateBadge}`;
+        let workerHtml = `<span class="worker-name ${isDuplicate ? 'duplicate' : ''}"${warningTitle}>${escapedWorker}</span>${duplicateBadge}`;
         // Add quick break button at worker level (today tab only)
         if (tab === 'today') {
           workerHtml += `<button type="button" class="btn-quick-gap" onclick="onQuickGap30('${tab}', ${gIdx})" title="Add ${QUICK_BREAK.duration_minutes}-min break NOW">☕</button>`;
@@ -910,8 +932,30 @@ function convertToTimelineData(tab) {
   groups.forEach(group => {
     const worker = group.worker;
     const shifts = (group.shiftsArray || []).filter(shift => !shift.deleted);
+    const workerGaps = group.allGaps || [];
+
+    const clipGapsToShift = (shiftStart, shiftEnd) => {
+      return (workerGaps || [])
+        .filter(g => {
+          const gapStart = g.start || '';
+          const gapEnd = g.end || '';
+          return gapStart < (shiftEnd || '') && gapEnd > (shiftStart || '');
+        })
+        .map(g => {
+          const gapStart = g.start || '';
+          const gapEnd = g.end || '';
+          const clippedStart = gapStart < (shiftStart || '') ? shiftStart : gapStart;
+          const clippedEnd = gapEnd > (shiftEnd || '') ? shiftEnd : gapEnd;
+          return {
+            ...g,
+            start: clippedStart,
+            end: clippedEnd
+          };
+        });
+    };
 
     shifts.forEach(shift => {
+      const gapOverlays = clipGapsToShift(shift.start_time, shift.end_time);
       // For each modality in the shift, create an entry
       Object.entries(shift.modalities || {}).forEach(([modKey, modData]) => {
         // Only include if row_index >= 0 (actually assigned)
@@ -925,7 +969,7 @@ function convertToTimelineData(tab) {
           TIME: `${shift.start_time}-${shift.end_time}`,
           _modality: modKey,
           modality: modKey,
-          gaps: shift.gaps || [],
+          gaps: gapOverlays,
           tasks: shift.task ? [shift.task] : []
         };
 

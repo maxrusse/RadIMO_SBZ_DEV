@@ -1,10 +1,11 @@
 # Change plan: Separate gaps from shifts (gap wins) — detailed worklist
 
-## Status: FAILED (needs redesign)
-- Gap edits leave stale/duplicated gaps in merged shift views, timetalbe and logic.
-- Shifts that should continue after a gap can be truncated or merged incorrectly.
-- CSV import produces probably a cleaner plans, but edit-driven mutations drift from that path.
+## Status: IN PROGRESS (rebuild path underway)
+- Gap edits still risk stale/duplicated gaps in merged shift views when edits are applied from view-models.
+- Shifts that should continue after a gap can be truncated or merged incorrectly in edit-driven flows.
+- CSV import produces cleaner plans, but edit-driven mutations still drift from that path.
 - The current plan is too fuzzy around “modalities” and mixed view-model merges; it needs a clean, consistent data model and rebuild pipeline.
+- **Latest update:** Worker-plan application now expands time segments and enforces gap defaults without emitting overlay-derived gap rows, reducing edit-plan drift but not yet unifying the full rebuild path.
 
 ## Failure analysis (why the current implementation diverges)
 ### Path A — CSV import (stable)
@@ -62,6 +63,36 @@ edit-in-merged-view, no more “modalities-first” rebuild.
   3. Apply gap overlaps to compute effective durations.
   4. Emit clean rows for storage and UI projections.
 
+#### Handover note (next owner: unify day-plan pipeline)
+**Goal:** Replace edit-driven rebuilds with a single backend pipeline that consumes raw rows and outputs canonical rows, shared by CSV import and all edit flows.
+
+**Suggested implementation steps:**
+1. **Create a day-plan builder** (new helper/module) that accepts raw rows for a worker and a target date.
+   - Input: list of row dicts with `row_type`, `start_time`, `end_time`, `tasks`, `counts_for_hours`, skills map.
+   - Output: canonical row list (same schema), with resolved overlaps and recomputed `shift_duration`.
+2. **Move existing logic into the builder**:
+   - Use `resolve_overlapping_shifts` for shift rows only.
+   - Use `merge_intervals` + `subtract_intervals` to apply gap overlaps to each shift row.
+   - Enforce gap defaults (`shift_duration = 0`, skills = `-1`) in the output.
+3. **Wire edit flows** to use the builder:
+   - For `/api/*/update-row`, `/add-worker`, `/delete-worker`, `/update-gap`, `/remove-gap`:
+     - Fetch raw rows for the worker.
+     - Apply the edit to raw rows only.
+     - Rebuild via the day-plan builder.
+     - Replace the worker’s rows atomically (one write per worker).
+4. **Keep the UI a pure projection**:
+   - UI continues to build `shift.gaps` for display only.
+   - No UI merges or clipped gaps should be posted back as source-of-truth rows.
+
+**Touchpoints / likely files:**
+- `data_manager/schedule_crud.py`: add day-plan builder and refactor `_update_schedule_row`, `_add_worker_to_schedule`, `_delete_worker_from_schedule`, gap CRUD to call it.
+- `data_manager/csv_parser.py`: call the same builder on parsed rows before saving.
+- `routes.py`: ensure apply-worker-plan (edit-plan) uses raw rows only, not view-model merges.
+
+**Testing guidance:**
+- Unit tests already added for overlap math (`tests/test_intervals.py`, `tests/test_schedule_overlap.py`).
+- Add integration tests that mutate rows via edit endpoints and compare output to CSV import results for the same data.
+
 ### 3) Edit flow changes (inline + modal)
 - **Stop using merged UI state as input.**
 - On every edit (gap/shift add/update/remove):
@@ -73,7 +104,7 @@ edit-in-merged-view, no more “modalities-first” rebuild.
 ### 4) UI rendering changes
 - Treat `shift.gaps` as **derived-only display** from raw rows.
 - The UI view model is read-only; it never feeds back into stored rows.
-- Show warnings when gap rows do not intersect any shift rows (gap-only day plans are valid but must be explicit).
+- ✅ Show warnings when gap rows do not intersect any shift rows (gap-only day plans are valid but must be explicit).
 
 ### 5) Success criteria
 - Inline gap edit immediately updates shift continuity correctly.
@@ -162,16 +193,15 @@ edit-in-merged-view, no more “modalities-first” rebuild.
   - `apply_exclusions_to_shifts` removed
 
 ### 8) Testing plan (must cover overlaps)
-- [ ] Unit tests for overlap logic:
-  - Multiple gaps overlapping one shift.
-  - Multiple shifts overlapping one gap.
-  - Gaps overlapping each other (merge behavior).
-  - Shifts overlapping each other (existing “later wins” logic may need review).
-- [ ] Integration tests for CRUD gap operations:
+- [x] Unit tests for overlap logic:
+  - Added coverage for merge/subtract interval helpers (gaps overlapping each other and multiple gaps per shift). ✅
+  - Added coverage for multiple shifts overlapping one gap and full-gap coverage recalculation. ✅
+  - Added coverage for shifts overlapping each other (later shift wins). ✅
+- [x] CRUD gap operations coverage (unit-level, schedule_crud):
   - Add gap → row created
   - Update gap → row edited
   - Remove gap → row deleted
-- [ ] UI sanity checks for timeline rendering with multiple gaps/shifts.
+- [x] UI sanity checks for timeline rendering with multiple gaps/shifts (captured prep timeline screenshot).
 
 ## Overlap algorithm details (recommended)
 - Represent intervals as minutes since midnight.

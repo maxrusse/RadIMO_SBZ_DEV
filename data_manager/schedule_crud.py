@@ -374,6 +374,14 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
             elif col == 'row_type':
                 df.at[row_index, 'row_type'] = value
 
+        if df.at[row_index, 'row_type'] == 'gap':
+            for skill in SKILL_COLUMNS:
+                if skill in df.columns:
+                    df.at[row_index, skill] = -1
+            df.at[row_index, 'shift_duration'] = 0.0
+            if 'counts_for_hours' in df.columns and pd.isna(df.at[row_index, 'counts_for_hours']):
+                df.at[row_index, 'counts_for_hours'] = False
+
         if use_staged and 'is_manual' in df.columns:
             df.at[row_index, 'is_manual'] = True
 
