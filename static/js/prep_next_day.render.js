@@ -321,9 +321,8 @@ function renderTable(tab) {
 
       // is_gap_entry is set from row_type in buildEntriesByWorker
       const isGapRow = Boolean(shift.is_gap_entry);
-      // Build timeline display with gaps shown inline
+      // Build timeline display
       const segments = shift.timeSegments || [{ start: shift.start_time, end: shift.end_time }];
-      const gaps = shift.gaps || [];
 
       if (isEditMode) {
         // In edit mode, show editable times with gap info below
@@ -335,24 +334,6 @@ function renderTable(tab) {
             <input type="time" value="${lastSeg.end || '15:00'}" onchange="onInlineTimeChange('${tab}', ${gIdx}, ${shiftIdx}, 'end', this.value)" style="padding: 0.1rem; font-size: 0.7rem; width: 65px;">
             <button type="button" class="btn-inline-delete" onclick="deleteShiftInline('${tab}', ${gIdx}, ${shiftIdx})" title="Delete this shift">×</button>
           </div>`;
-        // Show gaps in edit mode too
-        if (gaps.length > 0) {
-          gaps.forEach((g, gapIdx) => {
-            const checked = g.counts_for_hours === true ? 'checked' : '';
-            shiftEditor += `<div class="gap-indicator" style="margin-top:0.1rem;" title="${escapeHtml(g.activity || 'Gap')}">
-              ${escapeHtml(g.start)}-${escapeHtml(g.end)}
-              <label style="margin-left: 0.3rem; font-size: 0.65rem; display: inline-flex; align-items: center; gap: 0.2rem;">
-                <input type="checkbox" ${checked} onchange="updateGapCountsForHoursInline('${tab}', ${gIdx}, ${shiftIdx}, ${gapIdx}, this.checked)">
-                <span>${g.counts_for_hours === true ? 'Counts' : 'No count'}</span>
-              </label>
-              <button type="button" class="btn-gap-remove" onclick="removeGapInline('${tab}', ${gIdx}, ${shiftIdx}, ${gapIdx})" title="Remove this gap">×</button>
-            </div>`;
-          });
-        } else if (isGapRow) {
-          const gapStart = firstSeg.start || shift.start_time || '12:00';
-          const gapEnd = lastSeg.end || shift.end_time || '13:00';
-          shiftEditor += `<div class="gap-indicator" style="margin-top:0.1rem;">${escapeHtml(gapStart)}-${escapeHtml(gapEnd)}</div>`;
-        }
         tr.innerHTML += `<td class="grid-cell shift-col">${shiftEditor}</td>`;
       } else {
         // View mode: show timeline with segments and gaps in time order
@@ -363,23 +344,8 @@ function renderTable(tab) {
           const lastSeg = segments[segments.length - 1] || firstSeg;
           timelineHtml += `<span class="gap-indicator">${escapeHtml(firstSeg.start || shift.start_time || '12:00')}-${escapeHtml(lastSeg.end || shift.end_time || '13:00')}</span>`;
         } else {
-          // Build combined timeline: segments + gaps sorted by start time
-          const timelineItems = [];
           segments.forEach(seg => {
-            timelineItems.push({ type: 'segment', start: seg.start, end: seg.end });
-          });
-          gaps.forEach(g => {
-            timelineItems.push({ type: 'gap', start: g.start, end: g.end, activity: g.activity });
-          });
-          timelineItems.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
-
-          // Render in order
-          timelineItems.forEach(item => {
-            if (item.type === 'segment') {
-              timelineHtml += `<span class="shift-segment">${escapeHtml(item.start)}-${escapeHtml(item.end)}</span>`;
-            } else {
-              timelineHtml += `<span class="gap-indicator" title="${escapeHtml(item.activity || 'Gap')}">${escapeHtml(item.start)}-${escapeHtml(item.end)}</span>`;
-            }
+            timelineHtml += `<span class="shift-segment">${escapeHtml(seg.start)}-${escapeHtml(seg.end)}</span>`;
           });
         }
 
@@ -558,22 +524,19 @@ function renderEditModalContent() {
     // is_gap_entry is set from row_type in buildEntriesByWorker
     const isGapEntry = Boolean(shift.is_gap_entry);
 
-    // Build timeline with gaps to make split shifts explicit
+    // Build timeline for the row (gaps are separate rows)
     const segments = shift.timeSegments || [{ start: shift.start_time, end: shift.end_time }];
-    const gaps = shift.gaps || [];
-    const timelineItems = [];
-    segments.forEach(seg => timelineItems.push({ type: 'segment', start: seg.start, end: seg.end }));
-    gaps.forEach(g => timelineItems.push({ type: 'gap', start: g.start, end: g.end, activity: g.activity }));
-    timelineItems.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
 
     let timelineHtml = '<div class="shift-timeline">';
-    timelineItems.forEach(item => {
-      if (item.type === 'segment') {
-        timelineHtml += `<span class="shift-segment">${escapeHtml(item.start)}-${escapeHtml(item.end)}</span>`;
-      } else {
-        timelineHtml += `<span class="gap-indicator" title="${escapeHtml(item.activity || 'Gap')}">${escapeHtml(item.start)}-${escapeHtml(item.end)}</span>`;
-      }
-    });
+    if (isGapEntry) {
+      const firstSeg = segments[0] || {};
+      const lastSeg = segments[segments.length - 1] || firstSeg;
+      timelineHtml += `<span class="gap-indicator">${escapeHtml(firstSeg.start || shift.start_time || '12:00')}-${escapeHtml(lastSeg.end || shift.end_time || '13:00')}</span>`;
+    } else {
+      segments.forEach(seg => {
+        timelineHtml += `<span class="shift-segment">${escapeHtml(seg.start)}-${escapeHtml(seg.end)}</span>`;
+      });
+    }
     timelineHtml += '</div>';
 
     html += `<div style="margin-bottom: 1rem; padding: 0.75rem; border: 2px solid ${borderColor}; border-radius: 8px; background: #fafafa;">
@@ -625,34 +588,10 @@ function renderEditModalContent() {
   </div>
 
   <div style="flex: 1; min-width: 240px;">
-    <label style="font-size: 0.75rem; color: #666; display: block;">Timeline (including gaps)</label>
+    <label style="font-size: 0.75rem; color: #666; display: block;">Timeline</label>
     ${timelineHtml}
   </div>
 </div>
-
-${gaps.length > 0 ? `
-<div style="margin-bottom: 0.5rem; padding: 0.5rem; background: #fff3cd; border-radius: 4px; border: 1px solid #ffc107;">
-  <label style="font-size: 0.75rem; font-weight: 600; color: #856404; display: block; margin-bottom: 0.25rem;">Gaps (edit inline, or click ✎ to edit separately below)</label>
-  <div style="display: flex; flex-wrap: wrap; gap: 0.35rem;">
-    ${gaps.map((g, gapIdx) => `
-      <span class="gap-chip" style="display: inline-flex; align-items: center; background: #f8d7da; color: #721c24; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.75rem;">
-        <span style="margin-right: 0.3rem; font-weight: 600;">${escapeHtml(g.activity || 'Break')}</span>
-        <input type="time" id="edit-gap-${shiftIdx}-${gapIdx}-start" value="${escapeHtml(g.start)}" style="width: 80px; font-size: 0.7rem; margin-right: 0.2rem;"
-          onblur="commitModalGapTimeEdit(${shiftIdx}, ${gapIdx}, 'new_start', this)" onkeydown="commitModalGapTimeOnEnter(event, ${shiftIdx}, ${gapIdx}, 'new_start', this)">
-        <span>-</span>
-        <input type="time" id="edit-gap-${shiftIdx}-${gapIdx}-end" value="${escapeHtml(g.end)}" style="width: 80px; font-size: 0.7rem; margin: 0 0.3rem 0 0.2rem;"
-          onblur="commitModalGapTimeEdit(${shiftIdx}, ${gapIdx}, 'new_end', this)" onkeydown="commitModalGapTimeOnEnter(event, ${shiftIdx}, ${gapIdx}, 'new_end', this)">
-        <label style="margin-right: 0.35rem; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 0.2rem;">
-          <input type="checkbox" ${g.counts_for_hours === true ? 'checked' : ''} onchange="updateGapCountsForHours(${shiftIdx}, ${gapIdx}, this.checked)">
-          <span>${g.counts_for_hours === true ? 'Counts' : 'No count'}</span>
-        </label>
-        <button type="button" onclick="unmergeGapToAddForm(${shiftIdx}, ${gapIdx})" style="background: #155724; border: none; color: #fff; cursor: pointer; font-size: 0.65rem; padding: 0.1rem 0.3rem; border-radius: 3px; margin-left: 0.2rem;" title="Edit separately (copy to Add form below)">✎</button>
-        <button type="button" onclick="removeGapFromModal(${shiftIdx}, ${gapIdx})" style="margin-left: 0.2rem; background: none; border: none; color: #721c24; cursor: pointer; font-weight: bold; padding: 0 0.2rem;" title="Remove this gap">×</button>
-      </span>
-    `).join('')}
-  </div>
-</div>
-` : ''}
 
 <div style="margin-bottom:0.35rem; display:flex; justify-content: space-between; align-items:center;">
   <label style="font-size:0.8rem; font-weight:600;">Skills per modality</label>
@@ -705,18 +644,10 @@ ${gaps.length > 0 ? `
 
 
   // Add New Shift/Gap section (same styling as Add Worker modal)
-  // Check if we're in gap edit mode
-  const isEditingGap = editingGapInfo !== null;
-  const editSectionStyle = isEditingGap ? 'background: #fff3cd; border: 2px solid #ffc107;' : 'background: #d4edda; border: 2px solid #28a745;';
-  const editLabelColor = isEditingGap ? '#856404' : '#155724';
-  const editLabel = isEditingGap ? '✎ Edit Gap (Overwrite Mode)' : '+ Add New Shift / Gap';
-
-  html += `<div style="margin-bottom: 1rem; padding: 0.75rem; ${editSectionStyle} border-radius: 8px;">
+  html += `<div style="margin-bottom: 1rem; padding: 0.75rem; background: #d4edda; border: 2px solid #28a745; border-radius: 8px;">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-<label style="font-weight: 600; color: ${editLabelColor};">${editLabel}</label>
+<label style="font-weight: 600; color: #155724;">+ Add New Shift / Gap</label>
 <div style="display: flex; gap: 0.5rem;">
-  ${isEditingGap ? `<button class="btn btn-small" style="background: #ffc107; color: #856404; border: 1px solid #e0a800;" type="button" onclick="overwriteGapFromModal()">Overwrite</button>
-  <button class="btn btn-small" style="background: #f8f9fa; color: #6c757d; border: 1px solid #ccc;" type="button" onclick="cancelGapEdit()">Cancel</button>` : ''}
   <button class="btn btn-small btn-success" type="button" onclick="addShiftFromModal()">Add</button>
 </div>
   </div>

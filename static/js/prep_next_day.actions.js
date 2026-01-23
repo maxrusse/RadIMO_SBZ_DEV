@@ -794,68 +794,25 @@ function buildEntriesByWorker(data, tab = 'today') {
       .map(([key, shift]) => ({ ...shift, shiftKey: key }))
       .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
 
-    // Collect all gaps for this worker
-    const workerGaps = group.allGaps || [];
-
-    const hasWorkerGapBetween = (start, end) => {
-      if (!start || !end) return false;
-      return workerGaps.some(g => {
-        const gapStart = g.start || '';
-        const gapEnd = g.end || '';
-        return gapStart < end && gapEnd >= start;
-      });
-    };
-
     group.modalShiftsArray = modalShiftsArr.map(shift => {
       const segments = (shift.timeSegments || []).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
       const firstStart = segments[0]?.start || shift.start_time;
       const lastEnd = segments[segments.length - 1]?.end || shift.end_time;
 
-      const gapsInRange = (workerGaps || [])
-        .filter(g => {
-          const gapStart = g.start || '';
-          const gapEnd = g.end || '';
-          return gapStart < (lastEnd || '') && gapEnd > (firstStart || '');
-        })
-        .map(g => {
-          const gapStart = g.start || '';
-          const gapEnd = g.end || '';
-          const clippedStart = gapStart < (firstStart || '') ? firstStart : gapStart;
-          const clippedEnd = gapEnd > (lastEnd || '') ? lastEnd : gapEnd;
-          // Preserve original gap times for backend matching (clipped times may differ)
-          return {
-            ...g,
-            start: clippedStart,
-            end: clippedEnd,
-            originalStart: g.originalStart || gapStart,
-            originalEnd: g.originalEnd || gapEnd
-          };
-        });
-      const combinedGaps = mergeUniqueGaps([...(shift.gaps || []), ...gapsInRange]);
-
       return {
         ...shift,
         start_time: firstStart,
         end_time: lastEnd,
-        gaps: combinedGaps,
+        gaps: shift.gaps || [],
         timeSegments: segments
       };
     });
 
-    // Merge consecutive shifts with same task and gap between
+    // Keep shifts and gaps as independent rows (no split-shift merging).
     const mergedShifts = [];
     let currentMerged = null;
 
     shiftsArr.forEach(shift => {
-      // Check if there's a gap between currentMerged.end_time and shift.start_time
-      const hasGapBetween = currentMerged && (
-        (shift.start_time || '') > (currentMerged.end_time || '') ||
-        hasWorkerGapBetween(currentMerged.end_time, shift.start_time)
-      );
-
-      // Merge shifts with same task and gap between into one work period
-      const sameTaskWithGap = currentMerged && currentMerged.task === shift.task && hasGapBetween;
-
       if (!currentMerged) {
         currentMerged = {
           ...shift,
@@ -865,24 +822,6 @@ function buildEntriesByWorker(data, tab = 'today') {
           is_manual: shift.is_manual,
           is_gap_entry: shift.is_gap_entry
         };
-      } else if (sameTaskWithGap) {
-        // Merge: same task with gap between
-        currentMerged.timeSegments.push({ start: shift.start_time, end: shift.end_time });
-        currentMerged.originalShifts.push(shift);
-        currentMerged.end_time = shift.end_time;
-        currentMerged.gaps = mergeUniqueGaps([...(currentMerged.gaps || []), ...(shift.gaps || [])]);
-        currentMerged.is_manual = shift.is_manual || currentMerged.is_manual;
-        currentMerged.is_gap_entry = currentMerged.is_gap_entry && shift.is_gap_entry;
-        // Merge task names if different (prefer the existing one, but keep both for display)
-        if (shift.task && currentMerged.task !== shift.task && !currentMerged.task.includes(shift.task)) {
-          currentMerged.task = currentMerged.task ? `${currentMerged.task}` : shift.task;
-        }
-        // Merge modalities (prefer non-placeholder)
-        Object.entries(shift.modalities).forEach(([modKey, modData]) => {
-          if (!currentMerged.modalities[modKey] || currentMerged.modalities[modKey].placeholder) {
-            currentMerged.modalities[modKey] = modData;
-          }
-        });
       } else {
         // Different task or no gap - save current and start new
         mergedShifts.push(currentMerged);
@@ -898,56 +837,20 @@ function buildEntriesByWorker(data, tab = 'today') {
     });
     if (currentMerged) mergedShifts.push(currentMerged);
 
-    // Attach only the gaps that live inside each merged shift
+    // Attach shift timing without embedding gaps (gap rows are separate).
     group.shiftsArray = mergedShifts.map(shift => {
       const segments = (shift.timeSegments || []).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
       const firstStart = segments[0]?.start || shift.start_time;
       const lastEnd = segments[segments.length - 1]?.end || shift.end_time;
 
-      const gapsInRange = (workerGaps || [])
-        .filter(g => {
-          const gapStart = g.start || '';
-          const gapEnd = g.end || '';
-          return gapStart < (lastEnd || '') && gapEnd > (firstStart || '');
-        })
-        .map(g => {
-          const gapStart = g.start || '';
-          const gapEnd = g.end || '';
-          const clippedStart = gapStart < (firstStart || '') ? firstStart : gapStart;
-          const clippedEnd = gapEnd > (lastEnd || '') ? lastEnd : gapEnd;
-          // Preserve original gap times for backend matching (clipped times may differ)
-          return {
-            ...g,
-            start: clippedStart,
-            end: clippedEnd,
-            originalStart: g.originalStart || gapStart,
-            originalEnd: g.originalEnd || gapEnd
-          };
-        });
-      const combinedGaps = mergeUniqueGaps([...(shift.gaps || []), ...gapsInRange]);
-
       return {
         ...shift,
         start_time: firstStart,
         end_time: lastEnd,
-        gaps: combinedGaps,
+        gaps: shift.gaps || [],
         timeSegments: segments
       };
     });
-
-    const nonGapShifts = group.shiftsArray.filter(shift => !isGapTask(shift.task));
-    if (nonGapShifts.length > 0) {
-      group.shiftsArray = group.shiftsArray.filter(shift => {
-        if (!isGapTask(shift.task)) return true;
-        const shiftStart = shift.start_time || '';
-        const shiftEnd = shift.end_time || '';
-        return !nonGapShifts.some(other => {
-          const otherStart = other.start_time || '';
-          const otherEnd = other.end_time || '';
-          return shiftStart < otherEnd && shiftEnd > otherStart;
-        });
-      });
-    }
   });
 
   // Sort workers (default by name)
@@ -1288,491 +1191,7 @@ async function deleteShiftFromModal(shiftIdx) {
   }
 }
 
-// Unmerge a gap: copy its data to the "Add New Shift/Gap" form for editing
-// User can then modify it, remove the old gap, and add the modified one
-function unmergeGapToAddForm(shiftIdx, gapIdx) {
-  const { tab, groupIdx } = currentEditEntry || {};
-  const group = entriesData[tab]?.[groupIdx];
-  if (!group) return;
 
-  const shifts = getModalShifts(group);
-  const shift = shifts[shiftIdx];
-  if (!shift) return;
-
-  const gaps = shift.gaps || [];
-  const gap = gaps[gapIdx];
-  if (!gap) return;
-
-  // Store the editing gap info for overwrite functionality
-  // Must be set BEFORE re-render so the Overwrite button appears
-  editingGapInfo = {
-    shiftIdx: shiftIdx,
-    gapIdx: gapIdx,
-    originalGap: { ...gap },
-    shift: shift  // Store shift reference for accessing modality data during overwrite
-  };
-
-  // Re-render modal to show Overwrite button (this resets the form)
-  const modalState = captureModalState();
-  renderEditModalContent();
-  restoreModalState(modalState);
-
-  // NOW populate the form AFTER re-render (so it doesn't get wiped by initializeModalAddForm)
-  const gapActivity = (gap.activity || '').toLowerCase().trim();
-
-  // Find the task dropdown and select the matching gap task
-  const taskSelect = document.getElementById('modal-add-task');
-  if (taskSelect) {
-    let matched = false;
-    let firstGapOptionIdx = -1;
-
-    for (let i = 0; i < taskSelect.options.length; i++) {
-      const opt = taskSelect.options[i];
-      const optValue = (opt.value || '').toLowerCase().trim();
-
-      // Track first gap option as fallback
-      if (firstGapOptionIdx === -1 && opt.dataset && opt.dataset.type === 'gap') {
-        firstGapOptionIdx = i;
-      }
-
-      // Match on value (labels now used from CSV parser)
-      if (optValue === gapActivity) {
-        taskSelect.selectedIndex = i;
-        matched = true;
-        break;
-      }
-
-      // Also match if activity starts with label (for "Label (gap)" format from embedded gaps)
-      if (opt.dataset && opt.dataset.type === 'gap' && gapActivity.startsWith(optValue)) {
-        taskSelect.selectedIndex = i;
-        matched = true;
-        break;
-      }
-    }
-
-    // Fallback: select first gap option if available
-    if (!matched && firstGapOptionIdx >= 0) {
-      taskSelect.selectedIndex = firstGapOptionIdx;
-    }
-  }
-
-  // Set the start and end times
-  const startInput = document.getElementById('modal-add-start');
-  const endInput = document.getElementById('modal-add-end');
-  if (startInput) startInput.value = gap.start || '12:00';
-  if (endInput) endInput.value = gap.end || '13:00';
-
-  // Set the counts_for_hours checkbox
-  const countsCheckbox = document.getElementById('modal-add-counts-hours');
-  if (countsCheckbox) {
-    countsCheckbox.checked = gap.counts_for_hours === true;
-    // Update the label
-    const label = countsCheckbox.parentElement?.querySelector('.hours-toggle-label');
-    if (label) {
-      label.textContent = gap.counts_for_hours === true ? 'Counts' : 'No count';
-      label.className = `hours-toggle-label ${gap.counts_for_hours === true ? 'counts' : 'no-count'}`;
-    }
-  }
-
-  // Set skills to -1 for all modalities (typical for gaps)
-  MODALITIES.forEach(mod => {
-    const modKey = mod.toLowerCase();
-    SKILLS.forEach(skill => {
-      const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
-      if (el) el.value = '-1';
-    });
-  });
-
-  // Scroll to the Add form section to make it visible (now yellow when editing)
-  const addSection = document.querySelector('[style*="background: #fff3cd"]') || document.querySelector('[style*="background: #d4edda"]');
-  if (addSection) {
-    addSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    // Flash the add section to draw attention (yellow/orange for edit mode)
-    addSection.style.transition = 'box-shadow 0.3s';
-    addSection.style.boxShadow = '0 0 10px 3px #ffc107';
-    setTimeout(() => {
-      addSection.style.boxShadow = '';
-    }, 1500);
-  }
-
-  showMessage('info', `Gap copied to form below. Click "Overwrite" to replace, or "Add" to create new.`);
-}
-
-// Cancel gap editing mode - clear the editing state and reset form
-function cancelGapEdit() {
-  editingGapInfo = null;
-  // Re-render modal to hide Overwrite button
-  renderEditModalContent();
-  showMessage('info', 'Gap edit cancelled');
-}
-
-// Overwrite gap: delete the old gap and add the new one from the form
-async function overwriteGapFromModal() {
-  if (!editingGapInfo) {
-    showMessage('error', 'No gap being edited');
-    return;
-  }
-
-  const { tab, groupIdx } = currentEditEntry || {};
-  const group = entriesData[tab]?.[groupIdx];
-  if (!group) {
-    showMessage('error', 'Worker data not found');
-    editingGapInfo = null;
-    return;
-  }
-
-  const { shiftIdx, gapIdx, originalGap, shift: storedShift } = editingGapInfo;
-
-  // Get fresh shift data (gaps may have changed indices)
-  const shifts = getModalShifts(group);
-  const currentShift = shifts[shiftIdx];
-  if (!currentShift) {
-    showMessage('error', 'Shift not found');
-    editingGapInfo = null;
-    return;
-  }
-
-  // Find the original gap by its times (in case indices changed)
-  const currentGaps = currentShift.gaps || [];
-  let actualGapIdx = currentGaps.findIndex(g =>
-    (g.start === originalGap.start || g.originalStart === originalGap.start) &&
-    (g.end === originalGap.end || g.originalEnd === originalGap.end)
-  );
-
-  // Fallback to stored index if times match
-  if (actualGapIdx === -1 && currentGaps[gapIdx]) {
-    const g = currentGaps[gapIdx];
-    if ((g.start === originalGap.start || g.originalStart === originalGap.start) &&
-        (g.end === originalGap.end || g.originalEnd === originalGap.end)) {
-      actualGapIdx = gapIdx;
-    }
-  }
-
-  if (actualGapIdx === -1) {
-    showMessage('error', 'Original gap not found - it may have been modified. Cancelling edit.');
-    editingGapInfo = null;
-    renderEditModalContent();
-    return;
-  }
-
-  const gapToDelete = currentGaps[actualGapIdx];
-
-  // Get new values from the form
-  const taskSelect = document.getElementById('modal-add-task');
-  const taskName = taskSelect?.value;
-  if (!taskName) {
-    showMessage('error', 'Please select a task/gap type');
-    return;
-  }
-
-  const isGap = isGapTask(taskName);
-  if (!isGap) {
-    showMessage('error', 'Cannot overwrite a gap with a shift. Use Add instead.');
-    return;
-  }
-
-  const startTime = document.getElementById('modal-add-start').value;
-  const endTime = document.getElementById('modal-add-end').value;
-  const countsHoursEl = document.getElementById('modal-add-counts-hours');
-  const countsForHours = countsHoursEl ? countsHoursEl.checked : false;
-
-  const removeEndpoint = tab === 'today' ? '/api/live-schedule/remove-gap' : '/api/prep-next-day/remove-gap';
-  const addEndpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
-
-  try {
-    // Handle edit-plan mode (local draft only)
-    if (modalMode === 'edit-plan') {
-      // Remove old gap from draft
-      removeEditPlanDraftGap(shiftIdx, actualGapIdx);
-
-      // Add new gap to draft
-      const draftShift = editPlanDraft?.shifts?.[shiftIdx];
-      if (draftShift) {
-        if (!draftShift.gaps) draftShift.gaps = [];
-        draftShift.gaps.push({
-          start: startTime,
-          end: endTime,
-          activity: taskName,
-          counts_for_hours: countsForHours
-        });
-      }
-
-      editingGapInfo = null;
-      const modalState = captureModalState();
-      renderEditModalContent();
-      restoreModalState(modalState);
-      showMessage('success', 'Gap updated in draft (save to apply)');
-      return;
-    }
-
-    // Step 1: Delete the old gap from all modalities
-    let deleteSuccess = false;
-    for (const [modKey, modData] of Object.entries(currentShift.modalities)) {
-      if (modData.row_index !== undefined && modData.row_index >= 0) {
-        const response = await fetch(removeEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            modality: modKey,
-            row_index: modData.row_index,
-            gap_start: gapToDelete.originalStart || gapToDelete.start,
-            gap_end: gapToDelete.originalEnd || gapToDelete.end,
-            gap_activity: gapToDelete.activity || null
-          })
-        });
-        if (response.ok) {
-          deleteSuccess = true;
-        }
-      }
-    }
-
-    if (!deleteSuccess) {
-      showMessage('error', 'Failed to remove old gap');
-      return;
-    }
-
-    // Step 2: Add the new gap to all modalities
-    // First reload data to get updated row indices after delete
-    await loadData();
-
-    // Re-fetch group after reload
-    const updatedGroup = entriesData[tab]?.[groupIdx];
-    if (!updatedGroup) {
-      showMessage('error', 'Worker data not found after reload');
-      editingGapInfo = null;
-      return;
-    }
-
-    // Find the target shift for the new gap time
-    const updatedShifts = updatedGroup.shiftsArray || [];
-    const targetShift = updatedShifts.find(s => !(endTime <= s.start_time || startTime >= s.end_time));
-
-    if (targetShift) {
-      // Add gap to existing shift
-      let addSuccess = false;
-      for (const [modKey, modData] of Object.entries(targetShift.modalities)) {
-        if (modData.row_index !== undefined && modData.row_index >= 0) {
-          const response = await fetch(addEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              modality: modKey,
-              row_index: modData.row_index,
-              gap_type: taskName,
-              gap_start: startTime,
-              gap_end: endTime,
-              gap_counts_for_hours: countsForHours
-            })
-          });
-          if (response.ok) {
-            addSuccess = true;
-          }
-        }
-      }
-
-      if (!addSuccess) {
-        showMessage('warning', 'Old gap deleted but failed to add new gap');
-      } else {
-        showMessage('success', 'Gap overwritten successfully');
-      }
-    } else {
-      showMessage('warning', 'Old gap deleted but no overlapping shift found for new gap time');
-    }
-
-    // Clear editing state and refresh
-    editingGapInfo = null;
-    await loadData();
-
-    // Re-open modal if worker still exists
-    if (entriesData[tab] && entriesData[tab][groupIdx]) {
-      currentEditEntry = { tab, groupIdx };
-      renderEditModalContent();
-    }
-
-  } catch (error) {
-    showMessage('error', error.message);
-    editingGapInfo = null;
-  }
-}
-
-// Remove a gap from a shift via edit modal
-async function removeGapFromModal(shiftIdx, gapIdx) {
-  const { tab, groupIdx } = currentEditEntry || {};
-  const group = entriesData[tab]?.[groupIdx];
-  if (!group) return;
-
-  const shifts = getModalShifts(group);
-  const shift = shifts[shiftIdx];
-  if (!shift) return;
-
-  const gaps = shift.gaps || [];
-  const gap = gaps[gapIdx];
-  if (!gap) return;
-
-  if (!confirm(`Remove gap ${gap.start}-${gap.end} (${gap.activity || 'Gap'})?`)) return;
-
-  const endpoint = tab === 'today' ? '/api/live-schedule/remove-gap' : '/api/prep-next-day/remove-gap';
-
-  try {
-    // Remove gap from all modality entries for this shift
-    let anySuccess = false;
-    removeEditPlanDraftGap(shiftIdx, gapIdx);
-    if (modalMode === 'edit-plan') {
-      const modalState = captureModalState();
-      renderEditModalContent();
-      restoreModalState(modalState);
-      return;
-    }
-    for (const [modKey, modData] of Object.entries(shift.modalities)) {
-      if (modData.row_index !== undefined && modData.row_index >= 0) {
-        // Use original gap times for backend matching (may differ from clipped display times)
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            modality: modKey,
-            row_index: modData.row_index,
-            gap_start: gap.originalStart || gap.start,
-            gap_end: gap.originalEnd || gap.end,
-            gap_activity: gap.activity || null
-          })
-        });
-        if (response.ok) {
-          anySuccess = true;
-        }
-      }
-    }
-    if (anySuccess) {
-      showMessage('success', 'Gap removed');
-      // Preserve form state before re-render
-      const formState = saveModalAddFormState();
-      await loadData();
-      // Re-open modal to show updated data
-      if (entriesData[tab] && entriesData[tab][groupIdx]) {
-        currentEditEntry = { tab, groupIdx };
-        renderEditModalContent();
-        // Restore form state after re-render
-        restoreModalAddFormState(formState);
-      }
-    } else {
-      showMessage('error', 'Failed to remove gap');
-    }
-  } catch (error) {
-    showMessage('error', error.message);
-  }
-}
-
-async function updateGapDetailsFromModal(shiftIdx, gapIdx, updates) {
-  const { tab, groupIdx } = currentEditEntry || {};
-  const group = entriesData[tab]?.[groupIdx];
-  if (!group) return;
-
-  const shifts = getModalShifts(group);
-  const shift = shifts[shiftIdx];
-  if (!shift) return;
-
-  const gaps = shift.gaps || [];
-  const gap = gaps[gapIdx];
-  if (!gap) return;
-
-  const endpoint = tab === 'today' ? '/api/live-schedule/update-gap' : '/api/prep-next-day/update-gap';
-
-  try {
-    let anySuccess = false;
-    updateEditPlanDraftGap(shiftIdx, gapIdx, updates);
-    if (modalMode === 'edit-plan') return;
-    for (const [modKey, modData] of Object.entries(shift.modalities)) {
-      if (modData.row_index !== undefined && modData.row_index >= 0) {
-        // Use original gap times for backend matching (may differ from clipped display times)
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            modality: modKey,
-            row_index: modData.row_index,
-            gap_start: gap.originalStart || gap.start,
-            gap_end: gap.originalEnd || gap.end,
-            gap_activity: gap.activity || null,
-            ...updates
-          })
-        });
-        if (response.ok) {
-          anySuccess = true;
-        }
-      }
-    }
-    if (anySuccess) {
-      // Preserve form state before re-render
-      const formState = saveModalAddFormState();
-      const modalState = captureModalState();
-      await loadData();
-      if (entriesData[tab] && entriesData[tab][groupIdx]) {
-        currentEditEntry = { tab, groupIdx };
-        renderEditModalContent();
-        // Restore form state after re-render
-        restoreModalAddFormState(formState);
-        restoreModalState(modalState);
-      }
-    } else {
-      showMessage('error', 'Failed to update gap');
-    }
-  } catch (error) {
-    showMessage('error', error.message);
-  }
-}
-
-// Update a gap's counts_for_hours flag via edit modal
-async function updateGapCountsForHours(shiftIdx, gapIdx, countsForHours) {
-  await updateGapDetailsFromModal(shiftIdx, gapIdx, { new_counts_for_hours: countsForHours });
-}
-
-// Update a gap's counts_for_hours flag from inline quickedit mode (uses explicit tab/gIdx)
-async function updateGapCountsForHoursInline(tab, gIdx, shiftIdx, gapIdx, countsForHours) {
-  const group = entriesData[tab]?.[gIdx];
-  if (!group) return;
-
-  const shifts = getModalShifts(group);
-  const shift = shifts[shiftIdx];
-  if (!shift) return;
-
-  const gaps = shift.gaps || [];
-  const gap = gaps[gapIdx];
-  if (!gap) return;
-
-  const endpoint = tab === 'today' ? '/api/live-schedule/update-gap' : '/api/prep-next-day/update-gap';
-
-  try {
-    let anySuccess = false;
-    for (const [modKey, modData] of Object.entries(shift.modalities)) {
-      if (modData.row_index !== undefined && modData.row_index >= 0) {
-        // Use original gap times for backend matching (may differ from clipped display times)
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            modality: modKey,
-            row_index: modData.row_index,
-            gap_start: gap.originalStart || gap.start,
-            gap_end: gap.originalEnd || gap.end,
-            gap_activity: gap.activity || null,
-            new_counts_for_hours: countsForHours
-          })
-        });
-        if (response.ok) {
-          anySuccess = true;
-        }
-      }
-    }
-    if (anySuccess) {
-      await loadData();
-      renderTable(tab);
-    } else {
-      showMessage('error', 'Failed to update gap hours flag');
-    }
-  } catch (error) {
-    showMessage('error', error.message);
-  }
-}
 
 // Live update shift fields from edit modal (no Save button needed)
 async function updateShiftFromModal(shiftIdx, updates) {
@@ -1883,19 +1302,6 @@ function commitModalTimeOnEnter(event, shiftIdx, field, inputEl) {
   if (inputEl) inputEl.blur();
 }
 
-function commitModalGapTimeEdit(shiftIdx, gapIdx, field, inputEl) {
-  if (!inputEl || !isValidTimeValue(inputEl.value)) return;
-  const gap = getCurrentModalGap(shiftIdx, gapIdx);
-  const currentValue = field === 'new_start' ? gap?.start : gap?.end;
-  if (currentValue === inputEl.value) return;
-  updateGapDetailsFromModal(shiftIdx, gapIdx, { [field]: inputEl.value });
-}
-
-function commitModalGapTimeOnEnter(event, shiftIdx, gapIdx, field, inputEl) {
-  if (event.key !== 'Enter') return;
-  event.preventDefault();
-  if (inputEl) inputEl.blur();
-}
 
 function getCurrentModalShift(shiftIdx) {
   const { tab, groupIdx } = currentEditEntry || {};
@@ -1903,13 +1309,6 @@ function getCurrentModalShift(shiftIdx) {
   if (!group) return null;
   const shifts = getModalShifts(group);
   return shifts?.[shiftIdx] || null;
-}
-
-function getCurrentModalGap(shiftIdx, gapIdx) {
-  const shift = getCurrentModalShift(shiftIdx);
-  if (!shift) return null;
-  const gaps = shift.gaps || [];
-  return gaps[gapIdx] || null;
 }
 
 function captureModalState() {
@@ -1940,55 +1339,6 @@ function restoreModalState(state) {
   }
 }
 
-// Remove a gap from inline quickedit mode
-async function removeGapInline(tab, gIdx, shiftIdx, gapIdx) {
-  const group = entriesData[tab]?.[gIdx];
-  if (!group) return;
-
-  const shifts = getModalShifts(group);
-  const shift = shifts[shiftIdx];
-  if (!shift) return;
-
-  const gaps = shift.gaps || [];
-  const gap = gaps[gapIdx];
-  if (!gap) return;
-
-  if (!confirm(`Remove gap ${gap.start}-${gap.end} (${gap.activity || 'Gap'})?`)) return;
-
-  const endpoint = tab === 'today' ? '/api/live-schedule/remove-gap' : '/api/prep-next-day/remove-gap';
-
-  try {
-    let anySuccess = false;
-    for (const [modKey, modData] of Object.entries(shift.modalities)) {
-      if (modData.row_index !== undefined && modData.row_index >= 0) {
-        // Use original gap times for backend matching (may differ from clipped display times)
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            modality: modKey,
-            row_index: modData.row_index,
-            gap_start: gap.originalStart || gap.start,
-            gap_end: gap.originalEnd || gap.end,
-            gap_activity: gap.activity || null
-          })
-        });
-        if (response.ok) {
-          anySuccess = true;
-        }
-      }
-    }
-    if (anySuccess) {
-      showMessage('success', 'Gap removed');
-      await loadData();
-      renderTable(tab);
-    } else {
-      showMessage('error', 'Failed to remove gap');
-    }
-  } catch (error) {
-    showMessage('error', error.message);
-  }
-}
 
 // Delete shift inline from quick edit mode
 async function deleteShiftInline(tab, groupIdx, shiftIdx) {
