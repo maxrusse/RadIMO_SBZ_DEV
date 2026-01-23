@@ -689,9 +689,11 @@ function buildEntriesByWorker(data, tab = 'today') {
       }] : [];
       grouped[workerName].allGaps = mergeUniqueGaps([...(grouped[workerName].allGaps || []), ...gapCandidates]);
 
-      // Group by time slot (shift key = start_time-end_time)
-      const shiftKey = `${entry.start_time}-${entry.end_time}`;
       const taskKey = (entry.task || '').trim();
+      // Group by time slot (shift key = start_time-end_time)
+      const shiftKey = entry.is_gap_entry
+        ? `${entry.start_time}-${entry.end_time}-gap-${taskKey}`
+        : `${entry.start_time}-${entry.end_time}`;
       const modalShiftKey = `${entry.start_time}-${entry.end_time}-${entry.is_gap_entry ? 'gap' : 'shift'}-${taskKey}`;
       if (!grouped[workerName].shifts[shiftKey]) {
         grouped[workerName].shifts[shiftKey] = {
@@ -1008,8 +1010,15 @@ async function onEditShiftTaskChange(shiftIdx, taskName) {
       if (endEl) endEl.value = endTime;
     }
     updates.Modifier = 1.0;
+    updates.row_type = 'gap';
+    updates.counts_for_hours = getGapCountsForHours(taskName);
     const modifierEl = document.getElementById(`edit-shift-${shiftIdx}-modifier`);
     if (modifierEl) modifierEl.value = '1.0';
+    const countsEl = document.getElementById(`edit-shift-${shiftIdx}-counts-hours`);
+    if (countsEl) {
+      countsEl.checked = updates.counts_for_hours === true;
+      updateHoursToggleLabel(countsEl);
+    }
 
     // Set ALL skills to -1 for gaps across modalities
     MODALITIES.forEach(mod => {
@@ -1027,6 +1036,7 @@ async function onEditShiftTaskChange(shiftIdx, taskName) {
     const times = getShiftTimes(taskConfig, targetDay);
     updates.start_time = times.start;
     updates.end_time = times.end;
+    updates.row_type = 'shift';
     const startEl = document.getElementById(`edit-shift-${shiftIdx}-start`);
     const endEl = document.getElementById(`edit-shift-${shiftIdx}-end`);
     if (startEl) startEl.value = times.start;
