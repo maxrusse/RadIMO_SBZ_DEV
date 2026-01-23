@@ -1,5 +1,89 @@
 # Change plan: Separate gaps from shifts (gap wins) — detailed worklist
 
+## Status: FAILED (needs redesign)
+- Inline gap edits leave stale/duplicated gap overlays in merged shift views.
+- Shifts that should continue after a gap can be truncated or merged incorrectly.
+- CSV import produces cleaner plans, but edit-driven mutations drift from that path.
+- The current plan is too fuzzy around “modalities” and mixed view-model merges; it needs a clean, consistent data model and rebuild pipeline.
+
+## Failure analysis (why the current implementation diverges)
+### Path A — CSV import (stable)
+1. CSV parsing creates **raw shift rows + raw gap rows** per worker (`build_working_hours_from_medweb`).
+2. Overlapping shifts are resolved per modality (`resolve_overlapping_shifts`).
+3. Gap overlaps are applied to shift durations (`_apply_gap_overlaps_to_shifts`).
+4. Output is a **clean, row-based schedule** with gap rows and recomputed durations.
+
+### Path B — UI edits (unstable)
+1. Inline edits update single rows via `/api/*/update-row` or `/api/*/update-gap`.
+2. The frontend rebuilds `group.shiftsArray` by **merging shifts**, clipping gaps, and
+   reconstructing `shift.gaps` for display.
+3. Because the rebuild is performed on already-merged rows, **clipped gaps** and
+   **timeSegments** can drift from the raw source rows.
+4. The view-model merge can leave a stale gap overlay or block continuation of the
+   shift after the gap, even though the stored rows are correct.
+
+## Root cause (confirmed by behavior)
+- **Two sources of truth**: CSV import uses a clean row-based pipeline; UI edits mutate
+  a merged view-model and then treat that merged output as input.
+- **Modalities are over-applied**: we store per-modality rows but then re-merge into
+  a worker-level “shift” for display and re-edit, which causes drift.
+- **Gap clipping happens twice**: once for UI display and again when edits are saved,
+  creating “ghost gaps” and broken shift continuation.
+
+## Revised plan (final fix approach — do it right)
+### Guiding principle
+**One source of truth, one rebuild path.** Every edit must update raw rows and
+rebuild the worker’s day plan via the exact same pipeline as CSV import. No more
+edit-in-merged-view, no more “modalities-first” rebuild.
+
+### Call to action (mentor + delegate)
+- **If you wrote the old code:** this is how to fix it properly — stop wiring edits
+  through merged UI state. Rebuild the day from raw rows and replace atomically.
+- **If you want to delegate:** hand this plan to the implementer with the explicit
+  requirement that they prioritize the backend rebuild pipeline. The UI can change
+  as needed to mirror backend logic — function over style — as long as it stays a
+  pure projection of raw rows.
+
+### 1) Clean data model (no fuzzy modality logic)
+- **Worker plan = one list of raw rows**, each with:
+  - `row_type`: `shift` or `gap`
+  - `start_time`, `end_time`
+  - `task` (single label)
+  - `counts_for_hours`
+  - `skills` (a map keyed by modality+skill, not separate rows)
+- **Modalities become a projection**, not a storage model.
+  - If you need modality-specific assignment, store it inside the row’s `skills` map.
+  - Do **not** create per-modality rows as source data.
+
+### 2) Unify day-plan pipeline
+- Extract a single **day-plan builder** used by both CSV import and edit updates:
+  1. Normalize worker rows into `shifts[]` and `gaps[]`.
+  2. Resolve overlapping shifts (later shift wins).
+  3. Apply gap overlaps to compute effective durations.
+  4. Emit clean rows for storage and UI projections.
+
+### 3) Edit flow changes (inline + modal)
+- **Stop using merged UI state as input.**
+- On every edit (gap/shift add/update/remove):
+  1. Fetch current **raw rows** for the worker.
+  2. Apply the edit to raw rows only.
+  3. Rebuild the day plan with the unified pipeline.
+  4. Replace worker rows in the schedule (atomic per worker).
+
+### 4) UI rendering changes
+- Treat `shift.gaps` as **derived-only display** from raw rows.
+- The UI view model is read-only; it never feeds back into stored rows.
+- Show warnings when gap rows do not intersect any shift rows (gap-only day plans are valid but must be explicit).
+
+### 5) Success criteria
+- Inline gap edit immediately updates shift continuity correctly.
+- Gaps never persist as “ghost” overlays after edits.
+- CSV import and edit flows produce identical day plans for the same inputs.
+- Modalities are derived views; no more per-modality source data drift.
+
+> **Legacy note:** The checklist below reflects the old per-modality row model and
+> must be rewritten once the new single-row-per-worker-plan model is implemented.
+
 ## Goals
 - Separate gaps from shifts as independent schedule rows (no parent/child JSON).
 - Gaps always win over shifts for availability and hour calculations.
