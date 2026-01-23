@@ -23,6 +23,7 @@ from lib.utils import (
     calculate_shift_duration_hours,
     get_next_workday,
     subtract_intervals,
+    merge_intervals,
 )
 from state_manager import StateManager
 from data_manager.file_ops import _calculate_total_work_hours, backup_dataframe
@@ -54,20 +55,6 @@ def _time_to_minutes(value: time) -> int:
     return value.hour * 60 + value.minute
 
 
-def _merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
-    if not intervals:
-        return []
-    intervals = sorted(intervals, key=lambda x: x[0])
-    merged = [intervals[0]]
-    for start, end in intervals[1:]:
-        last_start, last_end = merged[-1]
-        if start <= last_end:
-            merged[-1] = (last_start, max(last_end, end))
-        else:
-            merged.append((start, end))
-    return merged
-
-
 def _recalculate_worker_shift_durations(df: pd.DataFrame, worker_name: str) -> None:
     if df is None or df.empty:
         return
@@ -85,7 +72,7 @@ def _recalculate_worker_shift_durations(df: pd.DataFrame, worker_name: str) -> N
         if pd.isna(start) or pd.isna(end):
             continue
         gap_intervals.append((_time_to_minutes(start), _time_to_minutes(end)))
-    gap_intervals = _merge_intervals([g for g in gap_intervals if g[1] > g[0]])
+    gap_intervals = merge_intervals([g for g in gap_intervals if g[1] > g[0]])
 
     for idx, row in worker_rows[worker_rows['row_type'] != 'gap'].iterrows():
         start = row.get('start_time')

@@ -179,6 +179,18 @@
    - Works with both integer (minutes) and datetime intervals
    - Both modules now import from shared location
 
+8. **Consolidated `_merge_intervals` function**
+   - Previously duplicated in `schedule_crud.py` and `csv_parser.py`
+   - Moved to `lib/utils.py` as `merge_intervals()` with generic type hints
+   - Used to merge overlapping gap intervals before subtraction
+   - Both modules now import from shared location
+
+### Shared utility functions (lib/utils.py)
+
+The following gap-related functions are now centralized:
+- `subtract_intervals(base, gaps)` - Remove gap time from shift intervals
+- `merge_intervals(intervals)` - Merge overlapping intervals into non-overlapping segments
+
 ### API endpoint status
 
 The add-gap/remove-gap/update-gap endpoints are still used for:

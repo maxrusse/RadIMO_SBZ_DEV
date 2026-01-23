@@ -230,3 +230,28 @@ def subtract_intervals(base: Tuple[Any, Any], gaps: List[Tuple[Any, Any]]) -> Li
         if not remaining:
             break
     return remaining
+
+
+def merge_intervals(intervals: List[Tuple[Any, Any]]) -> List[Tuple[Any, Any]]:
+    """
+    Merge overlapping intervals into non-overlapping segments.
+
+    Works with any comparable types (integers for minutes, datetime objects, etc.)
+
+    Args:
+        intervals: A list of (start, end) tuples
+
+    Returns:
+        A list of merged non-overlapping intervals, sorted by start time
+    """
+    if not intervals:
+        return []
+    intervals = sorted(intervals, key=lambda x: x[0])
+    merged = [intervals[0]]
+    for start, end in intervals[1:]:
+        last_start, last_end = merged[-1]
+        if start <= last_end:
+            merged[-1] = (last_start, max(last_end, end))
+        else:
+            merged.append((start, end))
+    return merged
