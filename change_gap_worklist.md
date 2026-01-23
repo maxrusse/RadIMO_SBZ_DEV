@@ -1,11 +1,11 @@
 # Change plan: Separate gaps from shifts (gap wins) — detailed worklist
 
-## Status: IN PROGRESS (rebuild path underway)
+## Status: IN PROGRESS (unified builder in place)
 - Gap edits still risk stale/duplicated gaps in merged shift views when edits are applied from view-models.
 - Shifts that should continue after a gap can be truncated or merged incorrectly in edit-driven flows.
 - CSV import produces cleaner plans, but edit-driven mutations still drift from that path.
 - The current plan is too fuzzy around “modalities” and mixed view-model merges; it needs a clean, consistent data model and rebuild pipeline.
-- **Latest update:** Worker-plan application now expands time segments and enforces gap defaults without emitting overlay-derived gap rows, reducing edit-plan drift but not yet unifying the full rebuild path.
+- **Latest update:** Unified day-plan builder now routes CSV import and all edit CRUD flows through the same canonical pipeline, apply-worker-plan prioritizes raw row fields, row_type normalization is enforced in the builder, and integration tests confirm CSV/edit parity.
 
 ## Failure analysis (why the current implementation diverges)
 ### Path A — CSV import (stable)

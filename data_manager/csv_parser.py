@@ -20,8 +20,6 @@ from config import (
 from lib.utils import (
     TIME_FORMAT,
     get_weekday_name_german,
-    subtract_intervals,
-    merge_intervals,
 )
 from data_manager.worker_management import (
     get_canonical_worker_id,
@@ -30,7 +28,7 @@ from data_manager.worker_management import (
     apply_skill_overrides,
     extract_modalities_from_skill_overrides,
 )
-from data_manager.schedule_crud import resolve_overlapping_shifts
+from data_manager.schedule_crud import build_day_plan_rows
 
 
 DEFAULT_SHIFT_RANGE = (time(7, 0), time(15, 0))
@@ -183,63 +181,6 @@ def build_ppl_from_row(row: pd.Series, cols: Optional[dict] = None) -> str:
     name = str(row.get(name_col, 'Unknown'))
     code = str(row.get(code_col, 'UNK'))
     return f"{name} ({code})"
-
-
-def _apply_gap_overlaps_to_shifts(rows: List[dict], target_date: date) -> List[dict]:
-    if not rows:
-        return rows
-
-    rows_by_worker: Dict[str, List[dict]] = {}
-    for row in rows:
-        rows_by_worker.setdefault(row.get('PPL'), []).append(row)
-
-    for worker_name, worker_rows in rows_by_worker.items():
-        gap_intervals = []
-        for row in worker_rows:
-            if row.get('row_type', 'shift') != 'gap':
-                continue
-            if row.get('counts_for_hours', False):
-                continue
-            start = row.get('start_time')
-            end = row.get('end_time')
-            if not start or not end:
-                continue
-            start_dt = datetime.combine(target_date, start)
-            end_dt = datetime.combine(target_date, end)
-            if end_dt <= start_dt:
-                continue
-            gap_intervals.append((start_dt, end_dt))
-
-        gap_intervals = merge_intervals(gap_intervals)
-
-        for row in worker_rows:
-            if row.get('row_type', 'shift') == 'gap':
-                continue
-            shift_start = row.get('start_time')
-            shift_end = row.get('end_time')
-            if not shift_start or not shift_end:
-                row['shift_duration'] = 0.0
-                row['counts_for_hours'] = False
-                continue
-            shift_start_dt = datetime.combine(target_date, shift_start)
-            shift_end_dt = datetime.combine(target_date, shift_end)
-            if shift_end_dt <= shift_start_dt:
-                row['shift_duration'] = 0.0
-                row['counts_for_hours'] = False
-                continue
-            remaining = subtract_intervals(
-                (shift_start_dt, shift_end_dt),
-                gap_intervals
-            )
-            total_minutes = sum(
-                (seg_end - seg_start).total_seconds() / 60
-                for seg_start, seg_end in remaining
-            )
-            row['shift_duration'] = round(total_minutes / 60.0, 4)
-            if total_minutes <= 0:
-                row['counts_for_hours'] = False
-
-    return rows
 
 
 def build_working_hours_from_medweb(
@@ -539,27 +480,12 @@ def build_working_hours_from_medweb(
     if unmatched_activities:
         selection_logger.debug(f"Unmatched activities: {set(unmatched_activities)}")
 
-    # FOURTH PASS: Resolve overlapping shifts (later shift ends prior)
+    # FOURTH PASS: Build canonical day plan per modality
     for modality in rows_per_modality:
         if rows_per_modality[modality]:
-            shift_rows = [row for row in rows_per_modality[modality] if row.get('row_type', 'shift') != 'gap']
-            gap_rows = [row for row in rows_per_modality[modality] if row.get('row_type') == 'gap']
-            original_count = len(shift_rows)
-            if shift_rows:
-                shift_rows = resolve_overlapping_shifts(shift_rows, target_date_obj)
-            resolved_count = len(shift_rows)
-            if original_count != resolved_count:
-                selection_logger.info(
-                    f"Resolved overlapping shifts for {modality}: {original_count} -> {resolved_count} shifts"
-                )
-            rows_per_modality[modality] = shift_rows + gap_rows
-
-    # FIFTH PASS: Apply gap overlaps to shift durations
-    for modality in rows_per_modality:
-        if rows_per_modality[modality]:
-            rows_per_modality[modality] = _apply_gap_overlaps_to_shifts(
+            rows_per_modality[modality] = build_day_plan_rows(
                 rows_per_modality[modality],
-                target_date_obj
+                target_date_obj,
             )
 
     result = {}

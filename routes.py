@@ -104,39 +104,49 @@ def _modality_has_active_skills(mod_data: dict) -> bool:
 def _build_rows_from_plan(worker: str, shifts: list, modality: str) -> list:
     rows = []
     for shift in shifts:
-        for mod_key, mod_data in (shift.get('modalities') or {}).items():
-            if mod_key != modality:
-                continue
-            row_index = mod_data.get('row_index', -1)
-            if row_index is None:
-                row_index = -1
-            if row_index < 0 and not _modality_has_active_skills(mod_data):
-                continue
+        raw_rows = shift.get('originalShifts')
+        if raw_rows:
+            for raw in raw_rows:
+                mod_key = (raw.get('modality') or '').lower()
+                if mod_key and mod_key != modality:
+                    continue
+                mod_data = (shift.get('modalities') or {}).get(mod_key, {})
+                if mod_key and not mod_data and raw.get('is_gap_entry') is False:
+                    continue
+                if mod_data and not _modality_has_active_skills(mod_data):
+                    continue
 
-            is_gap_entry = bool(shift.get('is_gap_entry') or shift.get('row_type') == 'gap')
-            row_type = 'gap' if is_gap_entry else 'shift'
+                is_gap_entry = bool(shift.get('is_gap_entry') or shift.get('row_type') == 'gap' or raw.get('is_gap_entry'))
+                skills = mod_data.get('skills', {}) or raw.get('skills', {}) or {}
+                if is_gap_entry:
+                    skills = {skill: -1 for skill in SKILL_COLUMNS}
 
-            skills = mod_data.get('skills', {}) or {}
-            if is_gap_entry:
-                skills = {skill: -1 for skill in SKILL_COLUMNS}
-            segments = shift.get('timeSegments') or []
-            if not segments:
-                segments = [{
-                    'start': shift.get('start_time'),
-                    'end': shift.get('end_time'),
-                }]
-
-            for segment in segments:
                 rows.append({
                     'PPL': worker,
-                    'start_time': segment.get('start') or shift.get('start_time'),
-                    'end_time': segment.get('end') or shift.get('end_time'),
-                    'Modifier': shift.get('modifier', 1.0),
-                    'counts_for_hours': shift.get('counts_for_hours', not is_gap_entry),
-                    'tasks': shift.get('task', ''),
-                    'row_type': row_type,
+                    'start_time': raw.get('start_time') or shift.get('start_time'),
+                    'end_time': raw.get('end_time') or shift.get('end_time'),
+                    'Modifier': raw.get('modifier', shift.get('modifier', 1.0)),
+                    'counts_for_hours': raw.get('counts_for_hours', shift.get('counts_for_hours', not is_gap_entry)),
+                    'tasks': raw.get('task', shift.get('task', '')),
+                    'row_type': 'gap' if is_gap_entry else 'shift',
                     **{skill: skills.get(skill) for skill in SKILL_COLUMNS if skill in skills},
                 })
+            continue
+
+        row_type = shift.get('row_type', 'shift')
+        if row_type == 'gap' and shift.get('counts_for_hours') is None:
+            shift['counts_for_hours'] = False
+        skills = shift.get('skills') or {}
+        rows.append({
+            'PPL': worker,
+            'start_time': shift.get('start_time'),
+            'end_time': shift.get('end_time'),
+            'Modifier': shift.get('Modifier', shift.get('modifier', 1.0)),
+            'counts_for_hours': shift.get('counts_for_hours', row_type != 'gap'),
+            'tasks': shift.get('tasks', shift.get('task', '')),
+            'row_type': row_type,
+            **{skill: skills.get(skill) for skill in SKILL_COLUMNS if skill in skills},
+        })
     return rows
 
 

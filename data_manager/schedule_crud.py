@@ -55,6 +55,120 @@ def _time_to_minutes(value: time) -> int:
     return value.hour * 60 + value.minute
 
 
+def _coerce_time_value(value: Optional[object]) -> Optional[time]:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    if isinstance(value, time):
+        return value
+    if isinstance(value, datetime):
+        return value.time()
+    if isinstance(value, str):
+        if not value.strip():
+            return None
+        return datetime.strptime(value, TIME_FORMAT).time()
+    return None
+
+
+def build_day_plan_rows(rows: List[dict], target_date: date) -> List[dict]:
+    if not rows:
+        return []
+
+    rows_by_worker: Dict[str, List[dict]] = {}
+    for row in rows:
+        normalized = dict(row)
+        row_type_value = normalized.get('row_type') or 'shift'
+        if isinstance(row_type_value, str):
+            row_type_value = row_type_value.strip().lower() or 'shift'
+        normalized['row_type'] = 'gap' if row_type_value == 'gap' else 'shift'
+        normalized['PPL'] = normalized.get('PPL', '')
+        normalized['start_time'] = _coerce_time_value(normalized.get('start_time'))
+        normalized['end_time'] = _coerce_time_value(normalized.get('end_time'))
+
+        tasks = normalized.get('tasks')
+        if isinstance(tasks, list):
+            normalized['tasks'] = ', '.join([task for task in tasks if task])
+        elif tasks is None:
+            normalized['tasks'] = ''
+
+        if normalized.get('Modifier') is None:
+            normalized['Modifier'] = 1.0
+        if normalized.get('counts_for_hours') is None:
+            normalized['counts_for_hours'] = normalized['row_type'] != 'gap'
+        else:
+            normalized['counts_for_hours'] = bool(normalized['counts_for_hours'])
+
+        for skill in SKILL_COLUMNS:
+            if normalized['row_type'] == 'gap':
+                normalized[skill] = -1
+                continue
+            if skill in normalized:
+                normalized[skill] = normalize_skill_value(normalized[skill])
+            else:
+                normalized[skill] = 0
+
+        if normalized.get('start_time') and normalized.get('end_time'):
+            normalized['TIME'] = (
+                f"{normalized['start_time'].strftime(TIME_FORMAT)}-"
+                f"{normalized['end_time'].strftime(TIME_FORMAT)}"
+            )
+
+        rows_by_worker.setdefault(normalized['PPL'], []).append(normalized)
+
+    built_rows: List[dict] = []
+
+    for worker_name, worker_rows in rows_by_worker.items():
+        shift_rows = [row for row in worker_rows if row.get('row_type') != 'gap']
+        gap_rows = [row for row in worker_rows if row.get('row_type') == 'gap']
+
+        resolved_shifts = resolve_overlapping_shifts(shift_rows, target_date) if shift_rows else []
+
+        gap_intervals: List[Tuple[int, int]] = []
+        for gap_row in gap_rows:
+            if gap_row.get('counts_for_hours', False):
+                continue
+            start = gap_row.get('start_time')
+            end = gap_row.get('end_time')
+            if start is None or end is None:
+                continue
+            start_min = _time_to_minutes(start)
+            end_min = _time_to_minutes(end)
+            if end_min <= start_min:
+                continue
+            gap_intervals.append((start_min, end_min))
+        gap_intervals = merge_intervals(gap_intervals)
+
+        for shift_row in resolved_shifts:
+            start = shift_row.get('start_time')
+            end = shift_row.get('end_time')
+            if start is None or end is None:
+                shift_row['shift_duration'] = 0.0
+                shift_row['counts_for_hours'] = False
+                continue
+            start_min = _time_to_minutes(start)
+            end_min = _time_to_minutes(end)
+            if end_min <= start_min:
+                shift_row['shift_duration'] = 0.0
+                shift_row['counts_for_hours'] = False
+                continue
+            remaining = subtract_intervals((start_min, end_min), gap_intervals)
+            total_minutes = sum(seg_end - seg_start for seg_start, seg_end in remaining)
+            shift_row['shift_duration'] = round(total_minutes / 60.0, 4)
+            if total_minutes <= 0:
+                shift_row['counts_for_hours'] = False
+
+        for gap_row in gap_rows:
+            gap_row['row_type'] = 'gap'
+            gap_row['shift_duration'] = 0.0
+            if gap_row.get('counts_for_hours') is None:
+                gap_row['counts_for_hours'] = False
+            for skill in SKILL_COLUMNS:
+                gap_row[skill] = -1
+
+        built_rows.extend(resolved_shifts + gap_rows)
+
+    return built_rows
+
+
 def _recalculate_worker_shift_durations(df: pd.DataFrame, worker_name: str) -> None:
     if df is None or df.empty:
         return
@@ -352,64 +466,48 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
     if not _validate_row_index(df, row_index):
         return False, 'Invalid row index'
 
-    reindexed = False
-
     try:
         if 'PPL' in updates:
             return False, 'Worker renames are only allowed in the skill roster'
-        for col, value in updates.items():
-            if col in ['start_time', 'end_time']:
-                df.at[row_index, col] = datetime.strptime(value, TIME_FORMAT).time()
-            elif col in SKILL_COLUMNS:
-                df.at[row_index, col] = normalize_skill_value(value)
-            elif col == 'Modifier':
-                df.at[row_index, col] = float(value)
-            elif col == 'tasks':
-                if isinstance(value, list):
-                    df.at[row_index, 'tasks'] = ', '.join(value)
-                else:
-                    df.at[row_index, 'tasks'] = value
-            elif col == 'counts_for_hours':
-                df.at[row_index, 'counts_for_hours'] = bool(value)
-            elif col == 'row_type':
-                df.at[row_index, 'row_type'] = value
+        worker_name = df.at[row_index, 'PPL']
+        worker_rows = df[df['PPL'] == worker_name].copy()
+        rows_with_index = [(idx, row.to_dict()) for idx, row in worker_rows.iterrows()]
 
-        if df.at[row_index, 'row_type'] == 'gap':
-            for skill in SKILL_COLUMNS:
-                if skill in df.columns:
-                    df.at[row_index, skill] = -1
-            df.at[row_index, 'shift_duration'] = 0.0
-            if 'counts_for_hours' in df.columns and pd.isna(df.at[row_index, 'counts_for_hours']):
-                df.at[row_index, 'counts_for_hours'] = False
+        for idx, row in rows_with_index:
+            if idx != row_index:
+                continue
+            for col, value in updates.items():
+                if col in ['start_time', 'end_time']:
+                    row[col] = datetime.strptime(value, TIME_FORMAT).time()
+                elif col in SKILL_COLUMNS:
+                    row[col] = normalize_skill_value(value)
+                elif col == 'Modifier':
+                    row[col] = float(value)
+                elif col == 'tasks':
+                    if isinstance(value, list):
+                        row['tasks'] = ', '.join(value)
+                    else:
+                        row['tasks'] = value
+                elif col == 'counts_for_hours':
+                    row['counts_for_hours'] = bool(value)
+                elif col == 'row_type':
+                    row['row_type'] = value
+                    if value == 'gap' and 'counts_for_hours' not in updates:
+                        row['counts_for_hours'] = False
+            break
 
-        if use_staged and 'is_manual' in df.columns:
-            df.at[row_index, 'is_manual'] = True
-
-        # Recalculate shift_duration if times changed (same-day only)
-        if 'start_time' in updates or 'end_time' in updates:
-            start = df.at[row_index, 'start_time']
-            end = df.at[row_index, 'end_time']
-            if pd.notnull(start) and pd.notnull(end) and 'TIME' in df.columns:
-                df.at[row_index, 'TIME'] = f"{start.strftime(TIME_FORMAT)}-{end.strftime(TIME_FORMAT)}"
-
-            worker_name = df.at[row_index, 'PPL']
-            target_date = _get_staged_target_date() if use_staged else datetime.today().date()
-            resolved_df = resolve_overlapping_shifts_df(df, target_date)
-            if len(resolved_df) != len(df):
-                selection_logger.info(
-                    f"Resolved overlapping shifts for {worker_name} after edit: "
-                    f"{len(df)} -> {len(resolved_df)} rows"
-                )
-                reindexed = True
-            data_dict['working_hours_df'] = resolved_df
-            df = data_dict['working_hours_df']
-
-        if 'row_type' in updates or 'counts_for_hours' in updates or 'start_time' in updates or 'end_time' in updates:
-            worker_name = df.at[row_index, 'PPL']
-            _recalculate_worker_shift_durations(df, worker_name)
-
-        backup_dataframe(modality, use_staged=use_staged)
-        return True, {'reindexed': reindexed}
+        target_date = _get_staged_target_date() if use_staged else datetime.today().date()
+        raw_rows = [row for _, row in rows_with_index]
+        success, info, error = _replace_worker_schedule(
+            modality,
+            worker_name,
+            raw_rows,
+            use_staged=use_staged,
+            target_date=target_date,
+        )
+        if not success:
+            return False, error
+        return True, info
 
     except ValueError as e:
         return False, f'Invalid time format: {e}'
@@ -427,8 +525,6 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
     """
     data_dict = _get_schedule_data_dict(modality, use_staged)
     df = data_dict['working_hours_df']
-
-    reindexed = False
 
     try:
         ppl_name = worker_data.get('PPL', 'Neuer Worker (NW)')
@@ -464,39 +560,36 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
             new_row['shift_duration'] = 0.0
 
         new_row['counts_for_hours'] = worker_data.get('counts_for_hours', row_type != 'gap')
+        existing_rows = []
+        if df is not None and not df.empty:
+            existing_rows = df[df['PPL'] == ppl_name].to_dict('records')
+        raw_rows = existing_rows + [new_row]
 
-        if df is None or df.empty:
-            data_dict['working_hours_df'] = pd.DataFrame([new_row])
-        else:
-            data_dict['working_hours_df'] = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+        target_date = _get_staged_target_date() if use_staged else datetime.today().date()
+        success, info, error = _replace_worker_schedule(
+            modality,
+            ppl_name,
+            raw_rows,
+            use_staged=use_staged,
+            target_date=target_date,
+        )
+        if not success:
+            return False, None, error
 
-        if use_staged:
-            if 'is_manual' not in data_dict['working_hours_df'].columns:
-                data_dict['working_hours_df']['is_manual'] = False
-            new_row_idx = len(data_dict['working_hours_df']) - 1
-            data_dict['working_hours_df'].at[new_row_idx, 'is_manual'] = True
+        new_df = data_dict['working_hours_df']
+        new_idx = None
+        if new_df is not None and not new_df.empty:
+            matches = new_df[
+                (new_df['PPL'] == ppl_name) &
+                (new_df['row_type'] == row_type) &
+                (new_df['start_time'] == new_row['start_time']) &
+                (new_df['end_time'] == new_row['end_time']) &
+                (new_df['tasks'] == new_row['tasks'])
+            ]
+            if not matches.empty:
+                new_idx = int(matches.index[-1])
 
-        # Resolve any overlapping shifts for this worker (later shift wins)
-        df = data_dict['working_hours_df']
-        original_len = len(df)
-        worker_rows = df[df['PPL'] == ppl_name]
-        if len(worker_rows) > 1:
-            target_date = _get_staged_target_date() if use_staged else datetime.today().date()
-            resolved_df = resolve_overlapping_shifts_df(df, target_date)
-            if len(resolved_df) != original_len:
-                selection_logger.info(
-                    f"Resolved overlapping shifts for {ppl_name} after add: "
-                    f"{original_len} -> {len(resolved_df)} rows"
-                )
-                reindexed = True
-            data_dict['working_hours_df'] = resolved_df
-            df = data_dict['working_hours_df']
-
-        _recalculate_worker_shift_durations(df, ppl_name)
-
-        backup_dataframe(modality, use_staged=use_staged)
-        new_idx = len(data_dict['working_hours_df']) - 1
-        return True, {'row_index': new_idx, 'reindexed': reindexed}, None
+        return True, {'row_index': new_idx, 'reindexed': info.get('reindexed', False)}, None
 
     except ValueError as e:
         return False, None, f'Invalid time format: {e}'
@@ -504,85 +597,50 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
         return False, None, str(e)
 
 
-def _replace_worker_schedule(modality: str, worker_name: str, rows: list, use_staged: bool) -> tuple:
+def _replace_worker_schedule(
+    modality: str,
+    worker_name: str,
+    rows: list,
+    use_staged: bool,
+    target_date: Optional[date] = None,
+) -> tuple:
     """Replace all schedule rows for a worker with the provided rows."""
     data_dict = _get_schedule_data_dict(modality, use_staged)
     df = data_dict['working_hours_df']
 
     try:
-        if df is None or df.empty:
+        current_df = df if df is not None else pd.DataFrame()
+        original_worker_count = 0 if current_df.empty else len(current_df[current_df['PPL'] == worker_name])
+
+        if current_df.empty:
             df = pd.DataFrame()
         else:
-            df = df[df['PPL'] != worker_name].reset_index(drop=True)
+            df = current_df[current_df['PPL'] != worker_name].reset_index(drop=True)
 
-        new_rows = []
+        target_date = target_date or (_get_staged_target_date() if use_staged else datetime.today().date())
+        raw_rows = []
         for worker_data in rows:
-            row_type = worker_data.get('row_type', 'shift')
-            new_row = {
-                'PPL': worker_name,
-                'start_time': datetime.strptime(worker_data.get('start_time', '07:00'), TIME_FORMAT).time(),
-                'end_time': datetime.strptime(worker_data.get('end_time', '15:00'), TIME_FORMAT).time(),
-                'Modifier': float(worker_data.get('Modifier', 1.0)),
-                'row_type': row_type,
-            }
+            row_copy = dict(worker_data)
+            row_copy['PPL'] = worker_name
+            raw_rows.append(row_copy)
+        plan_rows = build_day_plan_rows(raw_rows, target_date)
 
-            if not df.empty and 'TIME' in df.columns:
-                new_row['TIME'] = f"{new_row['start_time'].strftime(TIME_FORMAT)}-{new_row['end_time'].strftime(TIME_FORMAT)}"
-
-            for skill in SKILL_COLUMNS:
-                default_value = -1 if row_type == 'gap' else 0
-                new_row[skill] = normalize_skill_value(worker_data.get(skill, default_value))
-
-            tasks = worker_data.get('tasks', [])
-            if isinstance(tasks, list):
-                new_row['tasks'] = ', '.join(tasks)
-            else:
-                new_row['tasks'] = tasks or ''
-
-            start_dt = datetime.combine(datetime.today(), new_row['start_time'])
-            end_dt = datetime.combine(datetime.today(), new_row['end_time'])
-            if end_dt > start_dt and row_type != 'gap':
-                new_row['shift_duration'] = (end_dt - start_dt).total_seconds() / 3600
-            else:
-                new_row['shift_duration'] = 0.0
-
-            new_row['counts_for_hours'] = worker_data.get('counts_for_hours', row_type != 'gap')
-
-            new_rows.append(new_row)
-
-        if new_rows:
-            new_df = pd.DataFrame(new_rows)
+        if plan_rows:
+            new_df = pd.DataFrame(plan_rows)
             df = pd.concat([df, new_df], ignore_index=True)
 
         if use_staged:
-            if df is not None and 'is_manual' not in df.columns:
+            if 'is_manual' not in df.columns:
                 df['is_manual'] = False
-            if new_rows:
-                start_idx = len(df) - len(new_rows)
-                df.loc[start_idx:, 'is_manual'] = True
+            df.loc[df['PPL'] == worker_name, 'is_manual'] = True
 
         data_dict['working_hours_df'] = df
-
-        reindexed = False
-        if not df.empty:
-            worker_shifts = df[df['PPL'] == worker_name]
-            if len(worker_shifts) > 1:
-                target_date = _get_staged_target_date() if use_staged else datetime.today().date()
-                resolved_df = resolve_overlapping_shifts_df(df, target_date)
-                if len(resolved_df) != len(df):
-                    selection_logger.info(
-                        f"Resolved overlapping shifts for {worker_name} after replace: "
-                        f"{len(df)} -> {len(resolved_df)} rows"
-                    )
-                    reindexed = True
-                data_dict['working_hours_df'] = resolved_df
-
-        _recalculate_worker_shift_durations(df, worker_name)
 
         if not use_staged:
             reconcile_live_worker_tracking(modality)
 
         backup_dataframe(modality, use_staged=use_staged)
+        reindexed = original_worker_count != len(plan_rows)
         return True, {'reindexed': reindexed}, None
 
     except ValueError as e:
@@ -610,13 +668,18 @@ def _delete_worker_from_schedule(modality: str, row_index: int, use_staged: bool
         if verify_ppl and str(worker_name) != str(verify_ppl):
             return False, None, 'Row mismatch: Schedule has changed. Please reload.'
 
-        data_dict['working_hours_df'] = df.drop(index=row_index_int).reset_index(drop=True)
-        _recalculate_worker_shift_durations(data_dict['working_hours_df'], worker_name)
-
-        if not use_staged:
-            reconcile_live_worker_tracking(modality)
-
-        backup_dataframe(modality, use_staged=use_staged)
+        remaining_rows = df.drop(index=row_index_int).reset_index(drop=True)
+        worker_rows = remaining_rows[remaining_rows['PPL'] == worker_name].to_dict('records')
+        target_date = _get_staged_target_date() if use_staged else datetime.today().date()
+        success, _, error = _replace_worker_schedule(
+            modality,
+            worker_name,
+            worker_rows,
+            use_staged=use_staged,
+            target_date=target_date,
+        )
+        if not success:
+            return False, None, error
         return True, worker_name, None
 
     except Exception as e:
@@ -666,15 +729,18 @@ def _add_gap_to_schedule(
         for skill in SKILL_COLUMNS:
             gap_row[skill] = -1
 
-        df = pd.concat([df, pd.DataFrame([gap_row])], ignore_index=True)
-        if use_staged:
-            if 'is_manual' not in df.columns:
-                df['is_manual'] = False
-            df.at[len(df) - 1, 'is_manual'] = True
-
-        data_dict['working_hours_df'] = df
-        _recalculate_worker_shift_durations(df, worker_name)
-        backup_dataframe(modality, use_staged=use_staged)
+        existing_rows = df[df['PPL'] == worker_name].to_dict('records')
+        raw_rows = existing_rows + [gap_row]
+        target_date = _get_staged_target_date() if use_staged else datetime.today().date()
+        success, _, error = _replace_worker_schedule(
+            modality,
+            worker_name,
+            raw_rows,
+            use_staged=use_staged,
+            target_date=target_date,
+        )
+        if not success:
+            return False, None, error
         log_prefix = "STAGED: " if use_staged else ""
         selection_logger.info(f"{log_prefix}Added gap ({gap_type}) for {worker_name} {gap_start}-{gap_end}")
         return True, 'gap_added', None
@@ -731,14 +797,18 @@ def _remove_gap_from_schedule(
 
         gap_row_idx = gap_candidates.index[0]
         removed_gap = df.loc[gap_row_idx]
-        df = df.drop(index=gap_row_idx).reset_index(drop=True)
-        data_dict['working_hours_df'] = df
-        _recalculate_worker_shift_durations(df, worker_name)
-
-        if use_staged and 'is_manual' in df.columns:
-            df.loc[df['PPL'] == worker_name, 'is_manual'] = True
-
-        backup_dataframe(modality, use_staged=use_staged)
+        remaining_rows = df.drop(index=gap_row_idx).reset_index(drop=True)
+        worker_rows = remaining_rows[remaining_rows['PPL'] == worker_name].to_dict('records')
+        target_date = _get_staged_target_date() if use_staged else datetime.today().date()
+        success, _, error = _replace_worker_schedule(
+            modality,
+            worker_name,
+            worker_rows,
+            use_staged=use_staged,
+            target_date=target_date,
+        )
+        if not success:
+            return False, None, error
         log_prefix = "STAGED: " if use_staged else ""
         selection_logger.info(
             f"{log_prefix}Removed gap [{removed_gap.get('tasks', 'unknown')}] "
@@ -808,11 +878,17 @@ def _update_gap_in_schedule(
         if normalized_gap_counts is not None:
             df.at[gap_row_idx, 'counts_for_hours'] = normalized_gap_counts
 
-        if use_staged and 'is_manual' in df.columns:
-            df.at[gap_row_idx, 'is_manual'] = True
-
-        _recalculate_worker_shift_durations(df, worker_name)
-        backup_dataframe(modality, use_staged=use_staged)
+        worker_rows = df[df['PPL'] == worker_name].to_dict('records')
+        target_date = _get_staged_target_date() if use_staged else datetime.today().date()
+        success, _, error = _replace_worker_schedule(
+            modality,
+            worker_name,
+            worker_rows,
+            use_staged=use_staged,
+            target_date=target_date,
+        )
+        if not success:
+            return False, None, error
         log_prefix = "STAGED: " if use_staged else ""
         selection_logger.info(
             f"{log_prefix}Updated gap ({match_start}-{match_end}) for {worker_name}"
