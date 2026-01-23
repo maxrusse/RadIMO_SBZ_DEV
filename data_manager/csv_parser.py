@@ -20,6 +20,8 @@ from config import (
 from lib.utils import (
     TIME_FORMAT,
     get_weekday_name_german,
+    subtract_intervals,
+    merge_intervals,
 )
 from data_manager.worker_management import (
     get_canonical_worker_id,
@@ -183,38 +185,6 @@ def build_ppl_from_row(row: pd.Series, cols: Optional[dict] = None) -> str:
     return f"{name} ({code})"
 
 
-def _merge_intervals(intervals: List[tuple]) -> List[tuple]:
-    if not intervals:
-        return []
-    intervals = sorted(intervals, key=lambda x: x[0])
-    merged = [intervals[0]]
-    for start, end in intervals[1:]:
-        last_start, last_end = merged[-1]
-        if start <= last_end:
-            merged[-1] = (last_start, max(last_end, end))
-        else:
-            merged.append((start, end))
-    return merged
-
-
-def _subtract_intervals(base: tuple, gaps: List[tuple]) -> List[tuple]:
-    remaining = [base]
-    for gap_start, gap_end in gaps:
-        next_remaining = []
-        for start, end in remaining:
-            if gap_end <= start or gap_start >= end:
-                next_remaining.append((start, end))
-                continue
-            if gap_start > start:
-                next_remaining.append((start, gap_start))
-            if gap_end < end:
-                next_remaining.append((gap_end, end))
-        remaining = next_remaining
-        if not remaining:
-            break
-    return remaining
-
-
 def _apply_gap_overlaps_to_shifts(rows: List[dict], target_date: date) -> List[dict]:
     if not rows:
         return rows
@@ -240,7 +210,7 @@ def _apply_gap_overlaps_to_shifts(rows: List[dict], target_date: date) -> List[d
                 continue
             gap_intervals.append((start_dt, end_dt))
 
-        gap_intervals = _merge_intervals(gap_intervals)
+        gap_intervals = merge_intervals(gap_intervals)
 
         for row in worker_rows:
             if row.get('row_type', 'shift') == 'gap':
@@ -257,7 +227,7 @@ def _apply_gap_overlaps_to_shifts(rows: List[dict], target_date: date) -> List[d
                 row['shift_duration'] = 0.0
                 row['counts_for_hours'] = False
                 continue
-            remaining = _subtract_intervals(
+            remaining = subtract_intervals(
                 (shift_start_dt, shift_end_dt),
                 gap_intervals
             )

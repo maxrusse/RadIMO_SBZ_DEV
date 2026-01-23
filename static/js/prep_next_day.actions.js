@@ -2227,86 +2227,41 @@ async function addShiftFromModal() {
   const countsHoursEl = document.getElementById('modal-add-counts-hours');
   const countsForHours = countsHoursEl ? countsHoursEl.checked : true;
   const isGap = isGapTask(taskName);
-  const gapCountsForHours = getGapCountsForHours(taskName);
 
   const workerEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
-  const gapEndpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
 
   try {
-    let overlapFound = false;
-
-    // If it is a Gap task, check for overlaps with existing shifts
-    if (isGap) {
-      const shifts = group.shiftsArray || [];
-      const start = startTime;
-      const end = endTime;
-
-      // Find overlapping shift (simple string comparison for HH:MM works for ISO times in same day)
-      const targetShift = shifts.find(s => !(end <= s.start_time || start >= s.end_time));
-
-      if (targetShift) {
-        overlapFound = true;
-
-        // Apply gap to all active modalities in this shift
-        for (const [modKey, modData] of Object.entries(targetShift.modalities)) {
-          // Check if this modality exists in the shift (row_index >= 0)
-          if (modData.row_index !== undefined && modData.row_index >= 0) {
-            const response = await fetch(gapEndpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                modality: modKey,
-                row_index: modData.row_index,
-                gap_type: taskName,
-                gap_start: startTime,
-                gap_end: endTime,
-                gap_counts_for_hours: countsForHours  // Use form checkbox, not config default
-              })
-            });
-
-            if (!response.ok) {
-              const errData = await response.json().catch(() => ({}));
-              throw new Error(errData.error || `Failed to add gap for ${modKey.toUpperCase()}`);
-            }
+    // Create standalone row (gaps are independent rows with row_type='gap')
+    for (const modKey of selectedModalities) {
+      const skills = {};
+      SKILLS.forEach(skill => {
+        const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
+        skills[skill] = normalizeSkillValueJS(el ? el.value : 0);
+      });
+      const response = await fetch(workerEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          modality: modKey,
+          worker_data: {
+            PPL: group.worker,
+            start_time: startTime,
+            end_time: endTime,
+            Modifier: modifier,
+            counts_for_hours: countsForHours,
+            tasks: taskName,
+            row_type: isGap ? 'gap' : 'shift',
+            ...skills
           }
-        }
-        showMessage('success', `Added gap to shift ${targetShift.start_time}-${targetShift.end_time}`);
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Failed to add ${isGap ? 'gap' : 'shift'} for ${modKey.toUpperCase()}`);
       }
     }
-
-    if (!overlapFound) {
-      // Standard add-worker logic (new row) if no overlap or not a gap
-      for (const modKey of selectedModalities) {
-        const skills = {};
-        SKILLS.forEach(skill => {
-          const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
-          skills[skill] = normalizeSkillValueJS(el ? el.value : 0);
-        });
-        const response = await fetch(workerEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            modality: modKey,
-            worker_data: {
-              PPL: group.worker,
-              start_time: startTime,
-              end_time: endTime,
-              Modifier: modifier,
-              counts_for_hours: countsForHours,
-              tasks: taskName,
-              row_type: isGap ? 'gap' : 'shift',
-              ...skills
-            }
-          })
-        });
-
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error || `Failed to add shift for ${modKey.toUpperCase()}`);
-        }
-      }
-      showMessage('success', `Added new ${isGap ? 'gap' : 'shift'} for ${group.worker}`);
-    }
+    showMessage('success', `Added new ${isGap ? 'gap' : 'shift'} for ${group.worker}`);
 
     await loadData();
     // Re-render modal to show updated shifts instead of closing
@@ -2872,7 +2827,6 @@ async function saveAddWorkerModal() {
 
   const { tab, tasks } = addWorkerModalState;
   const workerEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
-  const gapEndpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
 
   try {
     // Group tasks into shifts vs gaps to handle ordering
@@ -2936,11 +2890,8 @@ async function saveAddWorkerModal() {
       }
     }
 
-    // 2. Process Gap Tasks (check for overlaps)
-    // For gaps, we need to check against all modalities
-    const groups = entriesData[tab] || [];
-    const existingGroup = groups.find(g => parseWorkerInput(g.worker).id === workerId);
-
+    // 2. Process Gap Tasks (create standalone gap rows)
+    // Gaps are independent rows with row_type='gap', not embedded in shifts
     for (const gap of gapTasks) {
       const gapStart = gap.start_time;
       const gapEnd = gap.end_time;
@@ -2948,54 +2899,32 @@ async function saveAddWorkerModal() {
 
       // Process each modality in the gap
       for (const modKey of Object.keys(skillsByMod)) {
-        let overlapFound = false;
-
-        // A) Check against newly added shifts for this modality
-        for (const shift of addedShifts) {
-          if (shift.modality === modKey && !(gapEnd <= shift.start || gapStart >= shift.end)) {
-            overlapFound = true;
-            await callAddGap(gapEndpoint, shift.modality, shift.row_index, gap.task, gapStart, gapEnd);
-          }
-        }
-
-        // B) Check against existing shifts (from entriesData)
-        if (existingGroup && existingGroup.shiftsArray) {
-          for (const shift of existingGroup.shiftsArray) {
-            const modData = shift.modalities[modKey];
-            if (modData && modData.row_index !== undefined && modData.row_index >= 0) {
-              if (!(gapEnd <= shift.start_time || gapStart >= shift.end_time)) {
-                overlapFound = true;
-                await callAddGap(gapEndpoint, modKey, modData.row_index, gap.task, gapStart, gapEnd);
-              }
-            }
-          }
-        }
-
-        // C) If no overlap and any skill is not -1, add as standalone row
         const modSkills = skillsByMod[modKey];
+        // Check if any skill is active (not all -1)
         const hasActiveSkill = Object.values(modSkills).some(v => v !== -1);
-        if (!overlapFound && hasActiveSkill) {
-          const response = await fetch(workerEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              modality: modKey,
-              worker_data: {
-                PPL: workerLabel,
-                start_time: gapStart,
-                end_time: gapEnd,
-                Modifier: gap.modifier,
-                counts_for_hours: false, // Gaps usually don't count
-                tasks: gap.task,
-                ...modSkills
-              }
-            })
-          });
+        if (!hasActiveSkill) continue;  // Skip modality if all skills are -1
 
-          if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.error || 'Failed to add gap task');
-          }
+        const response = await fetch(workerEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modality: modKey,
+            worker_data: {
+              PPL: workerLabel,
+              start_time: gapStart,
+              end_time: gapEnd,
+              Modifier: gap.modifier,
+              counts_for_hours: gap.counts_for_hours === true,
+              tasks: gap.task,
+              row_type: 'gap',
+              ...modSkills
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || 'Failed to add gap task');
         }
       }
     }
@@ -3005,28 +2934,6 @@ async function saveAddWorkerModal() {
     await loadData();
   } catch (error) {
     showMessage('error', error.message);
-  }
-}
-
-// Helper wrapper for adding gap
-async function callAddGap(endpoint, modality, rowIndex, type, start, end) {
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      modality: modality,
-      row_index: rowIndex,
-      gap_type: type,
-      gap_start: start,
-      gap_end: end,
-      gap_counts_for_hours: getGapCountsForHours(type)
-    })
-  });
-  if (!response.ok) {
-    const res = await response.json().catch(() => ({}));
-    // Log error but continue? Or throw?
-    console.error('Gap add failed:', res.error);
-    throw new Error(res.error || 'Failed to add overlapping gap');
   }
 }
 
@@ -3050,10 +2957,9 @@ function getGapCountsForHours(taskName) {
  * Falls back to standalone gap entry if no shift exists at that time.
  * @param {string} tab - 'today' or 'tomorrow'
  * @param {number} gIdx - Group index
- * @param {number} shiftIdx - Shift index (unused, for compatibility)
  * @param {number} [durationMinutes] - Duration in minutes (optional, defaults to QUICK_BREAK.duration_minutes)
  */
-async function onQuickGap30(tab, gIdx, shiftIdx, durationMinutes) {
+async function onQuickGap30(tab, gIdx, durationMinutes) {
   if (tab === 'tomorrow') {
     showMessage('error', 'Break NOW actions are disabled in prep mode.');
     return;
@@ -3072,76 +2978,42 @@ async function onQuickGap30(tab, gIdx, shiftIdx, durationMinutes) {
   const gapEnd = addMinutes(gapStart, duration);
   const gapType = QUICK_BREAK.gap_type || 'Break';
 
-  // Find shifts that overlap with the gap time
-  const shifts = group.shiftsArray || [];
-  const overlappingShifts = shifts.filter(s => {
-    const shiftStart = s.start_time || '00:00';
-    const shiftEnd = s.end_time || '23:59';
-    return gapStart < shiftEnd && gapEnd > shiftStart;
-  });
-
   // If not in edit mode, show confirmation popup
   if (!editMode[tab]) {
-    let msg = `Add ${duration}-min break for ${group.worker}?\n\nTime: ${gapStart} - ${gapEnd}`;
-    if (overlappingShifts.length > 0) {
-      msg += `\n\nWill add gap to shift(s).`;
-    } else {
-      msg += `\n\nNo shift at this time - will create gap entry.`;
-    }
+    const msg = `Add ${duration}-min break for ${group.worker}?\n\nTime: ${gapStart} - ${gapEnd}`;
     if (!confirm(msg)) return;
   }
 
   try {
-    if (overlappingShifts.length > 0) {
-      // Use add-gap API to add gap to existing shifts
-      const gapEndpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
+    // Create standalone gap row (gaps are independent rows, not embedded in shifts)
+    const addEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
+    const skills = {};
+    SKILLS.forEach(skill => { skills[skill] = -1; });
 
-      for (const shift of overlappingShifts) {
-        // Get all modalities with valid row_index for this shift
-        const modKeys = MODALITIES.map(m => m.toLowerCase()).filter(modKey => {
-          const modData = shift.modalities[modKey];
-          return modData && modData.row_index !== undefined && modData.row_index >= 0;
-        });
-
-        for (const modKey of modKeys) {
-          const modData = shift.modalities[modKey];
-          await callAddGap(gapEndpoint, modKey, modData.row_index, gapType, gapStart, gapEnd);
+    const response = await fetch(addEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        modality: MODALITIES[0].toLowerCase(),
+        worker_data: {
+          PPL: group.worker,
+          start_time: gapStart,
+          end_time: gapEnd,
+          Modifier: 1.0,
+          counts_for_hours: getGapCountsForHours(gapType),
+          tasks: gapType,
+          row_type: 'gap',
+          ...skills
         }
-      }
+      })
+    });
 
-      showMessage('success', `Added break (${gapStart}-${gapEnd}) for ${group.worker}`);
-    } else {
-      // No overlapping shift - create standalone gap entry
-      const addEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
-      const skills = {};
-      SKILLS.forEach(skill => { skills[skill] = -1; });
-
-      const response = await fetch(addEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          modality: MODALITIES[0].toLowerCase(),
-          worker_data: {
-            PPL: group.worker,
-            start_time: gapStart,
-            end_time: gapEnd,
-            Modifier: 1.0,
-            counts_for_hours: getGapCountsForHours(gapType),
-            tasks: gapType,
-            row_type: 'gap',
-            ...skills
-          }
-        })
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to create gap');
-      }
-
-      showMessage('success', `Added break (${gapStart}-${gapEnd}) for ${group.worker}`);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || 'Failed to create gap');
     }
 
+    showMessage('success', `Added break (${gapStart}-${gapEnd}) for ${group.worker}`);
     await loadData();
   } catch (error) {
     showMessage('error', error.message || 'Failed to add break');
@@ -3226,7 +3098,7 @@ async function confirmBreakDuration() {
   const { tab, groupIdx } = currentEditEntry;
   // Close popup, add gap (which calls loadData internally)
   closeBreakPopup();
-  await onQuickGap30(tab, groupIdx, 0, duration);
+  await onQuickGap30(tab, groupIdx, duration);
   // Re-render modal to show the new gap (data already loaded by onQuickGap30)
   if (entriesData[tab] && entriesData[tab][groupIdx]) {
     currentEditEntry = { tab, groupIdx };

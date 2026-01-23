@@ -193,3 +193,65 @@ def skill_value_to_numeric(value: Any) -> int:
 def is_weighted_skill(value: Any) -> bool:
     """Check whether a skill value represents a weighted/assisted assignment."""
     return isinstance(value, str) and value.strip().lower() == WEIGHTED_SKILL_MARKER
+
+
+# -----------------------------------------------------------
+# Interval Subtraction for Gap Calculations
+# -----------------------------------------------------------
+def subtract_intervals(base: Tuple[Any, Any], gaps: List[Tuple[Any, Any]]) -> List[Tuple[Any, Any]]:
+    """
+    Subtract gap intervals from a base interval.
+
+    Used for calculating effective shift duration after gap overlaps.
+    Works with any comparable types (integers for minutes, datetime objects, etc.)
+
+    Args:
+        base: A tuple (start, end) representing the shift
+        gaps: A list of (start, end) tuples representing gaps
+
+    Returns:
+        A list of remaining intervals after subtracting gaps
+    """
+    remaining = [base]
+    for gap_start, gap_end in gaps:
+        next_remaining = []
+        for start, end in remaining:
+            if gap_end <= start or gap_start >= end:
+                # No overlap
+                next_remaining.append((start, end))
+                continue
+            if gap_start > start:
+                # Keep portion before gap
+                next_remaining.append((start, gap_start))
+            if gap_end < end:
+                # Keep portion after gap
+                next_remaining.append((gap_end, end))
+        remaining = next_remaining
+        if not remaining:
+            break
+    return remaining
+
+
+def merge_intervals(intervals: List[Tuple[Any, Any]]) -> List[Tuple[Any, Any]]:
+    """
+    Merge overlapping intervals into non-overlapping segments.
+
+    Works with any comparable types (integers for minutes, datetime objects, etc.)
+
+    Args:
+        intervals: A list of (start, end) tuples
+
+    Returns:
+        A list of merged non-overlapping intervals, sorted by start time
+    """
+    if not intervals:
+        return []
+    intervals = sorted(intervals, key=lambda x: x[0])
+    merged = [intervals[0]]
+    for start, end in intervals[1:]:
+        last_start, last_end = merged[-1]
+        if start <= last_end:
+            merged[-1] = (last_start, max(last_end, end))
+        else:
+            merged.append((start, end))
+    return merged

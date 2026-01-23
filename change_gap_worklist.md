@@ -103,5 +103,98 @@
 ## Completion criteria
 - No code path writes or reads `gaps` JSON on shift rows.
 - Gap operations are row-based and fully independent.
-- Hour calculations match “gap wins” semantics with multiple overlaps.
+- Hour calculations match "gap wins" semantics with multiple overlaps.
 - UI timeline shows gap overlays without embedding gap data in shift rows.
+
+---
+
+## Additional cleanup notes (2026-01-23)
+
+### Cleanup completed
+
+1. **Removed legacy `is_gap_entry` fallback patterns in `prep_next_day.render.js`**
+   - Lines 300, 536-538: Previously used fallback `isGapTask(shift.task)` when `is_gap_entry` was undefined
+   - Since `is_gap_entry` is now reliably set from `row_type` in `buildEntriesByWorker`, the fallback is unnecessary
+   - Simplified to: `const isGapRow = Boolean(shift.is_gap_entry);`
+
+2. **Removed unused `shiftIdx` parameter from `onQuickGap30` function**
+   - `prep_next_day.actions.js`: Function signature changed from `onQuickGap30(tab, gIdx, shiftIdx, durationMinutes)` to `onQuickGap30(tab, gIdx, durationMinutes)`
+   - Updated callers in `prep_next_day.actions.js` and `prep_next_day.render.js`
+   - Parameter was documented as "unused, for compatibility" and always passed as 0
+
+### Items reviewed and kept
+
+1. **`is_gap_entry` field in view model** — Intentionally kept
+   - Derived from `row_type` in `buildEntriesByWorker` at line 632
+   - Propagated through the shift/entry objects for use in rendering
+   - Serves as a computed boolean property for easier conditionals in UI code
+
+2. **`shift.gaps` array in view model** — Intentionally kept
+   - This is a UI-only view model array for rendering gap overlays visually within shift rows
+   - NOT persisted to database; computed from separate gap rows for display purposes
+   - Used by `timeline.js` and rendering code to show gaps inline with shifts
+
+3. **`isGapTask()` function** — Intentionally kept
+   - Still used in multiple places for config-based gap detection:
+     - Finding gap task names in multi-task entries (line 586)
+     - Filtering non-gap shifts for display logic (lines 938, 941)
+     - Determining gap type when adding/updating entries (lines 1468, 2229)
+   - Reads from `TASK_ROLES` config to identify gap task names
+
+### Architecture notes
+
+- **Data flow**: Backend uses `row_type` column → Frontend derives `is_gap_entry` in `buildEntriesByWorker` → Render code uses `is_gap_entry` boolean
+- **Gap visualization**: Separate gap rows are collected in `allGaps`, then clipped into shift time ranges for the `shift.gaps` view model used by timeline rendering
+- **No redundancy**: The `is_gap_entry` boolean and `shift.gaps` array serve distinct purposes (row identification vs. visual overlay)
+
+---
+
+## Additional cleanup notes (2026-01-23, continued)
+
+### Aligned gap handling to new standalone row model
+
+3. **Simplified `onQuickGap30` (quick break NOW feature)**
+   - Removed legacy "overlapping shifts" detection logic
+   - Previously: looped through overlapping shifts/modalities and called `callAddGap` for each (could create duplicates)
+   - Now: always creates a single standalone gap row via `/api/*/add-worker` with `row_type: 'gap'`
+   - Confirmation message simplified (no longer mentions "add to shifts" vs "create gap entry")
+
+4. **Simplified add-worker modal gap handling (`addShiftFromModal`)**
+   - Removed legacy overlap checking that called add-gap API for each overlapping shift
+   - Now: always creates standalone gap rows with `row_type: 'gap'`
+   - Fixed missing `row_type: 'gap'` that was previously unset in some code paths
+
+5. **Simplified add-worker modal batch processing (`executeAddWorkerModal`)**
+   - Removed overlap detection loop for gap tasks
+   - Gap tasks now always create standalone rows with `row_type: 'gap'`
+   - Removed unused `gapEndpoint` variable
+
+6. **Removed unused `callAddGap` helper function**
+   - Was a wrapper for the add-gap API endpoint
+   - No longer needed since all gap creation now uses add-worker endpoint with `row_type: 'gap'`
+
+7. **Consolidated `_subtract_intervals` function**
+   - Previously duplicated in `schedule_crud.py` and `csv_parser.py`
+   - Moved to `lib/utils.py` as `subtract_intervals()` with generic type hints
+   - Works with both integer (minutes) and datetime intervals
+   - Both modules now import from shared location
+
+8. **Consolidated `_merge_intervals` function**
+   - Previously duplicated in `schedule_crud.py` and `csv_parser.py`
+   - Moved to `lib/utils.py` as `merge_intervals()` with generic type hints
+   - Used to merge overlapping gap intervals before subtraction
+   - Both modules now import from shared location
+
+### Shared utility functions (lib/utils.py)
+
+The following gap-related functions are now centralized:
+- `subtract_intervals(base, gaps)` - Remove gap time from shift intervals
+- `merge_intervals(intervals)` - Merge overlapping intervals into non-overlapping segments
+
+### API endpoint status
+
+The add-gap/remove-gap/update-gap endpoints are still used for:
+- **remove-gap**: Deleting gap rows from the edit modal
+- **update-gap**: Editing gap times/properties from the edit modal
+
+The add-gap endpoint is no longer needed for creating gaps (use add-worker with `row_type: 'gap'` instead) but remains for backward compatibility.
