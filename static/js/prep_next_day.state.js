@@ -13,6 +13,7 @@ let tableFilters = { today: { modality: '', skill: '', hideZero: true }, tomorro
 let displayOrder = 'modality-first';  // 'modality-first' or 'skill-first'
 let sortState = { today: { column: 'worker', direction: 'asc' }, tomorrow: { column: 'worker', direction: 'asc' } };
 let modalMode = 'edit';
+let lastAddedShiftMeta = null;
 const GERMAN_WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 let prepTargetDate = CONFIG.prep_target_date || null;
 let prepTargetWeekday = CONFIG.prep_target_weekday_name || null;
@@ -114,6 +115,11 @@ function getModalShifts(group) {
     return editPlanDraft.shifts || [];
   }
   return group.modalShiftsArray || group.shiftsArray || [];
+}
+
+function getTableShifts(group) {
+  if (!group) return [];
+  return group.tableShiftsArray || group.modalShiftsArray || group.shiftsArray || [];
 }
 
 function setEditPlanDraftFromGroup(group, options = {}) {
