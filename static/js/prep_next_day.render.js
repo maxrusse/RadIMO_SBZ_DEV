@@ -861,7 +861,7 @@ function convertToTimelineData(tab) {
   const timelineEntries = [];
 
   groups.forEach(group => {
-    const worker = group.worker;
+    const worker = (group.worker || '').trim();
     const shifts = (group.shiftsArray || []).filter(shift => !shift.deleted);
     const workerGaps = group.allGaps || [];
 
@@ -886,32 +886,44 @@ function convertToTimelineData(tab) {
     };
 
     shifts.forEach(shift => {
-      const gapOverlays = clipGapsToShift(shift.start_time, shift.end_time);
-      // For each modality in the shift, create an entry
-      Object.entries(shift.modalities || {}).forEach(([modKey, modData]) => {
-        // Only include if row_index >= 0 (actually assigned)
-        if (modData.row_index === undefined || modData.row_index < 0) return;
+      const isGapRow = Boolean(shift.is_gap_entry);
+      const gapOverlays = isGapRow
+        ? [{ start: shift.start_time, end: shift.end_time, activity: shift.task }]
+        : clipGapsToShift(shift.start_time, shift.end_time);
+      const assignedModalities = Object.entries(shift.modalities || {})
+        .filter(([_, modData]) => modData.row_index !== undefined && modData.row_index >= 0);
+      const modalityList = assignedModalities.map(([modKey]) => modKey);
 
-        const entry = {
-          PPL: worker,
-          worker: worker,
-          start_time: shift.start_time,
-          end_time: shift.end_time,
-          TIME: `${shift.start_time}-${shift.end_time}`,
-          _modality: modKey,
-          modality: modKey,
-          gaps: gapOverlays,
-          tasks: shift.task ? [shift.task] : []
-        };
+      const entry = {
+        PPL: worker,
+        worker: worker,
+        start_time: shift.start_time,
+        end_time: shift.end_time,
+        TIME: `${shift.start_time}-${shift.end_time}`,
+        modalities: modalityList,
+        gaps: gapOverlays,
+        tasks: shift.task ? [shift.task] : []
+      };
 
-        // Add skill values
-        SKILLS.forEach(skill => {
-          const val = modData.skills?.[skill];
-          entry[skill] = val !== undefined ? val : 0;
-        });
-
-        timelineEntries.push(entry);
+      SKILLS.forEach(skill => {
+        let isActive = false;
+        if (!isGapRow) {
+          assignedModalities.forEach(([_, modData]) => {
+            const val = modData.skills?.[skill];
+            if (val === 'w' || val === 'W') {
+              isActive = true;
+              return;
+            }
+            const numVal = Number(val);
+            if (!Number.isNaN(numVal) && numVal >= 1) {
+              isActive = true;
+            }
+          });
+        }
+        entry[skill] = isActive ? 1 : 0;
       });
+
+      timelineEntries.push(entry);
     });
   });
 
