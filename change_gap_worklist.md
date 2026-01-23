@@ -1,9 +1,9 @@
 # Change plan: Separate gaps from shifts (gap wins) — detailed worklist
 
 ## Status: FAILED (needs redesign)
-- Inline gap edits leave stale/duplicated gap overlays in merged shift views.
+- Gap edits leave stale/duplicated gaps in merged shift views, timetalbe and logic.
 - Shifts that should continue after a gap can be truncated or merged incorrectly.
-- CSV import produces cleaner plans, but edit-driven mutations drift from that path.
+- CSV import produces probably a cleaner plans, but edit-driven mutations drift from that path.
 - The current plan is too fuzzy around “modalities” and mixed view-model merges; it needs a clean, consistent data model and rebuild pipeline.
 
 ## Failure analysis (why the current implementation diverges)
@@ -26,7 +26,7 @@
 - **Two sources of truth**: CSV import uses a clean row-based pipeline; UI edits mutate
   a merged view-model and then treat that merged output as input.
 - **Modalities are over-applied**: we store per-modality rows but then re-merge into
-  a worker-level “shift” for display and re-edit, which causes drift.
+  a worker-level “shift” for display and re-edit, which causes drift. There should be no modalities anymore needed.
 - **Gap clipping happens twice**: once for UI display and again when edits are saved,
   creating “ghost gaps” and broken shift continuation.
 
