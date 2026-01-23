@@ -87,14 +87,20 @@ function sortEntries(tab, column) {
         aVal = a.worker || '';
         bVal = b.worker || '';
         break;
-      case 'shift':
-        aVal = a.shiftsArray[0]?.start_time || '';
-        bVal = b.shiftsArray[0]?.start_time || '';
+      case 'shift': {
+        const aShifts = getTableShifts(a);
+        const bShifts = getTableShifts(b);
+        aVal = aShifts[0]?.start_time || '';
+        bVal = bShifts[0]?.start_time || '';
         break;
-      case 'task':
-        aVal = a.shiftsArray[0]?.task || '';
-        bVal = b.shiftsArray[0]?.task || '';
+      }
+      case 'task': {
+        const aShifts = getTableShifts(a);
+        const bShifts = getTableShifts(b);
+        aVal = aShifts[0]?.task || '';
+        bVal = bShifts[0]?.task || '';
         break;
+      }
       default:
         aVal = a.worker || '';
         bVal = b.worker || '';
@@ -183,7 +189,7 @@ function renderSummary(tab, groups) {
   });
 
   groups.forEach(group => {
-    const shifts = group.shiftsArray || [];
+    const shifts = getTableShifts(group);
     SKILLS.forEach(skill => {
       MODALITIES.forEach(mod => {
         const modKey = mod.toLowerCase();
@@ -267,7 +273,7 @@ function renderTable(tab) {
   }
 
   groups.forEach((group, gIdx) => {
-    const shifts = (group.shiftsArray || []).filter(shift => !shift.deleted);
+    const shifts = getTableShifts(group).filter(shift => !shift.deleted);
     if (shifts.length === 0) return;
 
     const shiftsToRender = filterActive ? shifts.filter(shift => shiftMatchesFilters(shift, filter)) : shifts;

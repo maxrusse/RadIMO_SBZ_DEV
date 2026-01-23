@@ -319,7 +319,7 @@ async function saveInlineChanges(tab) {
       } else if (change.isNew) {
         // New modality addition - need to add via add-worker endpoint
         const group = entriesData[tab][change.groupIdx];
-        const shift = group?.shiftsArray?.[change.shiftIdx];
+        const shift = group ? getTableShifts(group)[change.shiftIdx] : null;
         if (!group || !shift) continue;
 
         // Only add if any skill is set to 0/1/w (skip pure -1 placeholders)
@@ -691,7 +691,8 @@ function buildEntriesByWorker(data, tab = 'today') {
 
       // Group by time slot (shift key = start_time-end_time)
       const shiftKey = `${entry.start_time}-${entry.end_time}`;
-      const modalShiftKey = `${entry.start_time}-${entry.end_time}-${entry.is_gap_entry ? 'gap' : 'shift'}`;
+      const taskKey = (entry.task || '').trim();
+      const modalShiftKey = `${entry.start_time}-${entry.end_time}-${entry.is_gap_entry ? 'gap' : 'shift'}-${taskKey}`;
       if (!grouped[workerName].shifts[shiftKey]) {
         grouped[workerName].shifts[shiftKey] = {
           start_time: entry.start_time,
@@ -790,9 +791,18 @@ function buildEntriesByWorker(data, tab = 'today') {
       .map(([key, shift]) => ({ ...shift, shiftKey: key }))
       .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
 
-    const modalShiftsArr = Object.entries(group.modalShifts || {})
+    let modalShiftsArr = Object.entries(group.modalShifts || {})
       .map(([key, shift]) => ({ ...shift, shiftKey: key }))
       .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+
+    if (lastAddedShiftMeta && lastAddedShiftMeta.worker === group.worker) {
+      const matchIdx = modalShiftsArr.findIndex(shift => shift.shiftKey === lastAddedShiftMeta.shiftKey);
+      if (matchIdx >= 0) {
+        const [match] = modalShiftsArr.splice(matchIdx, 1);
+        modalShiftsArr.push(match);
+        lastAddedShiftMeta = null;
+      }
+    }
 
     group.modalShiftsArray = modalShiftsArr.map(shift => {
       const segments = (shift.timeSegments || []).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
@@ -851,6 +861,8 @@ function buildEntriesByWorker(data, tab = 'today') {
         timeSegments: segments
       };
     });
+
+    group.tableShiftsArray = group.modalShiftsArray || group.shiftsArray;
   });
 
   // Sort workers (default by name)
@@ -863,7 +875,7 @@ function buildEntriesByWorker(data, tab = 'today') {
 function onInlineTimeChange(tab, groupIdx, shiftIdx, field, value) {
   const group = entriesData[tab][groupIdx];
   if (!group) return;
-  const shift = group.shiftsArray?.[shiftIdx];
+  const shift = getTableShifts(group)[shiftIdx];
   if (!shift) return;
 
   if (field === 'start') {
@@ -888,7 +900,7 @@ function onInlineTimeChange(tab, groupIdx, shiftIdx, field, value) {
 function onInlineShiftModifierChange(tab, groupIdx, shiftIdx, value) {
   const group = entriesData[tab][groupIdx];
   if (!group) return;
-  const shift = group.shiftsArray?.[shiftIdx];
+  const shift = getTableShifts(group)[shiftIdx];
   if (!shift) return;
 
   const parsed = parseFloat(value);
@@ -1345,7 +1357,7 @@ async function deleteShiftInline(tab, groupIdx, shiftIdx) {
   const group = entriesData[tab]?.[groupIdx];
   if (!group) return;
 
-  const shifts = group.shiftsArray || [];
+  const shifts = getTableShifts(group);
   const shift = shifts[shiftIdx];
   if (!shift) return;
 
@@ -1577,6 +1589,8 @@ async function addShiftFromModal() {
   const countsHoursEl = document.getElementById('modal-add-counts-hours');
   const countsForHours = countsHoursEl ? countsHoursEl.checked : true;
   const isGap = isGapTask(taskName);
+  const taskKey = (taskName || '').trim();
+  const addedShiftKey = `${startTime}-${endTime}-${isGap ? 'gap' : 'shift'}-${taskKey}`;
 
   const workerEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
 
@@ -1613,6 +1627,7 @@ async function addShiftFromModal() {
     }
     showMessage('success', `Added new ${isGap ? 'gap' : 'shift'} for ${group.worker}`);
 
+    lastAddedShiftMeta = { worker: group.worker, shiftKey: addedShiftKey };
     await loadData();
     // Re-render modal to show updated shifts instead of closing
     renderEditModalContent();
