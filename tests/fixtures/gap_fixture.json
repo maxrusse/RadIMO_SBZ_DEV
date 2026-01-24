@@ -1,0 +1,33 @@
+{
+  "date": "2026-01-23",
+  "rows": [
+    {
+      "PPL": "Fixture Worker",
+      "row_type": "shift",
+      "start_time": "08:00",
+      "end_time": "12:00",
+      "tasks": "CT"
+    },
+    {
+      "PPL": "Fixture Worker",
+      "row_type": "gap",
+      "start_time": "09:30",
+      "end_time": "10:00",
+      "tasks": "Break"
+    },
+    {
+      "PPL": "Fixture Worker",
+      "row_type": "shift",
+      "start_time": "13:00",
+      "end_time": "15:00",
+      "tasks": "XR"
+    },
+    {
+      "PPL": "Fixture Worker",
+      "row_type": "gap",
+      "start_time": "15:30",
+      "end_time": "16:00",
+      "tasks": "Meeting"
+    }
+  ]
+}

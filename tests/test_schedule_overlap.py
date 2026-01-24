@@ -4,12 +4,36 @@ from datetime import time, date
 import pandas as pd
 
 from data_manager.schedule_crud import (
+    build_day_plan_rows,
     resolve_overlapping_shifts,
     _recalculate_worker_shift_durations,
 )
 
 
 class TestScheduleOverlap(unittest.TestCase):
+    def test_build_day_plan_rows_drops_invalid_times(self) -> None:
+        target_date = date(2026, 1, 23)
+        rows = [
+            {
+                "PPL": "Dana",
+                "row_type": "shift",
+                "start_time": time(8, 0),
+                "end_time": time(12, 0),
+            },
+            {
+                "PPL": "Dana",
+                "row_type": "shift",
+                "start_time": time(9, 0),
+                "end_time": None,
+            },
+        ]
+
+        built = build_day_plan_rows(rows, target_date)
+
+        self.assertEqual(len(built), 1)
+        self.assertEqual(built[0]["start_time"], time(8, 0))
+        self.assertEqual(built[0]["end_time"], time(12, 0))
+
     def test_resolve_overlapping_shifts_crops_earlier(self) -> None:
         target_date = date(2026, 1, 23)
         shifts = [
@@ -29,7 +53,7 @@ class TestScheduleOverlap(unittest.TestCase):
         self.assertEqual(second["end_time"], time(14, 0))
         self.assertAlmostEqual(second["shift_duration"], 4.0)
 
-    def test_recalculate_worker_shift_durations_applies_gaps(self) -> None:
+    def test_recalculate_worker_shift_durations_ignores_gaps(self) -> None:
         df = pd.DataFrame(
             [
                 {
@@ -70,12 +94,12 @@ class TestScheduleOverlap(unittest.TestCase):
         _recalculate_worker_shift_durations(df, "Bob")
 
         first_shift = df.iloc[0]
-        self.assertAlmostEqual(first_shift["shift_duration"], 2.0)
+        self.assertAlmostEqual(first_shift["shift_duration"], 4.0)
 
         second_shift = df.iloc[1]
-        self.assertAlmostEqual(second_shift["shift_duration"], 0.5)
+        self.assertAlmostEqual(second_shift["shift_duration"], 1.0)
 
-    def test_recalculate_worker_shift_durations_zeroes_full_gaps(self) -> None:
+    def test_recalculate_worker_shift_durations_keeps_shift_when_gap_full(self) -> None:
         df = pd.DataFrame(
             [
                 {
@@ -100,8 +124,8 @@ class TestScheduleOverlap(unittest.TestCase):
         _recalculate_worker_shift_durations(df, "Cara")
 
         shift_row = df.iloc[0]
-        self.assertEqual(shift_row["shift_duration"], 0.0)
-        self.assertFalse(shift_row["counts_for_hours"])
+        self.assertEqual(shift_row["shift_duration"], 1.0)
+        self.assertTrue(shift_row["counts_for_hours"])
 
 
 if __name__ == "__main__":

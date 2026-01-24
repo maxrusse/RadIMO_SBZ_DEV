@@ -27,9 +27,6 @@ let addWorkerModalState = {
   containerId: 'modal-content'
 };
 
-// Track gap being edited (for Overwrite functionality)
-// When set, shows "Overwrite" button instead of just "Add"
-let editingGapInfo = null;  // { shiftIdx, gapIdx, originalGap }
 
 /**
  * Parse worker input like "Dr. Name (ID)" or just "ID".
@@ -159,25 +156,6 @@ function updateEditPlanDraftShiftSkills(shiftIdx, skillUpdatesByMod) {
       shift.modalities[modKey].skills[skill] = value;
     });
   });
-}
-
-function updateEditPlanDraftGap(shiftIdx, gapIdx, updates) {
-  if (!editPlanDraft || !editPlanDraft.shifts) return;
-  const shift = editPlanDraft.shifts[shiftIdx];
-  if (!shift) return;
-  const gaps = shift.gaps || [];
-  const gap = gaps[gapIdx];
-  if (!gap) return;
-  if (updates.new_start !== undefined) gap.start = updates.new_start;
-  if (updates.new_end !== undefined) gap.end = updates.new_end;
-  if (updates.new_counts_for_hours !== undefined) gap.counts_for_hours = updates.new_counts_for_hours;
-}
-
-function removeEditPlanDraftGap(shiftIdx, gapIdx) {
-  if (!editPlanDraft || !editPlanDraft.shifts) return;
-  const shift = editPlanDraft.shifts[shiftIdx];
-  if (!shift || !shift.gaps) return;
-  shift.gaps.splice(gapIdx, 1);
 }
 
 function displaySkillValue(value) {

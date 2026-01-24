@@ -102,11 +102,18 @@ def _modality_has_active_skills(mod_data: dict) -> bool:
 
 
 def _build_rows_from_plan(worker: str, shifts: list, modality: str) -> list:
+    def _strip_builder_fields(row: dict) -> dict:
+        cleaned = dict(row)
+        for key in ('shift_duration', 'TIME', 'row_index', 'is_manual'):
+            cleaned.pop(key, None)
+        return cleaned
+
     rows = []
     for shift in shifts:
         raw_rows = shift.get('originalShifts')
         if raw_rows:
             for raw in raw_rows:
+                raw = _strip_builder_fields(raw)
                 mod_key = (raw.get('modality') or '').lower()
                 if mod_key and mod_key != modality:
                     continue
@@ -116,12 +123,16 @@ def _build_rows_from_plan(worker: str, shifts: list, modality: str) -> list:
                 if mod_data and not _modality_has_active_skills(mod_data):
                     continue
 
-                is_gap_entry = bool(shift.get('is_gap_entry') or shift.get('row_type') == 'gap' or raw.get('is_gap_entry'))
+                is_gap_entry = bool(
+                    shift.get('is_gap_entry')
+                    or str(shift.get('row_type', '')).lower() in {'gap', 'gap_segment'}
+                    or raw.get('is_gap_entry')
+                )
                 skills = mod_data.get('skills', {}) or raw.get('skills', {}) or {}
                 if is_gap_entry:
                     skills = {skill: -1 for skill in SKILL_COLUMNS}
 
-                rows.append({
+                rows.append(_strip_builder_fields({
                     'PPL': worker,
                     'start_time': raw.get('start_time') or shift.get('start_time'),
                     'end_time': raw.get('end_time') or shift.get('end_time'),
@@ -130,23 +141,24 @@ def _build_rows_from_plan(worker: str, shifts: list, modality: str) -> list:
                     'tasks': raw.get('task', shift.get('task', '')),
                     'row_type': 'gap' if is_gap_entry else 'shift',
                     **{skill: skills.get(skill) for skill in SKILL_COLUMNS if skill in skills},
-                })
+                }))
             continue
 
         row_type = shift.get('row_type', 'shift')
-        if row_type == 'gap' and shift.get('counts_for_hours') is None:
+        is_gap_row = str(row_type).lower() in {'gap', 'gap_segment'}
+        if is_gap_row and shift.get('counts_for_hours') is None:
             shift['counts_for_hours'] = False
         skills = shift.get('skills') or {}
-        rows.append({
+        rows.append(_strip_builder_fields({
             'PPL': worker,
             'start_time': shift.get('start_time'),
             'end_time': shift.get('end_time'),
             'Modifier': shift.get('Modifier', shift.get('modifier', 1.0)),
-            'counts_for_hours': shift.get('counts_for_hours', row_type != 'gap'),
+            'counts_for_hours': shift.get('counts_for_hours', not is_gap_row),
             'tasks': shift.get('tasks', shift.get('task', '')),
-            'row_type': row_type,
+            'row_type': 'gap' if is_gap_row else row_type,
             **{skill: skills.get(skill) for skill in SKILL_COLUMNS if skill in skills},
-        })
+        }))
     return rows
 
 

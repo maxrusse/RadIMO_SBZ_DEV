@@ -112,7 +112,8 @@ def _calculate_total_work_hours(df: pd.DataFrame) -> dict[str, float]:
         return {}
 
     if 'row_type' in df.columns:
-        df = df[df['row_type'].fillna('shift') != 'gap']
+        gap_mask = df['row_type'].fillna('shift_segment').astype(str).str.lower().isin({'gap', 'gap_segment'})
+        df = df[~gap_mask]
         if df.empty:
             return {}
 
@@ -148,8 +149,9 @@ def _load_dataframe_from_backup_payload(data: dict) -> pd.DataFrame:
         df['counts_for_hours'] = True
 
     if 'row_type' not in df.columns:
-        df['row_type'] = 'shift'
-    df.loc[df['row_type'] == 'gap', 'shift_duration'] = 0.0
+        df['row_type'] = 'shift_segment'
+    gap_mask = df['row_type'].fillna('shift_segment').astype(str).str.lower().isin({'gap', 'gap_segment'})
+    df.loc[gap_mask, 'shift_duration'] = 0.0
 
     return df
 
@@ -193,8 +195,9 @@ def _build_dataframe_from_records(records: list[dict], modality: str, *, validat
     )
 
     if 'row_type' not in df.columns:
-        df['row_type'] = 'shift'
-    df.loc[df['row_type'] == 'gap', 'shift_duration'] = 0.0
+        df['row_type'] = 'shift_segment'
+    gap_mask = df['row_type'].fillna('shift_segment').astype(str).str.lower().isin({'gap', 'gap_segment'})
+    df.loc[gap_mask, 'shift_duration'] = 0.0
 
     col_order = ['PPL', 'row_type', 'Modifier', 'TIME', 'start_time', 'end_time', 'shift_duration', 'tasks', 'counts_for_hours', 'is_manual']
     skill_cols = [skill for skill in SKILL_COLUMNS if skill in df.columns]

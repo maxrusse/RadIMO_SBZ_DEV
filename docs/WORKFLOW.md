@@ -49,8 +49,8 @@ Admins can adjust "Today" (Live) or plan "Tomorrow" (Staged) via separate pages.
 
 **Features:**
 - **Manual highlighting**: Any shifts added or edited manually by an admin are highlighted (subtle yellow) to distinguish them from auto-loaded Master CSV data.
-- **Gaps as independent rows**: Gaps (meetings, breaks, boards) are stored as separate rows with `row_type='gap'`. Gaps always win over shifts - shift effective duration is calculated by subtracting overlapping gap intervals from shift intervals.
-- **Effective duration**: Shift duration is automatically calculated as total shift time minus overlapping gap time windows.
+- **Gaps as segments**: Gaps (meetings, breaks, boards) are stored as `gap_segment` rows, and shifts are split into `shift_segment` availability windows. Gaps always win over shifts, so availability comes only from `shift_segment` rows.
+- **Effective duration**: Each shift segment includes its own duration, and gap segments never contribute to availability or hours.
 
 ---
 

@@ -38,7 +38,7 @@ class TestGapCrud(unittest.TestCase):
             self.assertTrue(success, msg=error)
 
             df = schedule_crud.modality_data[self.modality]["working_hours_df"]
-            gap_rows = df[df["row_type"] == "gap"]
+            gap_rows = df[df["row_type"] == "gap_segment"]
             self.assertEqual(len(gap_rows), 1)
             gap_row = gap_rows.iloc[0]
             self.assertEqual(gap_row["tasks"], "Break")
@@ -59,7 +59,7 @@ class TestGapCrud(unittest.TestCase):
             self.assertTrue(success, msg=error)
 
             df = schedule_crud.modality_data[self.modality]["working_hours_df"]
-            gap_row = df[df["row_type"] == "gap"].iloc[0]
+            gap_row = df[df["row_type"] == "gap_segment"].iloc[0]
             self.assertEqual(gap_row["start_time"], time(9, 30))
             self.assertEqual(gap_row["end_time"], time(10, 30))
             self.assertEqual(gap_row["tasks"], "Updated Break")
@@ -74,7 +74,7 @@ class TestGapCrud(unittest.TestCase):
             self.assertTrue(success, msg=error)
 
             df = schedule_crud.modality_data[self.modality]["working_hours_df"]
-            self.assertTrue(df[df["row_type"] == "gap"].empty)
+            self.assertTrue(df[df["row_type"] == "gap_segment"].empty)
             backup_mock.assert_called()
 
     def test_update_row_to_gap_enforces_defaults(self) -> None:
@@ -89,7 +89,7 @@ class TestGapCrud(unittest.TestCase):
 
             df = schedule_crud.modality_data[self.modality]["working_hours_df"]
             row = df.iloc[0]
-            self.assertEqual(row["row_type"], "gap")
+            self.assertEqual(row["row_type"], "gap_segment")
             self.assertEqual(row["shift_duration"], 0.0)
             for skill in SKILL_COLUMNS:
                 self.assertEqual(row[skill], -1)

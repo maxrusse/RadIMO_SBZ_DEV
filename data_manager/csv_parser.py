@@ -3,9 +3,9 @@ CSV parser module for medweb CSV transformation.
 
 This module handles:
 - Medweb CSV parsing and conversion to modality-specific DataFrames
-- Multi-pass algorithm: collect shifts, create unavailable entries, add gap rows, resolve overlaps
+- Multi-pass algorithm: collect shifts, create unavailable entries, add gap intent rows, resolve overlaps
 - Skill overrides and time range computation
-- Gap handling (standalone and embedded) as independent rows
+- Gap handling (standalone and embedded) as independent intent rows (canonicalized to gap segments)
 """
 from datetime import datetime, time, date
 from typing import Dict, List, Optional, Tuple, Any, Iterable
@@ -452,9 +452,11 @@ def build_working_hours_from_medweb(
                 f"{gap_start.strftime(TIME_FORMAT)}-{gap_end.strftime(TIME_FORMAT)} ({activity})"
             )
 
-    # THIRD PASS: Add gap rows for workers with shifts
+    # THIRD PASS: Add gap intent rows for workers with shifts
     if exclusions_per_worker:
-        selection_logger.info(f"Adding gap rows for {len(exclusions_per_worker)} workers on {weekday_name}")
+        selection_logger.info(
+            f"Adding gap intent rows for {len(exclusions_per_worker)} workers on {weekday_name}"
+        )
         for worker_id, exclusions in exclusions_per_worker.items():
             if worker_id not in workers_with_shifts:
                 continue
@@ -483,8 +485,14 @@ def build_working_hours_from_medweb(
     # FOURTH PASS: Build canonical day plan per modality
     for modality in rows_per_modality:
         if rows_per_modality[modality]:
+            intent_rows = []
+            for row in rows_per_modality[modality]:
+                cleaned = dict(row)
+                cleaned.pop('shift_duration', None)
+                cleaned.pop('TIME', None)
+                intent_rows.append(cleaned)
             rows_per_modality[modality] = build_day_plan_rows(
-                rows_per_modality[modality],
+                intent_rows,
                 target_date_obj,
             )
 

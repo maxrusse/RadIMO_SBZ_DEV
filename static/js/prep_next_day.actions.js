@@ -522,40 +522,10 @@ async function loadData() {
 }
 
 // Build grouped entries list: worker -> shifts (time-based) -> modality×skills matrix
-// Merges shifts with explicit gaps for display
 function buildEntriesByWorker(data, tab = 'today') {
   const counts = {};
   const grouped = {};
   const targetDay = getTargetWeekdayName(tab);
-
-  function mergeUniqueGaps(list) {
-    const merged = new Map();
-    list.filter(Boolean).forEach(gap => {
-      // Use original times for deduplication key (handles clipped gaps correctly)
-      const keyStart = gap.originalStart || gap.start || '';
-      const keyEnd = gap.originalEnd || gap.end || '';
-      const key = `${keyStart}-${keyEnd}`;
-      const existing = merged.get(key);
-      if (!existing) {
-        merged.set(key, gap);
-        return;
-      }
-      // Prefer gap with activity over one without
-      const existingActivity = existing.activity || '';
-      const nextActivity = gap.activity || '';
-      if (!existingActivity && nextActivity) {
-        merged.set(key, gap);
-        return;
-      }
-      // Prefer gap that doesn't count for hours (more restrictive)
-      const existingCounts = existing.counts_for_hours === true;
-      const nextCounts = gap.counts_for_hours === true;
-      if (existingCounts && !nextCounts) {
-        merged.set(key, gap);
-      }
-    });
-    return Array.from(merged.values());
-  }
 
   // First pass: collect all entries
   MODALITIES.forEach(mod => {
@@ -578,7 +548,8 @@ function buildEntriesByWorker(data, tab = 'today') {
       }
 
       const rowType = row.row_type || 'shift';
-      const isGapRow = rowType === 'gap';
+      const normalizedRowType = rowType.toString().toLowerCase();
+      const isGapRow = normalizedRowType === 'gap' || normalizedRowType === 'gap_segment';
 
       // Pull default times from configured shifts/roles when missing
       let roleConfig = TASK_ROLES.find(t => t.name === taskStr);
@@ -630,7 +601,6 @@ function buildEntriesByWorker(data, tab = 'today') {
         counts_for_hours: countsForHours !== false,  // Default true
         is_manual: Boolean(row.is_manual),
         is_gap_entry: isGapRow,
-        gaps: [],
         skills: SKILLS.reduce((acc, skill) => {
           const rawVal = row[skill];
           const hasRaw = rawVal !== undefined && rawVal !== '';
@@ -687,7 +657,7 @@ function buildEntriesByWorker(data, tab = 'today') {
         activity: taskStr,
         counts_for_hours: countsForHours === true
       }] : [];
-      grouped[workerName].allGaps = mergeUniqueGaps([...(grouped[workerName].allGaps || []), ...gapCandidates]);
+      grouped[workerName].allGaps = [...(grouped[workerName].allGaps || []), ...gapCandidates];
 
       const taskKey = (entry.task || '').trim();
       // Group by time slot (shift key = start_time-end_time)
@@ -702,12 +672,11 @@ function buildEntriesByWorker(data, tab = 'today') {
           modifier: entry.modifier,
           counts_for_hours: entry.counts_for_hours,
           task: entry.task,
-          gaps: [],
-          modalities: {},
-          timeSegments: [{ start: entry.start_time, end: entry.end_time }],
-          originalShifts: [entry],
-          is_manual: entry.is_manual,
-          is_gap_entry: entry.is_gap_entry
+        modalities: {},
+        timeSegments: [{ start: entry.start_time, end: entry.end_time }],
+        originalShifts: [entry],
+        is_manual: entry.is_manual,
+        is_gap_entry: entry.is_gap_entry
         };
       }
       if (!grouped[workerName].modalShifts[modalShiftKey]) {
@@ -717,12 +686,11 @@ function buildEntriesByWorker(data, tab = 'today') {
           modifier: entry.modifier,
           counts_for_hours: entry.counts_for_hours,
           task: entry.task,
-          gaps: [],
-          modalities: {},
-          timeSegments: [{ start: entry.start_time, end: entry.end_time }],
-          originalShifts: [entry],
-          is_manual: entry.is_manual,
-          is_gap_entry: entry.is_gap_entry
+        modalities: {},
+        timeSegments: [{ start: entry.start_time, end: entry.end_time }],
+        originalShifts: [entry],
+        is_manual: entry.is_manual,
+        is_gap_entry: entry.is_gap_entry
         };
       }
 
@@ -756,9 +724,7 @@ function buildEntriesByWorker(data, tab = 'today') {
       } else if (entry.task && !existingModalTask) {
         grouped[workerName].modalShifts[modalShiftKey].task = entry.task;
       }
-      // Merge gaps from all modality entries for the same shift
-      // Use mergeUniqueGaps to deduplicate based on start-end time
-      // No embedded gaps on shift rows; gaps are tracked separately via gap rows.
+      // Gaps are tracked separately via explicit gap segment rows.
     });
   });
 
@@ -815,7 +781,6 @@ function buildEntriesByWorker(data, tab = 'today') {
         ...shift,
         start_time: firstStart,
         end_time: lastEnd,
-        gaps: shift.gaps || [],
         timeSegments: segments
       };
     });
@@ -830,7 +795,6 @@ function buildEntriesByWorker(data, tab = 'today') {
           ...shift,
           timeSegments: [{ start: shift.start_time, end: shift.end_time }],
           originalShifts: [shift],
-          gaps: mergeUniqueGaps(shift.gaps || []),
           is_manual: shift.is_manual,
           is_gap_entry: shift.is_gap_entry
         };
@@ -841,7 +805,6 @@ function buildEntriesByWorker(data, tab = 'today') {
           ...shift,
           timeSegments: [{ start: shift.start_time, end: shift.end_time }],
           originalShifts: [shift],
-          gaps: mergeUniqueGaps(shift.gaps || []),
           is_manual: shift.is_manual,
           is_gap_entry: shift.is_gap_entry
         };
@@ -849,7 +812,7 @@ function buildEntriesByWorker(data, tab = 'today') {
     });
     if (currentMerged) mergedShifts.push(currentMerged);
 
-    // Attach shift timing without embedding gaps (gap rows are separate).
+    // Attach shift timing without embedding gaps (gap segments are separate).
     group.shiftsArray = mergedShifts.map(shift => {
       const segments = (shift.timeSegments || []).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
       const firstStart = segments[0]?.start || shift.start_time;
@@ -859,7 +822,6 @@ function buildEntriesByWorker(data, tab = 'today') {
         ...shift,
         start_time: firstStart,
         end_time: lastEnd,
-        gaps: shift.gaps || [],
         timeSegments: segments
       };
     });
@@ -976,7 +938,6 @@ function openEditModal(tab, groupIdx) {
   if (!group) return;
 
   currentEditEntry = { tab, groupIdx };
-  editingGapInfo = null;  // Clear any gap editing state from previous modal
   setEditPlanDraftFromGroup(group, { force: true });
   setModalMode('edit-plan');
   renderEditModalContent();
@@ -1602,37 +1563,73 @@ async function addShiftFromModal() {
   const taskKey = (taskName || '').trim();
   const addedShiftKey = `${startTime}-${endTime}-${isGap ? 'gap' : 'shift'}-${taskKey}`;
 
-  const workerEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
+  const addWorkerEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
+  const addGapEndpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
 
   try {
-    // Create standalone row (gaps are independent rows with row_type='gap')
-    for (const modKey of selectedModalities) {
-      const skills = {};
-      SKILLS.forEach(skill => {
-        const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
-        skills[skill] = normalizeSkillValueJS(el ? el.value : 0);
-      });
-      const response = await fetch(workerEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          modality: modKey,
-          worker_data: {
-            PPL: group.worker,
-            start_time: startTime,
-            end_time: endTime,
-            Modifier: modifier,
-            counts_for_hours: countsForHours,
-            tasks: taskName,
-            row_type: isGap ? 'gap' : 'shift',
-            ...skills
+    if (isGap) {
+      const rowIndexByModality = new Map();
+      group.allEntries.forEach(entry => {
+        if (entry.row_index !== undefined && entry.row_index !== null && entry.row_index >= 0) {
+          if (!rowIndexByModality.has(entry.modality)) {
+            rowIndexByModality.set(entry.modality, entry.row_index);
           }
-        })
+        }
       });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || `Failed to add ${isGap ? 'gap' : 'shift'} for ${modKey.toUpperCase()}`);
+      if (rowIndexByModality.size === 0) {
+        throw new Error('No existing row index found for this worker; reload and try again.');
+      }
+
+      const gapPayloads = Array.from(rowIndexByModality.entries()).map(([modality, rowIndex]) => (
+        fetch(addGapEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modality,
+            row_index: rowIndex,
+            gap_type: taskName,
+            gap_start: startTime,
+            gap_end: endTime,
+            gap_counts_for_hours: countsForHours
+          })
+        })
+      ));
+      const responses = await Promise.all(gapPayloads);
+      const failedResponse = responses.find(response => !response.ok);
+      if (failedResponse) {
+        const errData = await failedResponse.json().catch(() => ({}));
+        throw new Error(errData.error || `Failed to add gap for ${group.worker}`);
+      }
+    } else {
+      for (const modKey of selectedModalities) {
+        const skills = {};
+        SKILLS.forEach(skill => {
+          const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
+          skills[skill] = normalizeSkillValueJS(el ? el.value : 0);
+        });
+        const response = await fetch(addWorkerEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modality: modKey,
+            worker_data: {
+              PPL: group.worker,
+              start_time: startTime,
+              end_time: endTime,
+              Modifier: modifier,
+              counts_for_hours: countsForHours,
+              tasks: taskName,
+              row_type: 'shift',
+              ...skills
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || `Failed to add shift for ${modKey.toUpperCase()}`);
+        }
       }
     }
     showMessage('success', `Added new ${isGap ? 'gap' : 'shift'} for ${group.worker}`);
@@ -1872,6 +1869,7 @@ async function saveModalChanges() {
         const result = await response.json();
         throw new Error(result.error || 'Failed to apply worker plan');
       }
+      clearEditPlanDraft();
       closeModal();
       showMessage('success', 'Worker entries updated');
       await loadData();
@@ -1947,7 +1945,6 @@ async function saveModalChanges() {
 function closeModal() {
   document.getElementById('edit-modal').classList.remove('show');
   currentEditEntry = null;
-  editingGapInfo = null;  // Clear gap editing state
   clearEditPlanDraft();
   if (modalMode === 'add-worker') {
     resetAddWorkerModalState();
@@ -2265,8 +2262,8 @@ async function saveAddWorkerModal() {
       }
     }
 
-    // 2. Process Gap Tasks (create standalone gap rows)
-    // Gaps are independent rows with row_type='gap', not embedded in shifts
+    // 2. Process Gap Tasks (create standalone gap intent rows)
+    // Gap intents are independent rows (row_type='gap') that the backend normalizes into gap_segment rows.
     for (const gap of gapTasks) {
       const gapStart = gap.start_time;
       const gapEnd = gap.end_time;
@@ -2360,31 +2357,40 @@ async function onQuickGap30(tab, gIdx, durationMinutes) {
   }
 
   try {
-    // Create standalone gap row (gaps are independent rows, not embedded in shifts)
-    const addEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
-    const skills = {};
-    SKILLS.forEach(skill => { skills[skill] = -1; });
-
-    const response = await fetch(addEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        modality: MODALITIES[0].toLowerCase(),
-        worker_data: {
-          PPL: group.worker,
-          start_time: gapStart,
-          end_time: gapEnd,
-          Modifier: 1.0,
-          counts_for_hours: getGapCountsForHours(gapType),
-          tasks: gapType,
-          row_type: 'gap',
-          ...skills
+    // Create standalone gap intent rows via add-gap API per modality row_index.
+    const addEndpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
+    const rowIndexByModality = new Map();
+    group.allEntries.forEach(entry => {
+      if (entry.row_index !== undefined && entry.row_index !== null && entry.row_index >= 0) {
+        if (!rowIndexByModality.has(entry.modality)) {
+          rowIndexByModality.set(entry.modality, entry.row_index);
         }
-      })
+      }
     });
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
+    if (rowIndexByModality.size === 0) {
+      throw new Error('No existing row index found for this worker; reload and try again.');
+    }
+
+    const gapPayloads = Array.from(rowIndexByModality.entries()).map(([modality, rowIndex]) => (
+      fetch(addEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          modality,
+          row_index: rowIndex,
+          gap_type: gapType,
+          gap_start: gapStart,
+          gap_end: gapEnd,
+          gap_counts_for_hours: getGapCountsForHours(gapType)
+        })
+      })
+    ));
+
+    const responses = await Promise.all(gapPayloads);
+    const failedResponse = responses.find(response => !response.ok);
+    if (failedResponse) {
+      const errData = await failedResponse.json().catch(() => ({}));
       throw new Error(errData.error || 'Failed to create gap');
     }
 
