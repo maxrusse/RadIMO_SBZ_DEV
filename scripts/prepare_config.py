@@ -16,8 +16,6 @@ Notes:
 - Output uses the NEW vendor_mappings format with embedded times and skill_overrides.
 """
 
-from __future__ import annotations
-
 import argparse
 import collections
 from datetime import datetime, timezone

@@ -26,7 +26,9 @@ from config import (
 )
 from lib.utils import (
     TIME_FORMAT,
+    format_time_value,
     get_local_now,
+    gap_row_mask,
     parse_time_range,
     calculate_shift_duration_hours,
     validate_excel_structure,
@@ -53,14 +55,6 @@ _unified_load_state = {
     'staged': False,
     'scheduled': False,
 }
-
-
-def _format_time_value(value: object) -> str:
-    if pd.isna(value):
-        return ''
-    if hasattr(value, 'strftime'):
-        return value.strftime(TIME_FORMAT)
-    return str(value)
 
 
 def apply_roster_overrides_to_schedule(df: pd.DataFrame, modality: str) -> pd.DataFrame:
@@ -112,7 +106,7 @@ def _calculate_total_work_hours(df: pd.DataFrame) -> dict[str, float]:
         return {}
 
     if 'row_type' in df.columns:
-        gap_mask = df['row_type'].fillna('shift_segment').astype(str).str.lower().isin({'gap', 'gap_segment'})
+        gap_mask = gap_row_mask(df)
         df = df[~gap_mask]
         if df.empty:
             return {}
@@ -150,7 +144,7 @@ def _load_dataframe_from_backup_payload(data: dict) -> pd.DataFrame:
 
     if 'row_type' not in df.columns:
         df['row_type'] = 'shift_segment'
-    gap_mask = df['row_type'].fillna('shift_segment').astype(str).str.lower().isin({'gap', 'gap_segment'})
+    gap_mask = gap_row_mask(df)
     df.loc[gap_mask, 'shift_duration'] = 0.0
 
     return df
@@ -196,7 +190,7 @@ def _build_dataframe_from_records(records: list[dict], modality: str, *, validat
 
     if 'row_type' not in df.columns:
         df['row_type'] = 'shift_segment'
-    gap_mask = df['row_type'].fillna('shift_segment').astype(str).str.lower().isin({'gap', 'gap_segment'})
+    gap_mask = gap_row_mask(df)
     df.loc[gap_mask, 'shift_duration'] = 0.0
 
     col_order = ['PPL', 'row_type', 'Modifier', 'TIME', 'start_time', 'end_time', 'shift_duration', 'tasks', 'counts_for_hours', 'is_manual']
@@ -281,9 +275,9 @@ def _build_unified_payload(use_staged: bool) -> dict:
         export_df = df.copy()
         if 'TIME' not in export_df.columns and {'start_time', 'end_time'}.issubset(export_df.columns):
             export_df['TIME'] = (
-                export_df['start_time'].apply(_format_time_value) +
+                export_df['start_time'].apply(format_time_value) +
                 '-' +
-                export_df['end_time'].apply(_format_time_value)
+                export_df['end_time'].apply(format_time_value)
             )
 
         cols_to_backup = [

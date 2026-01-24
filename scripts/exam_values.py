@@ -22,8 +22,6 @@ Notes:
 - Prefers base weight/factor updates over individual overrides
 """
 
-from __future__ import annotations
-
 import argparse
 import csv
 from datetime import datetime, timezone

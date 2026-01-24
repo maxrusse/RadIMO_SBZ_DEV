@@ -76,6 +76,15 @@ function filterBySkill(tab, skill) {
   }
 }
 
+function parseDayTimes(dayTimes) {
+  if (typeof dayTimes !== 'string') return null;
+  const parts = dayTimes.split('-').map(part => part.trim());
+  if (parts.length !== 2) return null;
+  const [startTime, endTime] = parts;
+  if (!startTime || !endTime) return null;
+  return [startTime, endTime];
+}
+
 // Toggle inline edit mode
 function toggleEditMode(tab) {
   editMode[tab] = !editMode[tab];
@@ -451,15 +460,21 @@ async function loadTabData(tab) {
   if (!isTabAvailable(tab)) {
     return;
   }
+  const requestId = ++loadRequestId[tab];
   try {
     const endpoint = tab === 'today' ? '/api/live-schedule/data' : '/api/prep-next-day/data';
     const response = await fetch(endpoint);
 
+    if (requestId !== loadRequestId[tab]) {
+      return;
+    }
     if (!response.ok) {
       const text = await response.text();
       console.error(`${tab} API error:`, text);
-      rawData[tab] = {};
-      dataLoaded[tab] = false;
+      if (requestId === loadRequestId[tab]) {
+        rawData[tab] = {};
+        dataLoaded[tab] = false;
+      }
       return;
     }
 
@@ -467,14 +482,22 @@ async function loadTabData(tab) {
     let respData;
     if (contentType && contentType.includes('application/json')) {
       respData = await response.json();
+      if (requestId !== loadRequestId[tab]) {
+        return;
+      }
       rawData[tab] = respData.modalities || respData;
     } else {
       console.error(`${tab} API returned non-JSON`);
-      rawData[tab] = {};
-      dataLoaded[tab] = false;
+      if (requestId === loadRequestId[tab]) {
+        rawData[tab] = {};
+        dataLoaded[tab] = false;
+      }
       return;
     }
 
+    if (requestId !== loadRequestId[tab]) {
+      return;
+    }
     const result = buildEntriesByWorker(respData.modalities || respData, tab);
     entriesData[tab] = result.entries;
     workerCounts[tab] = result.counts;
@@ -500,8 +523,10 @@ async function loadTabData(tab) {
     renderTimeline(tab);  // Update timeline chart
   } catch (error) {
     console.error(`Load error for ${tab}:`, error);
-    showMessage('error', `Error loading ${tab} data: ${error.message}`);
-    dataLoaded[tab] = false;
+    if (requestId === loadRequestId[tab]) {
+      showMessage('error', `Error loading ${tab} data: ${error.message}`);
+      dataLoaded[tab] = false;
+    }
   }
 }
 
@@ -517,7 +542,7 @@ async function loadData() {
   // Load other tab in background
   const otherTab = currentTab === 'today' ? 'tomorrow' : 'today';
   if (isTabAvailable(otherTab)) {
-    loadTabData(otherTab);  // Don't await - load in background
+    loadTabData(otherTab);
   }
 }
 
@@ -566,8 +591,9 @@ function buildEntriesByWorker(data, tab = 'today') {
           // Use 'times' field (unified with shifts)
           const times = roleConfig.times || {};
           const dayTimes = times[targetDay] || times.default;
-          if (typeof dayTimes === 'string') {
-            [startTime, endTime] = dayTimes.split('-');
+          const parsedTimes = parseDayTimes(dayTimes);
+          if (parsedTimes) {
+            [startTime, endTime] = parsedTimes;
           }
         } else {
           // Use getShiftTimes helper for day-specific times
@@ -895,11 +921,15 @@ async function deleteWorkerEntries(tab, groupIdx) {
     // Sort by row_index descending to delete from end first
     const sortedEntries = [...allEntries].sort((a, b) => b.row_index - a.row_index);
     for (const entry of sortedEntries) {
-      await fetch(endpoint, {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modality: entry.modality, row_index: entry.row_index, verify_ppl: entry.worker })
       });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Failed to delete ${entry.modality} entry for ${entry.worker}`);
+      }
     }
     showMessage('success', `Deleted all entries for ${group.worker}`);
     await loadData();
@@ -920,11 +950,15 @@ async function deleteEntry(tab, groupIdx, entryIdx) {
   const endpoint = tab === 'today' ? '/api/live-schedule/delete-worker' : '/api/prep-next-day/delete-worker';
 
   try {
-    await fetch(endpoint, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ modality: entry.modality, row_index: entry.row_index, verify_ppl: entry.worker })
     });
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `Failed to delete entry for ${entry.worker}`);
+    }
     showMessage('success', `Deleted entry for ${entry.worker}`);
     await loadData();
   } catch (error) {
@@ -961,8 +995,9 @@ async function onEditShiftTaskChange(shiftIdx, taskName) {
     const times = taskConfig.times || {};
     const targetDay = getTargetWeekdayName(tab || currentTab);
     const dayTimes = times[targetDay] || times.default;
-    if (typeof dayTimes === 'string') {
-      const [startTime, endTime] = dayTimes.split('-');
+    const parsedTimes = parseDayTimes(dayTimes);
+    if (parsedTimes) {
+      const [startTime, endTime] = parsedTimes;
       updates.start_time = startTime;
       updates.end_time = endTime;
       const startEl = document.getElementById(`edit-shift-${shiftIdx}-start`);
@@ -1143,11 +1178,15 @@ async function deleteShiftFromModal(shiftIdx) {
     // Delete all modality entries for this shift
     for (const [modKey, modData] of Object.entries(shift.modalities)) {
       if (modData.row_index !== undefined && modData.row_index >= 0) {
-        await fetch(endpoint, {
+        const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ modality: modKey, row_index: modData.row_index, verify_ppl: group.worker })
         });
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || 'Failed to delete shift');
+        }
       }
     }
     showMessage('success', 'Shift deleted');
@@ -1372,8 +1411,9 @@ function onModalTaskChange() {
   const times = taskConfig?.times || {};
   const dayTimes = times[targetDay] || times.default;
 
-  if (isGap && typeof dayTimes === 'string') {
-    const [startTime, endTime] = dayTimes.split('-');
+  if (isGap) {
+    const parsedTimes = parseDayTimes(dayTimes);
+    const [startTime, endTime] = parsedTimes || ['12:00', '13:00'];
     document.getElementById('modal-add-start').value = startTime;
     document.getElementById('modal-add-end').value = endTime;
   } else if (!isGap && taskConfig) {
@@ -1664,8 +1704,9 @@ function onEditGapTypeChange() {
     const { tab } = currentEditEntry || {};
     const targetDay = getTargetWeekdayName(tab || currentTab);
     const dayTimes = times[targetDay] || times.default;
-    if (typeof dayTimes === 'string') {
-      const [start, end] = dayTimes.split('-');
+    const parsedTimes = parseDayTimes(dayTimes);
+    if (parsedTimes) {
+      const [start, end] = parsedTimes;
       startInput.value = start;
       endInput.value = end;
     }
@@ -2074,14 +2115,8 @@ function updateAddWorkerTask(idx, field, value) {
         const times = taskConfig.times || {};
         const targetDay = getTargetWeekdayName(addWorkerModalState.tab || currentTab);
         const dayTimes = times[targetDay] || times.default;
-        if (typeof dayTimes === 'string') {
-          const [startTime, endTime] = dayTimes.split('-');
-          task.start_time = startTime;
-          task.end_time = endTime;
-        } else {
-          task.start_time = '12:00';
-          task.end_time = '13:00';
-        }
+        const parsedTimes = parseDayTimes(dayTimes) || ['12:00', '13:00'];
+        [task.start_time, task.end_time] = parsedTimes;
 
         // Set ALL skills to -1 for gaps across all modalities
         MODALITIES.forEach(mod => {

@@ -224,7 +224,8 @@ def build_working_hours_from_medweb(
                 continue
         try:
             return pd.to_datetime(date_str, dayfirst=True).date()
-        except Exception:
+        except Exception as exc:
+            selection_logger.warning("Failed to parse date value '%s': %s", date_val, exc)
             return None
 
     vendor_mapping = config.get('medweb_mapping', {})

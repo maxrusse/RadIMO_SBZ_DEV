@@ -24,6 +24,7 @@ from lib.utils import (
     get_next_workday,
     subtract_intervals,
     merge_intervals,
+    strip_builder_fields,
 )
 from state_manager import StateManager
 from data_manager.file_ops import _calculate_total_work_hours, backup_dataframe
@@ -59,13 +60,6 @@ def _is_gap_row_type(value: Optional[str]) -> bool:
     if value is None:
         return False
     return str(value).strip().lower() in {'gap', 'gap_segment'}
-
-
-def _strip_builder_fields(row: dict) -> dict:
-    cleaned = dict(row)
-    for key in ('shift_duration', 'TIME', 'row_index', 'is_manual'):
-        cleaned.pop(key, None)
-    return cleaned
 
 
 def _time_to_minutes(value: time) -> int:
@@ -134,7 +128,9 @@ def build_day_plan_rows(rows: List[dict], target_date: date) -> List[dict]:
         if normalized.get('counts_for_hours') is None:
             normalized['counts_for_hours'] = normalized['row_type'] != 'gap'
         else:
-            normalized['counts_for_hours'] = bool(normalized['counts_for_hours'])
+            normalized['counts_for_hours'] = _coerce_bool(normalized['counts_for_hours'])
+            if normalized['counts_for_hours'] is None:
+                normalized['counts_for_hours'] = normalized['row_type'] != 'gap'
 
         for skill in SKILL_COLUMNS:
             if normalized['row_type'] == 'gap':
@@ -520,7 +516,8 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
                     else:
                         row['tasks'] = value
                 elif col == 'counts_for_hours':
-                    row['counts_for_hours'] = bool(value)
+                    coerced = _coerce_bool(value)
+                    row['counts_for_hours'] = coerced if coerced is not None else False
                 elif col == 'row_type':
                     row['row_type'] = value
                     if _is_gap_row_type(value) and 'counts_for_hours' not in updates:
@@ -592,7 +589,9 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
         else:
             new_row['shift_duration'] = 0.0
 
-        new_row['counts_for_hours'] = worker_data.get('counts_for_hours', row_type != 'gap')
+        counts_for_hours = worker_data.get('counts_for_hours', row_type != 'gap')
+        coerced = _coerce_bool(counts_for_hours)
+        new_row['counts_for_hours'] = coerced if coerced is not None else row_type != 'gap'
         existing_rows = []
         if df is not None and not df.empty:
             existing_rows = df[df['PPL'] == ppl_name].to_dict('records')
@@ -657,7 +656,7 @@ def _replace_worker_schedule(
         target_date = target_date or (_get_staged_target_date() if use_staged else datetime.today().date())
         raw_rows = []
         for worker_data in rows:
-            row_copy = _strip_builder_fields(worker_data)
+            row_copy = strip_builder_fields(worker_data)
             row_copy['PPL'] = worker_name
             raw_rows.append(row_copy)
         plan_rows = build_day_plan_rows(raw_rows, target_date)

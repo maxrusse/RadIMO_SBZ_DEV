@@ -15,6 +15,7 @@ let TimetableConfig = {
   skillFilter: 'all',
   data: []
 };
+let currentTimeIntervalId = null;
 
 // Initialize configuration from page
 /**
@@ -132,7 +133,10 @@ function buildTimeline() {
   });
 
   // Set up time update interval
-  setInterval(function() {
+  if (currentTimeIntervalId) {
+    window.clearInterval(currentTimeIntervalId);
+  }
+  currentTimeIntervalId = window.setInterval(function() {
     TimelineChart.updateCurrentTimeLine(grid, 'current-time-line');
   }, 60000);
 }

@@ -1,15 +1,26 @@
 // Configuration parsed from JSON block to avoid Jinja/JS syntax confusion
-const CONFIG = JSON.parse(document.getElementById('page-config').textContent);
+const configElement = document.getElementById('page-config');
+let CONFIG = {};
 
-const SKILLS = CONFIG.skills;
-const MODALITIES = CONFIG.modalities;
-const MODALITY_SETTINGS = CONFIG.modality_settings;
-const SKILL_SETTINGS = CONFIG.skill_settings;
-const WORKER_SKILLS = CONFIG.worker_skills;
+if (configElement && configElement.textContent) {
+  try {
+    CONFIG = JSON.parse(configElement.textContent);
+  } catch (error) {
+    console.error('Failed to parse page configuration JSON:', error);
+  }
+} else {
+  console.warn('Page configuration element #page-config not found.');
+}
+
+const SKILLS = Array.isArray(CONFIG.skills) ? CONFIG.skills : [];
+const MODALITIES = CONFIG.modalities || {};
+const MODALITY_SETTINGS = CONFIG.modality_settings || {};
+const SKILL_SETTINGS = CONFIG.skill_settings || {};
+const WORKER_SKILLS = CONFIG.worker_skills || {};
 const WORKER_NAMES = CONFIG.worker_names || {};
-const TASK_ROLES = CONFIG.task_roles;
-const SKILL_VALUE_COLORS = CONFIG.skill_value_colors;
-const UI_COLORS = CONFIG.ui_colors;
+const TASK_ROLES = Array.isArray(CONFIG.task_roles) ? CONFIG.task_roles : [];
+const SKILL_VALUE_COLORS = CONFIG.skill_value_colors || {};
+const UI_COLORS = CONFIG.ui_colors || {};
 const QUICK_BREAK = CONFIG.quick_break || { duration_minutes: 30, gap_type: 'Break', mode: 'split_shift' };
 
 // Generate dynamic CSS for modality and skill colors from config
