@@ -21,6 +21,7 @@ from lib.utils import (
     is_now_in_shift,
     skill_value_to_numeric,
     is_weighted_skill,
+    gap_row_mask,
 )
 from data_manager import (
     get_canonical_worker_id,
@@ -166,11 +167,7 @@ def calculate_work_hours_now(current_dt: datetime, modality: str) -> dict[str, f
     df = d['working_hours_df']
 
     # Filter without copy - use boolean indexing on original
-    row_type_series = df.get('row_type')
-    if row_type_series is not None:
-        gap_mask = row_type_series.fillna('shift_segment').astype(str).str.lower().isin({'gap', 'gap_segment'})
-    else:
-        gap_mask = pd.Series(False, index=df.index)
+    gap_mask = gap_row_mask(df)
 
     if 'counts_for_hours' in df.columns:
         hours_mask = df['counts_for_hours'].fillna(True).astype(bool)
@@ -241,11 +238,7 @@ def _filter_active_rows(df: Optional[pd.DataFrame], current_dt: datetime) -> Opt
     if df is None or df.empty:
         return df
 
-    row_type_series = df.get('row_type')
-    if row_type_series is not None:
-        gap_mask = row_type_series.fillna('shift_segment').astype(str).str.lower().isin({'gap', 'gap_segment'})
-    else:
-        gap_mask = pd.Series(False, index=df.index)
+    gap_mask = gap_row_mask(df)
 
     active_mask = df.apply(
         lambda row: is_now_in_shift(row['start_time'], row['end_time'], current_dt),
@@ -487,8 +480,16 @@ def _get_worker_exclusion_based(
 
                     # Check if specialists are imbalanced compared to generalists
                     if min_generalist_ratio is not None and min_generalist_ratio < min_specialist_ratio:
-                        specialist_avg = sum(specialist_ratios.values()) / len(specialist_ratios)
-                        generalist_avg = sum(generalist_ratios.values()) / len(generalist_ratios)
+                        specialist_avg = (
+                            sum(specialist_ratios.values()) / len(specialist_ratios)
+                            if specialist_ratios
+                            else 0
+                        )
+                        generalist_avg = (
+                            sum(generalist_ratios.values()) / len(generalist_ratios)
+                            if generalist_ratios
+                            else 0
+                        )
                         imbalance_baseline = max(specialist_avg, generalist_avg)
                         if imbalance_baseline <= 0:
                             imbalance_pct = 0.0

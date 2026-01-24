@@ -56,6 +56,27 @@ def parse_time_range(time_range: str) -> Tuple[time, time]:
     end_time = datetime.strptime(end_str.strip(), TIME_FORMAT).time()
     return start_time, end_time
 
+
+def format_time_value(value: Any) -> str:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ''
+    if hasattr(value, 'strftime'):
+        return value.strftime(TIME_FORMAT)
+    return str(value)
+
+
+def strip_builder_fields(row: dict) -> dict:
+    cleaned = dict(row)
+    for key in ('shift_duration', 'TIME', 'row_index', 'is_manual'):
+        cleaned.pop(key, None)
+    return cleaned
+
+
+def gap_row_mask(df: pd.DataFrame) -> pd.Series:
+    if df is None or df.empty or 'row_type' not in df.columns:
+        return pd.Series(False, index=df.index if df is not None else pd.Index([]))
+    return df['row_type'].fillna('shift_segment').astype(str).str.lower().isin({'gap', 'gap_segment'})
+
 def compute_shift_window(
     start_time: time, end_time: time, reference_dt: datetime
 ) -> Tuple[datetime, datetime]:

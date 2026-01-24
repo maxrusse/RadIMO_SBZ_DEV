@@ -510,6 +510,9 @@ function toggleAutoRefresh() {
 function loadData() {
   return fetch('/api/worker-load/data')
     .then(function(response) {
+      if (!response.ok) {
+        throw new Error(`Failed to load worker data (${response.status})`);
+      }
       return response.json();
     })
     .then(function(data) {

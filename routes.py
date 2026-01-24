@@ -40,8 +40,9 @@ from lib.utils import (
     get_local_now,
     get_next_workday,
     get_weekday_name_german,
-    TIME_FORMAT,
+    format_time_value,
     skill_value_to_display,
+    strip_builder_fields,
 )
 from data_manager import (
     modality_data,
@@ -85,12 +86,6 @@ routes = Blueprint('routes', __name__)
 # Helpers for Routes
 # -----------------------------------------------------------
 
-def _format_time(value: Any) -> str:
-    if pd.notnull(value):
-        return value.strftime(TIME_FORMAT)
-    return ''
-
-
 def _modality_has_active_skills(mod_data: dict) -> bool:
     skills = (mod_data or {}).get('skills', {}) or {}
     for val in skills.values():
@@ -101,19 +96,19 @@ def _modality_has_active_skills(mod_data: dict) -> bool:
     return False
 
 
-def _build_rows_from_plan(worker: str, shifts: list, modality: str) -> list:
-    def _strip_builder_fields(row: dict) -> dict:
-        cleaned = dict(row)
-        for key in ('shift_duration', 'TIME', 'row_index', 'is_manual'):
-            cleaned.pop(key, None)
-        return cleaned
+def _validate_modality(modality: str, data_store: dict) -> Optional[Any]:
+    if modality not in data_store:
+        return jsonify({'error': 'Invalid modality'}), 400
+    return None
 
+
+def _build_rows_from_plan(worker: str, shifts: list, modality: str) -> list:
     rows = []
     for shift in shifts:
         raw_rows = shift.get('originalShifts')
         if raw_rows:
             for raw in raw_rows:
-                raw = _strip_builder_fields(raw)
+                raw = strip_builder_fields(raw)
                 mod_key = (raw.get('modality') or '').lower()
                 if mod_key and mod_key != modality:
                     continue
@@ -132,7 +127,7 @@ def _build_rows_from_plan(worker: str, shifts: list, modality: str) -> list:
                 if is_gap_entry:
                     skills = {skill: -1 for skill in SKILL_COLUMNS}
 
-                rows.append(_strip_builder_fields({
+                rows.append(strip_builder_fields({
                     'PPL': worker,
                     'start_time': raw.get('start_time') or shift.get('start_time'),
                     'end_time': raw.get('end_time') or shift.get('end_time'),
@@ -149,7 +144,7 @@ def _build_rows_from_plan(worker: str, shifts: list, modality: str) -> list:
         if is_gap_row and shift.get('counts_for_hours') is None:
             shift['counts_for_hours'] = False
         skills = shift.get('skills') or {}
-        rows.append(_strip_builder_fields({
+        rows.append(strip_builder_fields({
             'PPL': worker,
             'start_time': shift.get('start_time'),
             'end_time': shift.get('end_time'),
@@ -192,8 +187,8 @@ def _df_to_api_response(df: pd.DataFrame) -> list[dict[str, Any]]:
         worker_data = {
             'row_index': int(idx),
             'PPL': row['PPL'],
-            'start_time': _format_time(row.get('start_time')),
-            'end_time': _format_time(row.get('end_time')),
+            'start_time': format_time_value(row.get('start_time')),
+            'end_time': format_time_value(row.get('end_time')),
             'Modifier': float(row.get('Modifier', 1.0)) if pd.notnull(row.get('Modifier')) else 1.0,
         }
 
@@ -1078,8 +1073,9 @@ def update_prep_row() -> Any:
     row_index = data.get('row_index')
     updates = data.get('updates', {})
 
-    if modality not in staged_modality_data:
-        return jsonify({'error': 'Invalid modality'}), 400
+    error = _validate_modality(modality, staged_modality_data)
+    if error:
+        return error
 
     success, result = _update_schedule_row(modality, row_index, updates, use_staged=True)
 
@@ -1118,8 +1114,9 @@ def add_prep_worker() -> Any:
     modality = data.get('modality')
     worker_data = data.get('worker_data', {})
 
-    if modality not in staged_modality_data:
-        return jsonify({'error': 'Invalid modality'}), 400
+    error = _validate_modality(modality, staged_modality_data)
+    if error:
+        return error
 
     success, result, error = _add_worker_to_schedule(modality, worker_data, use_staged=True)
 
@@ -1140,8 +1137,9 @@ def delete_prep_worker() -> Any:
     row_index = data.get('row_index')
     verify_ppl = data.get('verify_ppl')
 
-    if modality not in staged_modality_data:
-        return jsonify({'error': 'Invalid modality'}), 400
+    error = _validate_modality(modality, staged_modality_data)
+    if error:
+        return error
 
     success, worker_name, error = _delete_worker_from_schedule(modality, row_index, use_staged=True, verify_ppl=verify_ppl)
 
@@ -1166,8 +1164,9 @@ def update_live_row() -> Any:
     row_index = data.get('row_index')
     updates = data.get('updates', {})
 
-    if modality not in modality_data:
-        return jsonify({'error': 'Invalid modality'}), 400
+    error = _validate_modality(modality, modality_data)
+    if error:
+        return error
 
     success, result = _update_schedule_row(modality, row_index, updates, use_staged=False)
 
@@ -1207,8 +1206,9 @@ def add_live_worker() -> Any:
     modality = data.get('modality')
     worker_data = data.get('worker_data', {})
 
-    if modality not in modality_data:
-        return jsonify({'error': 'Invalid modality'}), 400
+    error = _validate_modality(modality, modality_data)
+    if error:
+        return error
 
     ppl_name = worker_data.get('PPL', 'Neuer Worker (NW)')
     success, result, error = _add_worker_to_schedule(modality, worker_data, use_staged=False)
@@ -1239,8 +1239,9 @@ def delete_live_worker() -> Any:
     row_index = data.get('row_index')
     verify_ppl = data.get('verify_ppl')
 
-    if modality not in modality_data:
-        return jsonify({'error': 'Invalid modality'}), 400
+    error = _validate_modality(modality, modality_data)
+    if error:
+        return error
 
     success, worker_name, error = _delete_worker_from_schedule(modality, row_index, use_staged=False, verify_ppl=verify_ppl)
 
@@ -1261,8 +1262,9 @@ def add_live_gap() -> Any:
     gap_end = data.get('gap_end')
     gap_counts_for_hours = data.get('gap_counts_for_hours')
 
-    if modality not in modality_data:
-        return jsonify({'error': 'Invalid modality'}), 400
+    error = _validate_modality(modality, modality_data)
+    if error:
+        return error
 
     success, action, error = _add_gap_to_schedule(
         modality,
@@ -1289,8 +1291,9 @@ def add_staged_gap() -> Any:
     gap_end = data.get('gap_end')
     gap_counts_for_hours = data.get('gap_counts_for_hours')
 
-    if modality not in staged_modality_data:
-        return jsonify({'error': 'Invalid modality'}), 400
+    error = _validate_modality(modality, staged_modality_data)
+    if error:
+        return error
 
     success, action, error = _add_gap_to_schedule(
         modality,
@@ -1317,8 +1320,9 @@ def _handle_remove_gap(use_staged: bool) -> Any:
     gap_activity = data.get('gap_activity')
 
     data_store = staged_modality_data if use_staged else modality_data
-    if modality not in data_store:
-        return jsonify({'error': 'Invalid modality'}), 400
+    error = _validate_modality(modality, data_store)
+    if error:
+        return error
 
     if gap_start is None or gap_end is None:
         return jsonify({'error': 'gap_start and gap_end are required'}), 400
@@ -1351,8 +1355,9 @@ def _handle_update_gap(use_staged: bool) -> Any:
     new_counts_for_hours = data.get('new_counts_for_hours')
 
     data_store = staged_modality_data if use_staged else modality_data
-    if modality not in data_store:
-        return jsonify({'error': 'Invalid modality'}), 400
+    error = _validate_modality(modality, data_store)
+    if error:
+        return error
 
     if gap_start is None or gap_end is None:
         return jsonify({'error': 'gap_start and gap_end are required'}), 400
@@ -1502,16 +1507,18 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any
 @access_required
 def assign_worker_api(modality: str, role: str) -> Any:
     modality = normalize_modality(modality)
-    if modality not in modality_data:
-        return jsonify({"error": "Invalid modality"}), 400
+    error = _validate_modality(modality, modality_data)
+    if error:
+        return error
     return _assign_worker(modality, role)
 
 @routes.route('/api/<modality>/<role>/strict', methods=['GET'])
 @access_required
 def assign_worker_strict_api(modality: str, role: str) -> Any:
     modality = normalize_modality(modality)
-    if modality not in modality_data:
-        return jsonify({"error": "Invalid modality"}), 400
+    error = _validate_modality(modality, modality_data)
+    if error:
+        return error
     return _assign_worker(modality, role, allow_overflow=False)
 
 # Usage Statistics API Endpoints

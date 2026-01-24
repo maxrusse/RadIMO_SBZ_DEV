@@ -14,6 +14,7 @@ let displayOrder = 'modality-first';  // 'modality-first' or 'skill-first'
 let sortState = { today: { column: 'worker', direction: 'asc' }, tomorrow: { column: 'worker', direction: 'asc' } };
 let modalMode = 'edit';
 let lastAddedShiftMeta = null;
+let loadRequestId = { today: 0, tomorrow: 0 };
 const GERMAN_WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 let prepTargetDate = CONFIG.prep_target_date || null;
 let prepTargetWeekday = CONFIG.prep_target_weekday_name || null;
