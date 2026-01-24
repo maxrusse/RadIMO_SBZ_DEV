@@ -166,11 +166,17 @@ def calculate_work_hours_now(current_dt: datetime, modality: str) -> dict[str, f
     df = d['working_hours_df']
 
     # Filter without copy - use boolean indexing on original
-    if 'counts_for_hours' in df.columns:
-        mask = df['counts_for_hours'].fillna(True).astype(bool)
-        df_filtered = df.loc[mask]
+    row_type_series = df.get('row_type')
+    if row_type_series is not None:
+        gap_mask = row_type_series.fillna('shift_segment').astype(str).str.lower().isin({'gap', 'gap_segment'})
     else:
-        df_filtered = df
+        gap_mask = pd.Series(False, index=df.index)
+
+    if 'counts_for_hours' in df.columns:
+        hours_mask = df['counts_for_hours'].fillna(True).astype(bool)
+        df_filtered = df.loc[hours_mask & ~gap_mask]
+    else:
+        df_filtered = df.loc[~gap_mask]
 
     if df_filtered.empty:
         return {}
@@ -235,12 +241,18 @@ def _filter_active_rows(df: Optional[pd.DataFrame], current_dt: datetime) -> Opt
     if df is None or df.empty:
         return df
 
+    row_type_series = df.get('row_type')
+    if row_type_series is not None:
+        gap_mask = row_type_series.fillna('shift_segment').astype(str).str.lower().isin({'gap', 'gap_segment'})
+    else:
+        gap_mask = pd.Series(False, index=df.index)
+
     active_mask = df.apply(
         lambda row: is_now_in_shift(row['start_time'], row['end_time'], current_dt),
         axis=1
     )
     # Return view without copy - callers only read from this
-    return df.loc[active_mask]
+    return df.loc[active_mask & ~gap_mask]
 
 def _filter_near_shift_end(df: pd.DataFrame, current_dt: datetime, buffer_minutes: int) -> pd.DataFrame:
     """

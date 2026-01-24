@@ -286,22 +286,9 @@ function renderTable(tab) {
     const duplicateBadge = isDuplicate ? `<span class="duplicate-badge">${shifts.length} shifts</span>` : '';
     const hasNonGapShift = shifts.some(shift => !shift.is_gap_entry);
     const hasGapRows = (group.allGaps || []).length > 0;
-    const hasGapOutsideShift = hasGapRows && hasNonGapShift && (group.allGaps || []).some(gap => {
-      const gapStart = gap.start || '';
-      const gapEnd = gap.end || '';
-      return !shifts.some(shift => {
-        if (shift.is_gap_entry) return false;
-        const shiftStart = shift.start_time || '';
-        const shiftEnd = shift.end_time || '';
-        return gapStart < shiftEnd && gapEnd > shiftStart;
-      });
-    });
     const warningMessages = [];
     if (!hasNonGapShift && hasGapRows) {
       warningMessages.push('Gaps only (no shifts)');
-    }
-    if (hasGapOutsideShift) {
-      warningMessages.push('Gap outside shift window');
     }
     const warningTitle = warningMessages.length
       ? ` title="${escapeHtml(warningMessages.join(' | '))}"`
@@ -367,7 +354,7 @@ function renderTable(tab) {
       const renderCell = (modKey, skill) => {
         const modData = shift.modalities[modKey] || { skills: {}, row_index: -1, modifier: 1.0 };
         const isAssigned = modData.row_index !== undefined && modData.row_index >= 0;
-        // Only mark as gap if this entry is truly a gap row
+        // Only mark as gap if this entry is truly a gap segment row
         const isGap = isGapRow;
         const rawVal = modData.skills[skill] !== undefined ? modData.skills[skill] : -1;
         const val = normalizeSkillValueJS(rawVal);
@@ -869,33 +856,8 @@ function convertToTimelineData(tab) {
   groups.forEach(group => {
     const worker = (group.worker || '').trim();
     const shifts = (group.shiftsArray || []).filter(shift => !shift.deleted);
-    const workerGaps = group.allGaps || [];
-
-    const clipGapsToShift = (shiftStart, shiftEnd) => {
-      return (workerGaps || [])
-        .filter(g => {
-          const gapStart = g.start || '';
-          const gapEnd = g.end || '';
-          return gapStart < (shiftEnd || '') && gapEnd > (shiftStart || '');
-        })
-        .map(g => {
-          const gapStart = g.start || '';
-          const gapEnd = g.end || '';
-          const clippedStart = gapStart < (shiftStart || '') ? shiftStart : gapStart;
-          const clippedEnd = gapEnd > (shiftEnd || '') ? shiftEnd : gapEnd;
-          return {
-            ...g,
-            start: clippedStart,
-            end: clippedEnd
-          };
-        });
-    };
-
     shifts.forEach(shift => {
       const isGapRow = Boolean(shift.is_gap_entry);
-      const gapOverlays = isGapRow
-        ? [{ start: shift.start_time, end: shift.end_time, activity: shift.task }]
-        : clipGapsToShift(shift.start_time, shift.end_time);
       const assignedModalities = Object.entries(shift.modalities || {})
         .filter(([_, modData]) => modData.row_index !== undefined && modData.row_index >= 0);
       const modalityList = assignedModalities.map(([modKey]) => modKey);
@@ -907,7 +869,7 @@ function convertToTimelineData(tab) {
         end_time: shift.end_time,
         TIME: `${shift.start_time}-${shift.end_time}`,
         modalities: modalityList,
-        gaps: gapOverlays,
+        row_type: isGapRow ? 'gap_segment' : 'shift_segment',
         tasks: shift.task ? [shift.task] : []
       };
 

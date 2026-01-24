@@ -8,7 +8,7 @@ The package is organized into the following modules:
 - state_persistence: Save/load application state to JSON
 - worker_management: Worker IDs, skill rosters, skill-modality combinations
 - file_ops: File backup, loading, quarantine operations
-- schedule_crud: CRUD operations for schedules (update, add, delete, gap rows)
+- schedule_crud: CRUD operations for schedules (update, add, delete, gap segments)
 - csv_parser: Medweb CSV parsing and transformation
 - scheduled_tasks: Daily reset, preload, staged data management
 

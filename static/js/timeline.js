@@ -48,7 +48,8 @@ const TimelineChart = (function() {
       return isSkillActive(val);
     });
     if (hasSkills) return true;
-    return parseGapList(entry.gaps).length > 0;
+    const rowType = (entry.row_type || '').toString().toLowerCase();
+    return rowType === 'gap' || rowType === 'gap_segment';
   }
 
   // Check if skill is explicitly active (value === 1)
@@ -64,19 +65,6 @@ const TimelineChart = (function() {
     return div.innerHTML;
   }
 
-  // Parse gap list from various formats (array, JSON string, or object)
-  function parseGapList(rawGaps) {
-    if (!rawGaps) return [];
-    if (Array.isArray(rawGaps)) return rawGaps;
-    if (typeof rawGaps !== 'string') return [];
-
-    try {
-      const parsed = JSON.parse(rawGaps);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (_) {
-      return [];
-    }
-  }
 
   function normalizeTasks(rawTasks) {
     if (!rawTasks) return [];
@@ -104,18 +92,6 @@ const TimelineChart = (function() {
     return `repeating-linear-gradient(90deg, ${stops.join(', ')})`;
   }
 
-  // Deduplicate gaps by start-end key
-  function deduplicateGaps(gaps) {
-    const seen = new Map();
-    gaps.filter(Boolean).forEach(gap => {
-      const key = `${gap.start || ''}-${gap.end || ''}`;
-      if (!seen.has(key)) {
-        seen.set(key, gap);
-      }
-    });
-    return Array.from(seen.values());
-  }
-
   // Merge entries across modalities and time
   function mergeEntriesByTime(entries, skillColumns) {
     if (!entries || entries.length === 0) return [];
@@ -128,7 +104,6 @@ const TimelineChart = (function() {
       TIME: sorted[0].TIME,
       modalities: new Set(),
       skillValues: {},
-      gaps: [],
       tasks: new Set()
     };
 
@@ -152,17 +127,10 @@ const TimelineChart = (function() {
         }
       });
 
-      // Preserve explicit gap metadata
-      parseGapList(entry.gaps).forEach(gap => merged.gaps.push(gap));
       normalizeTasks(entry.tasks || entry.task).forEach(task => merged.tasks.add(task));
 
       const startMin = timeToMinutes(entry.start_time);
       const endMin = timeToMinutes(entry.end_time);
-
-      // Record inferred gaps between sequential segments
-      if (idx > 0 && startMin > lastEndMinutes) {
-        merged.gaps.push({ start: lastEndLabel, end: entry.start_time, activity: 'Gap' });
-      }
 
       if (endMin > mergedEndMinutes) {
         mergedEndMinutes = endMin;
@@ -176,8 +144,6 @@ const TimelineChart = (function() {
     });
 
     merged.TIME = `${merged.start_time}-${merged.end_time}`;
-    // Deduplicate gaps to avoid rendering same gap multiple times
-    merged.gaps = deduplicateGaps(merged.gaps);
     merged.tasks = Array.from(merged.tasks);
 
     return [merged];
@@ -225,7 +191,6 @@ const TimelineChart = (function() {
         modalities.add((entry._modality || entry.modality).toUpperCase());
       }
 
-      const gaps = parseGapList(entry.gaps);
       const tasks = normalizeTasks(entry.tasks || entry.task);
 
       const last = merged[merged.length - 1];
@@ -236,7 +201,6 @@ const TimelineChart = (function() {
           TIME: entry.TIME,
           skillValues: { ...skillValues },
           modalities,
-          gaps: [...gaps],
           tasks: [...tasks]
         });
         return;
@@ -252,10 +216,7 @@ const TimelineChart = (function() {
           last.skillValues[s] = 1;
         });
         modalities.forEach(m => last.modalities.add(m));
-        gaps.forEach(gap => last.gaps.push(gap));
         tasks.forEach(task => last.tasks.push(task));
-        // Deduplicate gaps after merging
-        last.gaps = deduplicateGaps(last.gaps);
         last.tasks = Array.from(new Set(last.tasks));
         return;
       }
@@ -266,7 +227,6 @@ const TimelineChart = (function() {
         TIME: entry.TIME,
         skillValues: { ...skillValues },
         modalities,
-        gaps: [...gaps],
         tasks: [...tasks]
       });
     });
@@ -405,15 +365,25 @@ const TimelineChart = (function() {
       return aStart - bStart;
     });
 
+    const isGapEntry = entry => {
+      const rowType = (entry.row_type || '').toString().toLowerCase();
+      return rowType === 'gap' || rowType === 'gap_segment';
+    };
+
     // Create worker rows
     sortedWorkers.forEach(([worker, entries]) => {
       // Merge entries if in ALL view mode
-      const processedEntries = mergeModalities ? mergeEntriesByTime(entries, skillColumns) : entries;
+      const gapEntries = entries.filter(isGapEntry);
+      const shiftEntries = entries.filter(entry => !isGapEntry(entry));
+      const processedEntries = mergeModalities ? mergeEntriesByTime(shiftEntries, skillColumns) : shiftEntries;
       const displayEntries = mergeEntriesForSingleLane(processedEntries, skillColumns);
+      const combinedEntries = [...displayEntries, ...gapEntries].sort(
+        (a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time)
+      );
 
       // Collect all skills this worker has
       const workerSkills = new Set();
-      displayEntries.forEach(entry => {
+      combinedEntries.forEach(entry => {
         const skills = entry.skillValues
           ? Object.keys(entry.skillValues)
           : skillColumns.filter(s => isSkillActive(entry[s]));
@@ -437,17 +407,31 @@ const TimelineChart = (function() {
       timelineCell.className = 'worker-timeline';
 
       // Create shift bars
-      displayEntries.forEach(entry => {
+      combinedEntries.forEach(entry => {
         const left = timeToPercent(entry.start_time);
         const right = timeToPercent(entry.end_time);
         const width = right - left;
 
         if (width <= 0) return;
 
+        if (isGapEntry(entry)) {
+          const gapBar = document.createElement('div');
+          gapBar.className = 'gap-bar';
+          gapBar.style.left = `${left}%`;
+          gapBar.style.width = `${width}%`;
+          gapBar.style.zIndex = '2';
+
+          const tasks = normalizeTasks(entry.tasks || entry.task);
+          const activity = tasks.length ? tasks.join(', ') : 'Gap';
+          gapBar.title = `${worker}\n${activity}: ${entry.start_time}-${entry.end_time}`;
+
+          timelineCell.appendChild(gapBar);
+          return;
+        }
+
         let activeSkills;
         let tooltipSkills;
         let tooltipMods = '';
-        let gapTooltip = '';
 
         if (entry.skillValues) {
           activeSkills = Object.keys(entry.skillValues)
@@ -478,19 +462,6 @@ const TimelineChart = (function() {
         const tasks = normalizeTasks(entry.tasks || entry.task);
         const taskTooltip = tasks.length ? `Shifts: ${tasks.join(', ')}\n` : '';
 
-        const gaps = parseGapList(entry.gaps);
-        if (gaps.length) {
-          const gapList = gaps
-            .map(g => {
-              const start = g.start || '?';
-              const end = g.end || '?';
-              const activity = g.activity ? ` (${g.activity})` : '';
-              return `${start}-${end}${activity}`;
-            })
-            .join(', ');
-          gapTooltip = `Gaps: ${gapList}\n`;
-        }
-
         if (activeSkills.length > 0) {
           const bar = document.createElement('div');
           bar.className = 'shift-bar';
@@ -512,35 +483,11 @@ const TimelineChart = (function() {
           // Tooltip
           const timeDisplay = entry.TIME || `${entry.start_time}-${entry.end_time}`;
           const skillsTooltip = `Skills (1): ${tooltipSkillLabels.join(', ')}`;
-          bar.title = `${worker}\n${tooltipMods}${taskTooltip}${gapTooltip}Zeit: ${timeDisplay}\n${skillsTooltip}`;
+          bar.title = `${worker}\n${tooltipMods}${taskTooltip}Zeit: ${timeDisplay}\n${skillsTooltip}`;
 
           timelineCell.appendChild(bar);
         }
 
-        // Render gap bars for this entry
-        gaps.forEach(gap => {
-          const gapStart = gap.start;
-          const gapEnd = gap.end;
-          if (!gapStart || !gapEnd) return;
-
-          const gapLeft = timeToPercent(gapStart);
-          const gapRight = timeToPercent(gapEnd);
-          const gapWidth = gapRight - gapLeft;
-
-          if (gapWidth <= 0) return;
-
-          const gapBar = document.createElement('div');
-          gapBar.className = 'gap-bar';
-          gapBar.style.left = `${gapLeft}%`;
-          gapBar.style.width = `${gapWidth}%`;
-          gapBar.style.zIndex = '2';
-
-          // Gap tooltip
-          const activity = gap.activity || 'Gap';
-          gapBar.title = `${worker}\n${activity}: ${gapStart}-${gapEnd}`;
-
-          timelineCell.appendChild(gapBar);
-        });
       });
 
       row.appendChild(nameCell);
@@ -559,10 +506,12 @@ const TimelineChart = (function() {
     const rows = gridEl.querySelectorAll('.worker-row');
     rows.forEach(row => {
       const bars = Array.from(row.querySelectorAll('.shift-bar'));
+      const gapBars = Array.from(row.querySelectorAll('.gap-bar'));
 
       // Show all bars when filter is cleared
       if (skillSlug === 'all' || !skillSlug) {
         bars.forEach(bar => bar.style.display = '');
+        gapBars.forEach(bar => bar.style.display = '');
         row.style.display = '';
         return;
       }
@@ -577,6 +526,7 @@ const TimelineChart = (function() {
         const barSkills = (bar.dataset.skills || '').split(',').filter(s => s);
         bar.style.display = barSkills.includes(skillSlug) ? '' : 'none';
       });
+      gapBars.forEach(bar => bar.style.display = 'none');
 
       // Hide row if no matching bars
       row.style.display = matchingBars.length > 0 ? '' : 'none';
@@ -590,10 +540,12 @@ const TimelineChart = (function() {
 
     rows.forEach(row => {
       const bars = Array.from(row.querySelectorAll('.shift-bar'));
+      const gapBars = Array.from(row.querySelectorAll('.gap-bar'));
 
       // Show all bars when filter is cleared
       if (mod === 'all' || mod === '' || !mod) {
         bars.forEach(bar => bar.style.display = '');
+        gapBars.forEach(bar => bar.style.display = '');
         row.style.display = '';
         return;
       }
@@ -608,6 +560,7 @@ const TimelineChart = (function() {
         const barMods = (bar.dataset.modalities || '').split(',').filter(m => m);
         bar.style.display = barMods.includes(mod) ? '' : 'none';
       });
+      gapBars.forEach(bar => bar.style.display = 'none');
 
       // Hide row if no matching bars
       row.style.display = matchingBars.length > 0 ? '' : 'none';
@@ -624,7 +577,6 @@ const TimelineChart = (function() {
     timeToPercent,
     isSkillActive,
     hasAnyActiveSkill,
-    parseGapList,
     escapeHtml,
     TIMELINE_START,
     TIMELINE_END,

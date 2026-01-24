@@ -46,13 +46,36 @@ def _ensure_row_type_column(df: pd.DataFrame) -> None:
     if df is None:
         return
     if 'row_type' not in df.columns:
-        df['row_type'] = 'shift'
+        df['row_type'] = 'shift_segment'
     else:
-        df['row_type'] = df['row_type'].fillna('shift')
+        df['row_type'] = df['row_type'].fillna('shift_segment').apply(
+            lambda value: 'gap_segment'
+            if _is_gap_row_type(value)
+            else ('shift_segment' if str(value).strip().lower() in {'shift', 'shift_segment'} else value)
+        )
+
+
+def _is_gap_row_type(value: Optional[str]) -> bool:
+    if value is None:
+        return False
+    return str(value).strip().lower() in {'gap', 'gap_segment'}
+
+
+def _strip_builder_fields(row: dict) -> dict:
+    cleaned = dict(row)
+    for key in ('shift_duration', 'TIME', 'row_index', 'is_manual'):
+        cleaned.pop(key, None)
+    return cleaned
 
 
 def _time_to_minutes(value: time) -> int:
     return value.hour * 60 + value.minute
+
+
+def _minutes_to_time(value: int) -> time:
+    hours = value // 60
+    minutes = value % 60
+    return time(hours, minutes)
 
 
 def _coerce_time_value(value: Optional[object]) -> Optional[time]:
@@ -69,6 +92,12 @@ def _coerce_time_value(value: Optional[object]) -> Optional[time]:
     return None
 
 
+def _is_valid_time_window(start: Optional[time], end: Optional[time]) -> bool:
+    if start is None or end is None:
+        return False
+    return _time_to_minutes(end) > _time_to_minutes(start)
+
+
 def build_day_plan_rows(rows: List[dict], target_date: date) -> List[dict]:
     if not rows:
         return []
@@ -79,10 +108,20 @@ def build_day_plan_rows(rows: List[dict], target_date: date) -> List[dict]:
         row_type_value = normalized.get('row_type') or 'shift'
         if isinstance(row_type_value, str):
             row_type_value = row_type_value.strip().lower() or 'shift'
-        normalized['row_type'] = 'gap' if row_type_value == 'gap' else 'shift'
+        normalized['row_type'] = 'gap' if row_type_value in {'gap', 'gap_segment'} else 'shift'
         normalized['PPL'] = normalized.get('PPL', '')
         normalized['start_time'] = _coerce_time_value(normalized.get('start_time'))
         normalized['end_time'] = _coerce_time_value(normalized.get('end_time'))
+
+        if not _is_valid_time_window(normalized.get('start_time'), normalized.get('end_time')):
+            selection_logger.info(
+                "Dropping row with invalid time window for '%s' (%s): %s-%s",
+                normalized.get('PPL', ''),
+                normalized.get('row_type'),
+                normalized.get('start_time'),
+                normalized.get('end_time'),
+            )
+            continue
 
         tasks = normalized.get('tasks')
         if isinstance(tasks, list):
@@ -106,19 +145,18 @@ def build_day_plan_rows(rows: List[dict], target_date: date) -> List[dict]:
             else:
                 normalized[skill] = 0
 
-        if normalized.get('start_time') and normalized.get('end_time'):
-            normalized['TIME'] = (
-                f"{normalized['start_time'].strftime(TIME_FORMAT)}-"
-                f"{normalized['end_time'].strftime(TIME_FORMAT)}"
-            )
+        normalized['TIME'] = (
+            f"{normalized['start_time'].strftime(TIME_FORMAT)}-"
+            f"{normalized['end_time'].strftime(TIME_FORMAT)}"
+        )
 
         rows_by_worker.setdefault(normalized['PPL'], []).append(normalized)
 
     built_rows: List[dict] = []
 
     for worker_name, worker_rows in rows_by_worker.items():
-        shift_rows = [row for row in worker_rows if row.get('row_type') != 'gap']
-        gap_rows = [row for row in worker_rows if row.get('row_type') == 'gap']
+        shift_rows = [row for row in worker_rows if not _is_gap_row_type(row.get('row_type'))]
+        gap_rows = [row for row in worker_rows if _is_gap_row_type(row.get('row_type'))]
 
         resolved_shifts = resolve_overlapping_shifts(shift_rows, target_date) if shift_rows else []
 
@@ -137,34 +175,42 @@ def build_day_plan_rows(rows: List[dict], target_date: date) -> List[dict]:
             gap_intervals.append((start_min, end_min))
         gap_intervals = merge_intervals(gap_intervals)
 
+        shift_segments: List[dict] = []
         for shift_row in resolved_shifts:
             start = shift_row.get('start_time')
             end = shift_row.get('end_time')
             if start is None or end is None:
-                shift_row['shift_duration'] = 0.0
-                shift_row['counts_for_hours'] = False
                 continue
             start_min = _time_to_minutes(start)
             end_min = _time_to_minutes(end)
             if end_min <= start_min:
-                shift_row['shift_duration'] = 0.0
-                shift_row['counts_for_hours'] = False
                 continue
             remaining = subtract_intervals((start_min, end_min), gap_intervals)
-            total_minutes = sum(seg_end - seg_start for seg_start, seg_end in remaining)
-            shift_row['shift_duration'] = round(total_minutes / 60.0, 4)
-            if total_minutes <= 0:
-                shift_row['counts_for_hours'] = False
+            for seg_start, seg_end in remaining:
+                segment = dict(shift_row)
+                segment_start = _minutes_to_time(seg_start)
+                segment_end = _minutes_to_time(seg_end)
+                segment['start_time'] = segment_start
+                segment['end_time'] = segment_end
+                segment['TIME'] = (
+                    f"{segment_start.strftime(TIME_FORMAT)}-"
+                    f"{segment_end.strftime(TIME_FORMAT)}"
+                )
+                segment['shift_duration'] = round((seg_end - seg_start) / 60.0, 4)
+                if segment['shift_duration'] <= 0:
+                    segment['counts_for_hours'] = False
+                segment['row_type'] = 'shift_segment'
+                shift_segments.append(segment)
 
         for gap_row in gap_rows:
-            gap_row['row_type'] = 'gap'
+            gap_row['row_type'] = 'gap_segment'
             gap_row['shift_duration'] = 0.0
             if gap_row.get('counts_for_hours') is None:
                 gap_row['counts_for_hours'] = False
             for skill in SKILL_COLUMNS:
                 gap_row[skill] = -1
 
-        built_rows.extend(resolved_shifts + gap_rows)
+        built_rows.extend(shift_segments + gap_rows)
 
     return built_rows
 
@@ -176,33 +222,18 @@ def _recalculate_worker_shift_durations(df: pd.DataFrame, worker_name: str) -> N
     worker_rows = df[df['PPL'] == worker_name]
     if worker_rows.empty:
         return
-    gap_rows = worker_rows[worker_rows['row_type'] == 'gap']
-    gap_intervals: List[Tuple[int, int]] = []
-    for _, gap_row in gap_rows.iterrows():
-        if bool(gap_row.get('counts_for_hours', False)):
-            continue
-        start = gap_row.get('start_time')
-        end = gap_row.get('end_time')
-        if pd.isna(start) or pd.isna(end):
-            continue
-        gap_intervals.append((_time_to_minutes(start), _time_to_minutes(end)))
-    gap_intervals = merge_intervals([g for g in gap_intervals if g[1] > g[0]])
-
-    for idx, row in worker_rows[worker_rows['row_type'] != 'gap'].iterrows():
+    for idx, row in worker_rows[~worker_rows['row_type'].apply(_is_gap_row_type)].iterrows():
         start = row.get('start_time')
         end = row.get('end_time')
         if pd.isna(start) or pd.isna(end):
             df.at[idx, 'shift_duration'] = 0.0
             df.at[idx, 'counts_for_hours'] = False
             continue
-        start_min = _time_to_minutes(start)
-        end_min = _time_to_minutes(end)
-        if end_min <= start_min:
+        if not _is_valid_time_window(start, end):
             df.at[idx, 'shift_duration'] = 0.0
             df.at[idx, 'counts_for_hours'] = False
             continue
-        remaining = subtract_intervals((start_min, end_min), gap_intervals)
-        total_minutes = sum(seg_end - seg_start for seg_start, seg_end in remaining)
+        total_minutes = _time_to_minutes(end) - _time_to_minutes(start)
         df.at[idx, 'shift_duration'] = round(total_minutes / 60.0, 4)
         if total_minutes <= 0:
             df.at[idx, 'counts_for_hours'] = False
@@ -365,8 +396,8 @@ def resolve_overlapping_shifts_df(df: pd.DataFrame, target_date: Optional[date] 
     base_date = target_date if target_date is not None else datetime.today().date()
 
     _ensure_row_type_column(df)
-    shift_rows = df[df['row_type'] != 'gap']
-    gap_rows = df[df['row_type'] == 'gap']
+    shift_rows = df[~df['row_type'].apply(_is_gap_row_type)]
+    gap_rows = df[df['row_type'].apply(_is_gap_row_type)]
 
     # Convert to list of dicts for processing
     shifts = shift_rows.to_dict('records')
@@ -492,7 +523,7 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
                     row['counts_for_hours'] = bool(value)
                 elif col == 'row_type':
                     row['row_type'] = value
-                    if value == 'gap' and 'counts_for_hours' not in updates:
+                    if _is_gap_row_type(value) and 'counts_for_hours' not in updates:
                         row['counts_for_hours'] = False
             break
 
@@ -529,6 +560,8 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
     try:
         ppl_name = worker_data.get('PPL', 'Neuer Worker (NW)')
         row_type = worker_data.get('row_type', 'shift')
+        if _is_gap_row_type(row_type):
+            row_type = 'gap'
         new_row = {
             'PPL': ppl_name,
             'start_time': datetime.strptime(worker_data.get('start_time', '07:00'), TIME_FORMAT).time(),
@@ -579,9 +612,13 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
         new_df = data_dict['working_hours_df']
         new_idx = None
         if new_df is not None and not new_df.empty:
+            if row_type == 'gap':
+                row_type_mask = new_df['row_type'].apply(_is_gap_row_type)
+            else:
+                row_type_mask = ~new_df['row_type'].apply(_is_gap_row_type)
             matches = new_df[
                 (new_df['PPL'] == ppl_name) &
-                (new_df['row_type'] == row_type) &
+                row_type_mask &
                 (new_df['start_time'] == new_row['start_time']) &
                 (new_df['end_time'] == new_row['end_time']) &
                 (new_df['tasks'] == new_row['tasks'])
@@ -620,7 +657,7 @@ def _replace_worker_schedule(
         target_date = target_date or (_get_staged_target_date() if use_staged else datetime.today().date())
         raw_rows = []
         for worker_data in rows:
-            row_copy = dict(worker_data)
+            row_copy = _strip_builder_fields(worker_data)
             row_copy['PPL'] = worker_name
             raw_rows.append(row_copy)
         plan_rows = build_day_plan_rows(raw_rows, target_date)
@@ -695,7 +732,7 @@ def _add_gap_to_schedule(
     use_staged: bool,
     gap_counts_for_hours: Optional[bool] = None,
 ) -> tuple:
-    """Add a gap row for a worker."""
+    """Add a gap intent row for a worker (canonicalized to gap segments on rebuild)."""
     data_dict = _get_schedule_data_dict(modality, use_staged)
     df = data_dict['working_hours_df']
 
@@ -723,7 +760,6 @@ def _add_gap_to_schedule(
             'Modifier': 1.0,
             'tasks': gap_type,
             'counts_for_hours': normalized_gap_counts,
-            'shift_duration': 0.0,
             'row_type': 'gap',
         }
         for skill in SKILL_COLUMNS:
@@ -758,7 +794,7 @@ def _remove_gap_from_schedule(
     use_staged: bool,
     gap_match: Optional[dict] = None,
 ) -> tuple:
-    """Remove a gap row from a worker's schedule."""
+    """Remove a gap intent row from a worker's schedule."""
     data_dict = _get_schedule_data_dict(modality, use_staged)
     df = data_dict['working_hours_df']
 
@@ -784,7 +820,7 @@ def _remove_gap_from_schedule(
 
         gap_candidates = df[
             (df['PPL'] == worker_name) &
-            (df['row_type'] == 'gap') &
+            (df['row_type'].apply(_is_gap_row_type)) &
             (df['start_time'] == start_time) &
             (df['end_time'] == end_time)
         ]
@@ -831,7 +867,7 @@ def _update_gap_in_schedule(
     new_counts_for_hours: Optional[bool] = None,
     gap_match: Optional[dict] = None,
 ) -> tuple:
-    """Update a gap row in a worker's schedule."""
+    """Update a gap intent row in a worker's schedule."""
     data_dict = _get_schedule_data_dict(modality, use_staged)
     df = data_dict['working_hours_df']
 
@@ -857,7 +893,7 @@ def _update_gap_in_schedule(
 
         gap_candidates = df[
             (df['PPL'] == worker_name) &
-            (df['row_type'] == 'gap') &
+            (df['row_type'].apply(_is_gap_row_type)) &
             (df['start_time'] == start_time) &
             (df['end_time'] == end_time)
         ]
