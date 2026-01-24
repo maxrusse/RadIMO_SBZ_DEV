@@ -113,7 +113,7 @@ def check_and_perform_daily_reset() -> None:
                 else:
                     selection_logger.warning("Unified scheduled file was invalid and was not loaded.")
             else:
-                selection_logger.debug("No unified scheduled file found. Keeping old data.")
+                selection_logger.debug("No unified scheduled file found. Skipping schedule reload.")
         except Exception as exc:
             selection_logger.error("Error during daily reset for unified schedule: %s", exc)
 
@@ -182,9 +182,9 @@ def preload_next_workday(csv_path: str, config: dict, target_date: Optional[Unio
         if os.path.exists(unified_scheduled_path):
             try:
                 os.remove(unified_scheduled_path)
-                selection_logger.info("Cleared old unified scheduled file")
+                selection_logger.info("Cleared existing unified scheduled file")
             except OSError as e:
-                selection_logger.warning("Could not remove old unified scheduled file: %s", e)
+                selection_logger.warning("Could not remove existing unified scheduled file: %s", e)
 
         if not modality_dfs:
             modality_dfs = {}

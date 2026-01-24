@@ -77,7 +77,6 @@ from data_manager.worker_management import (
 
 # File operations
 from data_manager.file_ops import (
-    _calculate_total_work_hours,
     apply_roster_overrides_to_schedule,
     backup_dataframe,
     load_staged_dataframe,
@@ -95,11 +94,13 @@ from data_manager.schedule_crud import (
     reconcile_live_worker_tracking,
     resolve_overlapping_shifts,
     resolve_overlapping_shifts_df,
-    _update_schedule_row,
-    _add_worker_to_schedule,
-    _delete_worker_from_schedule,
-    _add_gap_to_schedule,
-    _replace_worker_schedule,
+    update_schedule_row,
+    add_worker_to_schedule,
+    delete_worker_from_schedule,
+    add_gap_to_schedule,
+    replace_worker_schedule,
+    remove_gap_from_schedule,
+    update_gap_in_schedule,
 )
 
 # CSV parser
@@ -156,7 +157,6 @@ __all__ = [
     'extract_modalities_from_skill_overrides',
 
     # File operations
-    '_calculate_total_work_hours',
     'apply_roster_overrides_to_schedule',
     'backup_dataframe',
     'load_staged_dataframe',
@@ -172,11 +172,13 @@ __all__ = [
     'reconcile_live_worker_tracking',
     'resolve_overlapping_shifts',
     'resolve_overlapping_shifts_df',
-    '_update_schedule_row',
-    '_add_worker_to_schedule',
-    '_delete_worker_from_schedule',
-    '_add_gap_to_schedule',
-    '_replace_worker_schedule',
+    'update_schedule_row',
+    'add_worker_to_schedule',
+    'delete_worker_from_schedule',
+    'add_gap_to_schedule',
+    'replace_worker_schedule',
+    'remove_gap_from_schedule',
+    'update_gap_in_schedule',
 
     # CSV parser
     'match_mapping_rule',

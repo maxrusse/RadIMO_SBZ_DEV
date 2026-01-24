@@ -59,16 +59,17 @@ from data_manager import (
     auto_populate_skill_roster,
     load_staged_dataframe,
     backup_dataframe,
-    _update_schedule_row,
-    _add_worker_to_schedule,
-    _delete_worker_from_schedule,
-    _replace_worker_schedule,
-    _add_gap_to_schedule,
+    update_schedule_row,
+    add_worker_to_schedule,
+    delete_worker_from_schedule,
+    replace_worker_schedule,
+    add_gap_to_schedule,
+    remove_gap_from_schedule,
+    update_gap_in_schedule,
     preload_next_workday,
     extract_modalities_from_skill_overrides,
     load_unified_scheduled_into_staged,
 )
-from data_manager.schedule_crud import _remove_gap_from_schedule, _update_gap_in_schedule
 from state_manager import StateManager
 from balancer import (
     get_next_available_worker,
@@ -155,6 +156,98 @@ def _build_rows_from_plan(worker: str, shifts: list, modality: str) -> list:
             **{skill: skills.get(skill) for skill in SKILL_COLUMNS if skill in skills},
         }))
     return rows
+
+
+def _handle_update_row(use_staged: bool, log_message: Optional[str] = None) -> Any:
+    data = request.json
+    modality = data.get('modality')
+    row_index = data.get('row_index')
+    updates = data.get('updates', {})
+
+    data_store = staged_modality_data if use_staged else modality_data
+    error = _validate_modality(modality, data_store)
+    if error:
+        return error
+
+    success, result = update_schedule_row(modality, row_index, updates, use_staged=use_staged)
+
+    if success:
+        if log_message:
+            selection_logger.info(log_message.format(modality=modality, row_index=row_index))
+        # result is {'reindexed': bool} on success
+        return jsonify({'success': True, 'schedule_reindexed': result.get('reindexed', False)})
+    return jsonify({'error': result}), 400
+
+
+def _handle_apply_worker_plan(use_staged: bool) -> Any:
+    data = request.json or {}
+    worker = data.get('worker')
+    shifts = data.get('shifts', [])
+
+    if not worker:
+        return jsonify({'error': 'Missing worker'}), 400
+
+    errors = []
+    for modality in allowed_modalities:
+        rows = _build_rows_from_plan(worker, shifts, modality)
+
+        success, result, error = replace_worker_schedule(modality, worker, rows, use_staged=use_staged)
+        if not success:
+            errors.append(f"{modality.upper()}: {error}")
+
+    if errors:
+        return jsonify({'error': '; '.join(errors)}), 400
+    return jsonify({'success': True})
+
+
+def _handle_add_worker(
+    use_staged: bool,
+    post_success: Optional[Callable[[str, str], None]] = None,
+) -> Any:
+    data = request.json
+    modality = data.get('modality')
+    worker_data = data.get('worker_data', {})
+
+    data_store = staged_modality_data if use_staged else modality_data
+    error = _validate_modality(modality, data_store)
+    if error:
+        return error
+
+    ppl_name = worker_data.get('PPL', 'Neuer Worker (NW)')
+    success, result, error = add_worker_to_schedule(modality, worker_data, use_staged=use_staged)
+
+    if success:
+        if post_success:
+            post_success(modality, ppl_name)
+        # result is {'row_index': int, 'reindexed': bool} on success
+        return jsonify({
+            'success': True,
+            'row_index': result.get('row_index'),
+            'schedule_reindexed': result.get('reindexed', False)
+        })
+    return jsonify({'error': error}), 400
+
+
+def _handle_delete_worker(use_staged: bool, log_message: Optional[str] = None) -> Any:
+    data = request.json
+    modality = data.get('modality')
+    row_index = data.get('row_index')
+    verify_ppl = data.get('verify_ppl')
+
+    data_store = staged_modality_data if use_staged else modality_data
+    error = _validate_modality(modality, data_store)
+    if error:
+        return error
+
+    success, worker_name, error = delete_worker_from_schedule(
+        modality, row_index, use_staged=use_staged, verify_ppl=verify_ppl
+    )
+
+    if success:
+        if log_message:
+            selection_logger.info(log_message.format(modality=modality, worker_name=worker_name))
+        return jsonify({'success': True})
+    return jsonify({'error': error}), 400
 
 
 def _parse_tasks(value: Any) -> list[str]:
@@ -1068,84 +1161,23 @@ def get_prep_data() -> Any:
 @routes.route('/api/prep-next-day/update-row', methods=['POST'])
 @admin_required
 def update_prep_row() -> Any:
-    data = request.json
-    modality = data.get('modality')
-    row_index = data.get('row_index')
-    updates = data.get('updates', {})
-
-    error = _validate_modality(modality, staged_modality_data)
-    if error:
-        return error
-
-    success, result = _update_schedule_row(modality, row_index, updates, use_staged=True)
-
-    if success:
-        # result is {'reindexed': bool} on success
-        return jsonify({'success': True, 'schedule_reindexed': result.get('reindexed', False)})
-    return jsonify({'error': result}), 400
+    return _handle_update_row(use_staged=True)
 
 
 @routes.route('/api/prep-next-day/apply-worker-plan', methods=['POST'])
 @admin_required
 def apply_prep_worker_plan() -> Any:
-    data = request.json or {}
-    worker = data.get('worker')
-    shifts = data.get('shifts', [])
-
-    if not worker:
-        return jsonify({'error': 'Missing worker'}), 400
-
-    errors = []
-    for modality in allowed_modalities:
-        rows = _build_rows_from_plan(worker, shifts, modality)
-
-        success, result, error = _replace_worker_schedule(modality, worker, rows, use_staged=True)
-        if not success:
-            errors.append(f"{modality.upper()}: {error}")
-
-    if errors:
-        return jsonify({'error': '; '.join(errors)}), 400
-    return jsonify({'success': True})
+    return _handle_apply_worker_plan(use_staged=True)
 
 @routes.route('/api/prep-next-day/add-worker', methods=['POST'])
 @admin_required
 def add_prep_worker() -> Any:
-    data = request.json
-    modality = data.get('modality')
-    worker_data = data.get('worker_data', {})
-
-    error = _validate_modality(modality, staged_modality_data)
-    if error:
-        return error
-
-    success, result, error = _add_worker_to_schedule(modality, worker_data, use_staged=True)
-
-    if success:
-        # result is {'row_index': int, 'reindexed': bool} on success
-        return jsonify({
-            'success': True,
-            'row_index': result.get('row_index'),
-            'schedule_reindexed': result.get('reindexed', False)
-        })
-    return jsonify({'error': error}), 400
+    return _handle_add_worker(use_staged=True)
 
 @routes.route('/api/prep-next-day/delete-worker', methods=['POST'])
 @admin_required
 def delete_prep_worker() -> Any:
-    data = request.json
-    modality = data.get('modality')
-    row_index = data.get('row_index')
-    verify_ppl = data.get('verify_ppl')
-
-    error = _validate_modality(modality, staged_modality_data)
-    if error:
-        return error
-
-    success, worker_name, error = _delete_worker_from_schedule(modality, row_index, use_staged=True, verify_ppl=verify_ppl)
-
-    if success:
-        return jsonify({'success': True})
-    return jsonify({'error': error}), 400
+    return _handle_delete_worker(use_staged=True)
 
 @routes.route('/api/live-schedule/data', methods=['GET'])
 @admin_required
@@ -1159,61 +1191,21 @@ def get_live_data() -> Any:
 @routes.route('/api/live-schedule/update-row', methods=['POST'])
 @admin_required
 def update_live_row() -> Any:
-    data = request.json
-    modality = data.get('modality')
-    row_index = data.get('row_index')
-    updates = data.get('updates', {})
-
-    error = _validate_modality(modality, modality_data)
-    if error:
-        return error
-
-    success, result = _update_schedule_row(modality, row_index, updates, use_staged=False)
-
-    if success:
-        selection_logger.info(f"Live schedule updated for {modality}, row {row_index} (no counter reset)")
-        # result is {'reindexed': bool} on success
-        return jsonify({'success': True, 'schedule_reindexed': result.get('reindexed', False)})
-    return jsonify({'error': result}), 400
+    return _handle_update_row(
+        use_staged=False,
+        log_message="Live schedule updated for {modality}, row {row_index} (no counter reset)",
+    )
 
 
 @routes.route('/api/live-schedule/apply-worker-plan', methods=['POST'])
 @admin_required
 def apply_live_worker_plan() -> Any:
-    data = request.json or {}
-    worker = data.get('worker')
-    shifts = data.get('shifts', [])
-
-    if not worker:
-        return jsonify({'error': 'Missing worker'}), 400
-
-    errors = []
-    for modality in allowed_modalities:
-        rows = _build_rows_from_plan(worker, shifts, modality)
-
-        success, result, error = _replace_worker_schedule(modality, worker, rows, use_staged=False)
-        if not success:
-            errors.append(f"{modality.upper()}: {error}")
-
-    if errors:
-        return jsonify({'error': '; '.join(errors)}), 400
-    return jsonify({'success': True})
+    return _handle_apply_worker_plan(use_staged=False)
 
 @routes.route('/api/live-schedule/add-worker', methods=['POST'])
 @admin_required
 def add_live_worker() -> Any:
-    data = request.json
-    modality = data.get('modality')
-    worker_data = data.get('worker_data', {})
-
-    error = _validate_modality(modality, modality_data)
-    if error:
-        return error
-
-    ppl_name = worker_data.get('PPL', 'Neuer Worker (NW)')
-    success, result, error = _add_worker_to_schedule(modality, worker_data, use_staged=False)
-
-    if success:
+    def _post_add(modality: str, ppl_name: str) -> None:
         d = modality_data[modality]
         for skill in SKILL_COLUMNS:
             if skill not in d['skill_counts']:
@@ -1222,34 +1214,16 @@ def add_live_worker() -> Any:
                 d['skill_counts'][skill][ppl_name] = 0
 
         selection_logger.info(f"Worker {ppl_name} added to LIVE {modality} schedule (no counter reset)")
-        # result is {'row_index': int, 'reindexed': bool} on success
-        return jsonify({
-            'success': True,
-            'row_index': result.get('row_index'),
-            'schedule_reindexed': result.get('reindexed', False)
-        })
 
-    return jsonify({'error': error}), 400
+    return _handle_add_worker(use_staged=False, post_success=_post_add)
 
 @routes.route('/api/live-schedule/delete-worker', methods=['POST'])
 @admin_required
 def delete_live_worker() -> Any:
-    data = request.json
-    modality = data.get('modality')
-    row_index = data.get('row_index')
-    verify_ppl = data.get('verify_ppl')
-
-    error = _validate_modality(modality, modality_data)
-    if error:
-        return error
-
-    success, worker_name, error = _delete_worker_from_schedule(modality, row_index, use_staged=False, verify_ppl=verify_ppl)
-
-    if success:
-        selection_logger.info(f"Worker {worker_name} deleted from LIVE {modality} schedule (no counter reset)")
-        return jsonify({'success': True})
-
-    return jsonify({'error': error}), 400
+    return _handle_delete_worker(
+        use_staged=False,
+        log_message="Worker {worker_name} deleted from LIVE {modality} schedule (no counter reset)",
+    )
 
 @routes.route('/api/live-schedule/add-gap', methods=['POST'])
 @admin_required
@@ -1266,7 +1240,7 @@ def add_live_gap() -> Any:
     if error:
         return error
 
-    success, action, error = _add_gap_to_schedule(
+    success, action, error = add_gap_to_schedule(
         modality,
         row_index,
         gap_type,
@@ -1295,7 +1269,7 @@ def add_staged_gap() -> Any:
     if error:
         return error
 
-    success, action, error = _add_gap_to_schedule(
+    success, action, error = add_gap_to_schedule(
         modality,
         row_index,
         gap_type,
@@ -1328,7 +1302,7 @@ def _handle_remove_gap(use_staged: bool) -> Any:
         return jsonify({'error': 'gap_start and gap_end are required'}), 400
 
     gap_match = {'start': gap_start, 'end': gap_end, 'activity': gap_activity}
-    success, action, error = _remove_gap_from_schedule(
+    success, action, error = remove_gap_from_schedule(
         modality,
         row_index,
         None,
@@ -1363,7 +1337,7 @@ def _handle_update_gap(use_staged: bool) -> Any:
         return jsonify({'error': 'gap_start and gap_end are required'}), 400
 
     gap_match = {'start': gap_start, 'end': gap_end, 'activity': gap_activity}
-    success, action, error = _update_gap_in_schedule(
+    success, action, error = update_gap_in_schedule(
         modality,
         row_index,
         None,
