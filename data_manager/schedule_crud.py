@@ -543,6 +543,11 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
         return False, str(e)
 
 
+def update_schedule_row(modality: str, row_index: int, updates: dict, use_staged: bool) -> tuple:
+    """Public wrapper for updating a schedule row."""
+    return _update_schedule_row(modality, row_index, updates, use_staged)
+
+
 def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) -> tuple:
     """Add a new worker row to the schedule.
 
@@ -633,6 +638,11 @@ def _add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) 
         return False, None, str(e)
 
 
+def add_worker_to_schedule(modality: str, worker_data: dict, use_staged: bool) -> tuple:
+    """Public wrapper for adding a worker to a schedule."""
+    return _add_worker_to_schedule(modality, worker_data, use_staged)
+
+
 def _replace_worker_schedule(
     modality: str,
     worker_name: str,
@@ -685,6 +695,11 @@ def _replace_worker_schedule(
         return False, None, str(e)
 
 
+def replace_worker_schedule(modality: str, worker_name: str, rows: list, use_staged: bool) -> tuple:
+    """Public wrapper for replacing a worker schedule."""
+    return _replace_worker_schedule(modality, worker_name, rows, use_staged)
+
+
 def _delete_worker_from_schedule(modality: str, row_index: int, use_staged: bool, verify_ppl: Optional[str] = None) -> tuple:
     """Delete a worker row from the schedule."""
     data_dict = _get_schedule_data_dict(modality, use_staged)
@@ -720,6 +735,16 @@ def _delete_worker_from_schedule(modality: str, row_index: int, use_staged: bool
 
     except Exception as e:
         return False, None, str(e)
+
+
+def delete_worker_from_schedule(
+    modality: str,
+    row_index: int,
+    use_staged: bool,
+    verify_ppl: Optional[str] = None,
+) -> tuple:
+    """Public wrapper for deleting a worker from a schedule."""
+    return _delete_worker_from_schedule(modality, row_index, use_staged, verify_ppl=verify_ppl)
 
 
 def _add_gap_to_schedule(
@@ -784,6 +809,27 @@ def _add_gap_to_schedule(
         return False, None, f'Invalid time format: {e}'
     except Exception as e:
         return False, None, str(e)
+
+
+def add_gap_to_schedule(
+    modality: str,
+    row_index: int,
+    gap_type: str,
+    gap_start: str,
+    gap_end: str,
+    use_staged: bool,
+    gap_counts_for_hours: Optional[bool] = None,
+) -> tuple:
+    """Public wrapper for adding a gap to a schedule."""
+    return _add_gap_to_schedule(
+        modality,
+        row_index,
+        gap_type,
+        gap_start,
+        gap_end,
+        use_staged,
+        gap_counts_for_hours=gap_counts_for_hours,
+    )
 
 
 def _remove_gap_from_schedule(
@@ -853,6 +899,17 @@ def _remove_gap_from_schedule(
 
     except Exception as e:
         return False, None, str(e)
+
+
+def remove_gap_from_schedule(
+    modality: str,
+    row_index: int,
+    gap_index: Optional[int],
+    use_staged: bool,
+    gap_match: Optional[dict] = None,
+) -> tuple:
+    """Public wrapper for removing a gap from a schedule."""
+    return _remove_gap_from_schedule(modality, row_index, gap_index, use_staged, gap_match=gap_match)
 
 
 def _update_gap_in_schedule(
@@ -934,3 +991,28 @@ def _update_gap_in_schedule(
         return False, None, f'Invalid time format: {e}'
     except Exception as e:
         return False, None, str(e)
+
+
+def update_gap_in_schedule(
+    modality: str,
+    row_index: int,
+    gap_index: Optional[int],
+    new_start: Optional[str],
+    new_end: Optional[str],
+    new_activity: Optional[str],
+    use_staged: bool,
+    new_counts_for_hours: Optional[bool] = None,
+    gap_match: Optional[dict] = None,
+) -> tuple:
+    """Public wrapper for updating a gap in a schedule."""
+    return _update_gap_in_schedule(
+        modality,
+        row_index,
+        gap_index,
+        new_start,
+        new_end,
+        new_activity,
+        use_staged,
+        new_counts_for_hours=new_counts_for_hours,
+        gap_match=gap_match,
+    )

@@ -593,7 +593,7 @@ def load_unified_staged_data(file_path: str) -> bool:
 
 
 def load_unified_live_backup(file_path: str) -> bool:
-    """Load live data from unified backup file (with migration fallback)."""
+    """Load live data from unified backup file."""
     if _unified_load_state['live']:
         return True
 

@@ -175,11 +175,11 @@ def build_rules(df: pd.DataFrame, skills: List[str], modalities: List[str], cols
 
         note_parts = []
         if modality is None:
-            modality = "TODO_modality"
+            modality = modalities[0] if modalities else "ct"
             note_parts.append("modality unclear - please review")
 
         # Build skill_overrides in Skill×Modality format
-        skill_overrides = build_skill_overrides(skills, modality if modality != "TODO_modality" else "ct")
+        skill_overrides = build_skill_overrides(skills, modality)
 
         rule = {
             "match": activity,
@@ -254,8 +254,8 @@ def main() -> None:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source_csv": str(input_path),
         "notes": (
-            "Review time guesses and skill_overrides. TODO_* markers indicate fields "
-            "that need manual confirmation before merging into config.yaml. "
+            "Review time guesses and skill_overrides; rules flagged with notes need "
+            "manual confirmation before merging into config.yaml. "
             "This uses the NEW vendor_mappings format with embedded times."
         ),
         "vendor_mappings": {
