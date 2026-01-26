@@ -1626,12 +1626,14 @@ async function addShiftFromModal() {
     const originalShifts = [];
     selectedModalities.forEach(modKey => {
       const skills = {};
-      if (!isGap) {
-        SKILLS.forEach(skill => {
-          const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
-          skills[skill] = normalizeSkillValueJS(el ? el.value : 0);
-        });
-      }
+      SKILLS.forEach(skill => {
+        if (isGap) {
+          skills[skill] = -1;
+          return;
+        }
+        const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
+        skills[skill] = normalizeSkillValueJS(el ? el.value : 0);
+      });
       modalities[modKey] = {
         skills,
         row_index: -1,

@@ -12,8 +12,35 @@ function renderSkillSelect(id, value, onchangeHandler, options = {}) {
   </select>`;
 }
 
-function shiftMatchesFilters(shift, filter) {
-  if (shift?.is_gap_entry) return true;
+function groupHasActiveSkills(group, filter) {
+  if (!group) return false;
+  const shifts = getTableShifts(group).filter(s => !s.is_gap_entry && !s.deleted);
+  if (shifts.length === 0) return false;
+  const modalityFilter = filter.modality || '';
+  const skillFilter = filter.skill || '';
+  const modalitiesToCheck = modalityFilter ? [modalityFilter] : MODALITIES.map(m => m.toLowerCase());
+
+  if (skillFilter) {
+    return shifts.some(shift => modalitiesToCheck.some(modKey => {
+      const modData = shift.modalities?.[modKey];
+      if (!modData) return false;
+      return isActiveSkillValue(modData.skills?.[skillFilter]);
+    }));
+  }
+
+  return shifts.some(shift => modalitiesToCheck.some(modKey => {
+    const modData = shift.modalities?.[modKey];
+    if (!modData) return false;
+    return SKILLS.some(skill => isActiveSkillValue(modData.skills?.[skill]));
+  }));
+}
+
+function shiftMatchesFilters(shift, filter, group) {
+  if (shift?.is_gap_entry) {
+    if (!filter) return true;
+    const filterActive = Boolean(filter.modality || filter.skill || filter.hideZero);
+    return filterActive ? groupHasActiveSkills(group, filter) : true;
+  }
   if (!filter) return true;
   const { modality, skill, hideZero } = filter;
   const filterActive = Boolean(modality || skill || hideZero);
@@ -278,7 +305,7 @@ function renderTable(tab) {
     const shifts = getTableShifts(group).filter(shift => !shift.deleted);
     if (shifts.length === 0) return;
 
-    const shiftsToRender = filterActive ? shifts.filter(shift => shiftMatchesFilters(shift, filter)) : shifts;
+    const shiftsToRender = filterActive ? shifts.filter(shift => shiftMatchesFilters(shift, filter, group)) : shifts;
     if (filterActive && shiftsToRender.length === 0) return;
 
     const escapedWorker = escapeHtml(group.worker);

@@ -114,16 +114,15 @@ def _build_rows_from_plan(worker: str, shifts: list, modality: str) -> list:
                 if mod_key and mod_key != modality:
                     continue
                 mod_data = (shift.get('modalities') or {}).get(mod_key, {})
-                if mod_key and not mod_data and raw.get('is_gap_entry') is False:
-                    continue
-                if mod_data and not _modality_has_active_skills(mod_data):
-                    continue
-
                 is_gap_entry = bool(
                     shift.get('is_gap_entry')
                     or str(shift.get('row_type', '')).lower() in {'gap', 'gap_segment'}
                     or raw.get('is_gap_entry')
                 )
+                if mod_key and not mod_data and raw.get('is_gap_entry') is False:
+                    continue
+                if mod_data and not is_gap_entry and not _modality_has_active_skills(mod_data):
+                    continue
                 skills = mod_data.get('skills', {}) or raw.get('skills', {}) or {}
                 if is_gap_entry:
                     skills = {skill: -1 for skill in SKILL_COLUMNS}
