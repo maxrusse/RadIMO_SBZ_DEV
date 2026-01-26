@@ -17,6 +17,15 @@ let modalEditMode = true;
 let lastAddedShiftMeta = null;
 let loadRequestId = { today: 0, tomorrow: 0 };
 const GERMAN_WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+const ENGLISH_TO_GERMAN_WEEKDAYS = {
+  sunday: 'Sonntag',
+  monday: 'Montag',
+  tuesday: 'Dienstag',
+  wednesday: 'Mittwoch',
+  thursday: 'Donnerstag',
+  friday: 'Freitag',
+  saturday: 'Samstag'
+};
 let prepTargetDate = CONFIG.prep_target_date || null;
 let prepTargetWeekday = CONFIG.prep_target_weekday_name || null;
 let prepTargetDateGerman = CONFIG.prep_target_date_german || null;
@@ -74,20 +83,27 @@ function getShiftTimes(taskConfig, targetDay) {
 
   if (!taskConfig) return defaultTimes;
 
-  const times = taskConfig.times || {};
-  if (Object.keys(times).length === 0) return defaultTimes;
-
-  // Check day-specific first, then 'friday' alias, then default
-  let timeStr = times[targetDay] || times.default || '07:00-15:00';
-  // Also check for 'friday' alias when targetDay is 'Freitag'
-  if (targetDay === 'Freitag' && times.friday && !times.Freitag) {
-    timeStr = times.friday;
-  }
+  const timeStr = resolveDayTimes(taskConfig.times, targetDay) || '07:00-15:00';
   if (typeof timeStr !== 'string') {
     return defaultTimes;
   }
   const [start, end] = timeStr.split('-');
   return { start: start?.trim() || '07:00', end: end?.trim() || '15:00' };
+}
+
+function normalizeWeekdayName(targetDay) {
+  if (!targetDay || typeof targetDay !== 'string') return targetDay;
+  const normalized = targetDay.trim().toLowerCase();
+  return ENGLISH_TO_GERMAN_WEEKDAYS[normalized] || targetDay;
+}
+
+function resolveDayTimes(timesConfig, targetDay) {
+  const times = timesConfig || {};
+  if (Object.keys(times).length === 0) return null;
+  const normalizedDay = normalizeWeekdayName(targetDay);
+  if (normalizedDay && times[normalizedDay]) return times[normalizedDay];
+  if (normalizedDay === 'Freitag' && times.friday && !times.Freitag) return times.friday;
+  return times.default || null;
 }
 
 // Active skill values for filtering - excludes 0 and -1 (only shows explicitly active workers)
@@ -246,15 +262,25 @@ function isGapTask(taskName) {
 }
 
 // Cache for pre-built dropdown options (performance optimization)
-// Key format: "includeGaps" -> { baseHtml, optionsByValue }
-let taskOptionsCache = null;
+// Key format: targetDay -> { baseHtmlNoGaps, baseHtmlWithGaps, optionsByValue, firstShiftName }
+let taskOptionsCacheByDay = new Map();
+
+function isGapAvailableForDay(taskConfig, targetDay) {
+  if (!taskConfig || taskConfig.type !== 'gap') return true;
+  const times = taskConfig.times || {};
+  if (Object.keys(times).length === 0) return true;
+  return Boolean(resolveDayTimes(times, targetDay));
+}
 
 // Build and cache dropdown options (called once, reused many times)
-function buildTaskOptionsCache() {
-  if (taskOptionsCache) return taskOptionsCache;
+function buildTaskOptionsCache(targetDay) {
+  const cacheKey = targetDay || 'default';
+  if (taskOptionsCacheByDay.has(cacheKey)) {
+    return taskOptionsCacheByDay.get(cacheKey);
+  }
 
   const shifts = getShiftRoles();
-  const gaps = getGapTasks();
+  const gaps = getGapTasks().filter(t => isGapAvailableForDay(t, targetDay));
 
   // Build base HTML without selection (for includeGaps: false)
   let baseHtmlNoGaps = '<option value="">-- Select --</option>';
@@ -304,26 +330,28 @@ function buildTaskOptionsCache() {
   // Get first shift name for autoSelectFirst feature
   const firstShiftName = shifts.length > 0 ? shifts[0].name : null;
 
-  taskOptionsCache = {
+  const taskOptionsCache = {
     baseHtmlNoGaps,
     baseHtmlWithGaps,
     optionsByValue,
     firstShiftName
   };
 
+  taskOptionsCacheByDay.set(cacheKey, taskOptionsCache);
   return taskOptionsCache;
 }
 
 // Clear cache when task roles change (called externally if config updates)
 function clearTaskOptionsCache() {
-  taskOptionsCache = null;
+  taskOptionsCacheByDay = new Map();
 }
 
 // Helper: Render task/role dropdown with optgroups for Shifts vs Gaps
 // autoSelectFirst: if true and no selectedValue, auto-select the first shift option
 // OPTIMIZED: Uses cached base HTML and only modifies selection
-function renderTaskOptionsWithGroups(selectedValue = '', includeGaps = false, autoSelectFirst = false) {
-  const cache = buildTaskOptionsCache();
+function renderTaskOptionsWithGroups(selectedValue = '', includeGaps = false, autoSelectFirst = false, targetDay = null) {
+  const effectiveTargetDay = targetDay || getTargetWeekdayName(currentTab);
+  const cache = buildTaskOptionsCache(effectiveTargetDay);
 
   // Determine effective selected value
   let effectiveSelected = selectedValue;
@@ -345,17 +373,36 @@ function renderTaskOptionsWithGroups(selectedValue = '', includeGaps = false, au
     return baseHtml.replace(optionData.html, optionData.htmlSelected);
   }
 
-  // Selected value not found in cache, return base HTML
-  return baseHtml;
+  // Selected value not found in cache, add a fallback option to preserve existing value
+  if (!selectedValue) {
+    return baseHtml;
+  }
+  const taskConfig = TASK_ROLES.find(t => t.name === selectedValue);
+  if (!taskConfig) {
+    return baseHtml;
+  }
+  const escapedName = escapeHtml(taskConfig.name);
+  let dataAttrs = '';
+  if (taskConfig.type === 'gap') {
+    dataAttrs = `data-type="gap" data-times='${JSON.stringify(taskConfig.times || {})}'`;
+  } else {
+    dataAttrs = `data-type="shift" data-modalities='${JSON.stringify(taskConfig.modalities || [])}' data-shift="${escapeHtml(taskConfig.shift || 'Fruehdienst')}" data-skills='${JSON.stringify(taskConfig.skill_overrides || {})}' data-modifier="${taskConfig.modifier || 1.0}"`;
+  }
+  const fallbackOption = `<option value="${escapedName}" ${dataAttrs} selected>${escapedName}</option>`;
+  return `${baseHtml}${fallbackOption}`;
 }
 
-function renderGapOptions(selectedValue = '') {
-  const gaps = getGapTasks();
+function renderGapOptions(selectedValue = '', targetDay = null) {
+  const effectiveTargetDay = targetDay || getTargetWeekdayName(currentTab);
+  const gaps = getGapTasks().filter(t => isGapAvailableForDay(t, effectiveTargetDay));
   let html = '<option value="">-- Select --</option>';
   gaps.forEach(t => {
     const selected = t.name === selectedValue ? 'selected' : '';
     html += `<option value="${escapeHtml(t.name)}" ${selected}>${escapeHtml(t.name)}</option>`;
   });
+  if (selectedValue && !gaps.some(t => t.name === selectedValue)) {
+    html += `<option value="${escapeHtml(selectedValue)}" selected>${escapeHtml(selectedValue)}</option>`;
+  }
   return html;
 }
 

@@ -98,6 +98,18 @@ function parseDayTimes(dayTimes) {
   return [startTime, endTime];
 }
 
+function getGapTimeRange(taskConfig, targetDay) {
+  if (!taskConfig) return null;
+  const times = taskConfig.times || {};
+  const dayTimes = typeof resolveDayTimes === 'function'
+    ? resolveDayTimes(times, targetDay)
+    : (times[targetDay] || times.default);
+  if (Array.isArray(dayTimes)) {
+    return parseDayTimes(dayTimes[0]);
+  }
+  return parseDayTimes(dayTimes);
+}
+
 // Toggle inline edit mode
 async function toggleEditMode(tab) {
   const wasActive = editMode[tab];
@@ -607,10 +619,7 @@ function buildEntriesByWorker(data, tab = 'today') {
       let endTime = row.end_time;
       if ((!startTime || !endTime) && roleConfig) {
         if (isGapRow) {
-          // Use 'times' field (unified with shifts)
-          const times = roleConfig.times || {};
-          const dayTimes = times[targetDay] || times.default;
-          const parsedTimes = parseDayTimes(dayTimes);
+          const parsedTimes = getGapTimeRange(roleConfig, targetDay);
           if (parsedTimes) {
             [startTime, endTime] = parsedTimes;
           }
@@ -1008,10 +1017,8 @@ async function onEditShiftTaskChange(shiftIdx, taskName) {
 
   if (isGap) {
     // Gap selected - set all skills to -1 and use times for target day
-    const times = taskConfig.times || {};
     const targetDay = getTargetWeekdayName(tab || currentTab);
-    const dayTimes = times[targetDay] || times.default;
-    const parsedTimes = parseDayTimes(dayTimes);
+    const parsedTimes = getGapTimeRange(taskConfig, targetDay);
     if (parsedTimes) {
       const [startTime, endTime] = parsedTimes;
       updates.start_time = startTime;
@@ -1444,17 +1451,15 @@ function onModalTaskChange() {
   const { tab, groupIdx } = currentEditEntry || {};
 
   // Set times - use target day based on current tab (today vs tomorrow)
-  const targetDay = getTargetWeekdayName(tab || currentTab);
-  const times = taskConfig?.times || {};
-  const dayTimes = times[targetDay] || times.default;
-
   if (isGap) {
-    const parsedTimes = parseDayTimes(dayTimes);
+    const targetDay = getTargetWeekdayName(tab || currentTab);
+    const parsedTimes = getGapTimeRange(taskConfig, targetDay);
     const [startTime, endTime] = parsedTimes || ['12:00', '13:00'];
     document.getElementById('modal-add-start').value = startTime;
     document.getElementById('modal-add-end').value = endTime;
   } else if (!isGap && taskConfig) {
     // Use day-specific times from task config
+    const targetDay = getTargetWeekdayName(tab || currentTab);
     const times = getShiftTimes(taskConfig, targetDay);
     document.getElementById('modal-add-start').value = times.start;
     document.getElementById('modal-add-end').value = times.end;
@@ -1783,8 +1788,7 @@ function onEditGapTypeChange() {
     // Use target day based on current tab (today vs tomorrow)
     const { tab } = currentEditEntry || {};
     const targetDay = getTargetWeekdayName(tab || currentTab);
-    const dayTimes = times[targetDay] || times.default;
-    const parsedTimes = parseDayTimes(dayTimes);
+    const parsedTimes = getGapTimeRange({ times }, targetDay);
     if (parsedTimes) {
       const [start, end] = parsedTimes;
       startInput.value = start;
@@ -2259,10 +2263,8 @@ function updateAddWorkerTask(idx, field, value) {
         task.counts_for_hours = false;  // Gaps typically don't count for hours
 
         // Get times for the target day (based on modal's tab)
-        const times = taskConfig.times || {};
         const targetDay = getTargetWeekdayName(addWorkerModalState.tab || currentTab);
-        const dayTimes = times[targetDay] || times.default;
-        const parsedTimes = parseDayTimes(dayTimes) || ['12:00', '13:00'];
+        const parsedTimes = getGapTimeRange(taskConfig, targetDay) || ['12:00', '13:00'];
         [task.start_time, task.end_time] = parsedTimes;
 
         // Set ALL skills to -1 for gaps across all modalities
