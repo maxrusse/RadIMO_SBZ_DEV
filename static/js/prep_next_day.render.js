@@ -1,9 +1,10 @@
 // Helper: Render a skill select element with standard options
-function renderSkillSelect(id, value, onchangeHandler) {
+function renderSkillSelect(id, value, onchangeHandler, options = {}) {
   const val = normalizeSkillValueJS(value);
   const idAttr = id ? ` id="${id}"` : '';
   const changeAttr = onchangeHandler ? ` onchange="${onchangeHandler}"` : '';
-  return `<select${idAttr}${changeAttr}>
+  const disabledAttr = options.disabled ? ' disabled' : '';
+  return `<select${idAttr}${changeAttr}${disabledAttr}>
     <option value="-1" ${val === -1 ? 'selected' : ''}>-1</option>
     <option value="0" ${val === 0 ? 'selected' : ''}>0</option>
     <option value="1" ${val === 1 ? 'selected' : ''}>1</option>
@@ -11,8 +12,35 @@ function renderSkillSelect(id, value, onchangeHandler) {
   </select>`;
 }
 
-function shiftMatchesFilters(shift, filter) {
-  if (shift?.is_gap_entry) return true;
+function groupHasActiveSkills(group, filter) {
+  if (!group) return false;
+  const shifts = getTableShifts(group).filter(s => !s.is_gap_entry && !s.deleted);
+  if (shifts.length === 0) return false;
+  const modalityFilter = filter.modality || '';
+  const skillFilter = filter.skill || '';
+  const modalitiesToCheck = modalityFilter ? [modalityFilter] : MODALITIES.map(m => m.toLowerCase());
+
+  if (skillFilter) {
+    return shifts.some(shift => modalitiesToCheck.some(modKey => {
+      const modData = shift.modalities?.[modKey];
+      if (!modData) return false;
+      return isActiveSkillValue(modData.skills?.[skillFilter]);
+    }));
+  }
+
+  return shifts.some(shift => modalitiesToCheck.some(modKey => {
+    const modData = shift.modalities?.[modKey];
+    if (!modData) return false;
+    return SKILLS.some(skill => isActiveSkillValue(modData.skills?.[skill]));
+  }));
+}
+
+function shiftMatchesFilters(shift, filter, group) {
+  if (shift?.is_gap_entry) {
+    if (!filter) return true;
+    const filterActive = Boolean(filter.modality || filter.skill || filter.hideZero);
+    return filterActive ? groupHasActiveSkills(group, filter) : true;
+  }
   if (!filter) return true;
   const { modality, skill, hideZero } = filter;
   const filterActive = Boolean(modality || skill || hideZero);
@@ -277,7 +305,7 @@ function renderTable(tab) {
     const shifts = getTableShifts(group).filter(shift => !shift.deleted);
     if (shifts.length === 0) return;
 
-    const shiftsToRender = filterActive ? shifts.filter(shift => shiftMatchesFilters(shift, filter)) : shifts;
+    const shiftsToRender = filterActive ? shifts.filter(shift => shiftMatchesFilters(shift, filter, group)) : shifts;
     if (filterActive && shiftsToRender.length === 0) return;
 
     const escapedWorker = escapeHtml(group.worker);
@@ -474,6 +502,7 @@ function renderEditModalContent() {
   const group = entriesData[tab][groupIdx];
   if (!group) return;
   setEditPlanDraftFromGroup(group);
+  const isEditable = modalEditMode;
 
   let html = '';
 
@@ -494,7 +523,9 @@ function renderEditModalContent() {
         <strong>${escapedWorker}</strong> ${duplicateBadge}
       </div>
       <div style="margin-top: 0.4rem; font-size: 0.75rem; color: #666;">
-        Changes are saved only when you click <strong>Apply Changes</strong>.
+        ${isEditable
+    ? 'Changes are saved only when you click <strong>Save Edits</strong>.'
+    : 'View mode enabled. Click <strong>Edit Mode</strong> to make changes.'}
       </div>
     </div>
   </div>`;
@@ -537,14 +568,14 @@ function renderEditModalContent() {
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
   <span style="font-weight: 600; color: #333;">Shift ${shiftIdx + 1}${isGapEntry ? ' <span style="background:#f8d7da;color:#721c24;padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;">GAP</span>' : ''}</span>
   <div style="display:flex; gap:0.35rem; align-items:center;">
-    <button class="btn btn-small" style="background: #dc3545; color: white;" onclick="deleteShiftFromModal(${shiftIdx})">✕ Delete</button>
+    ${isEditable ? `<button class="btn btn-small" style="background: #dc3545; color: white;" onclick="deleteShiftFromModal(${shiftIdx})">✕ Delete</button>` : ''}
   </div>
 </div>
 
 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 0.5rem;">
   <div style="flex: 1; min-width: 180px;">
     <label style="font-size: 0.75rem; color: #666; display: block;">Shift / Task</label>
-    <select id="edit-shift-${shiftIdx}-task" onchange="onEditShiftTaskChange(${shiftIdx}, this.value)" style="width: 100%; padding: 0.4rem; font-size: 0.85rem;">
+    <select id="edit-shift-${shiftIdx}-task" onchange="onEditShiftTaskChange(${shiftIdx}, this.value)" style="width: 100%; padding: 0.4rem; font-size: 0.85rem;" ${isEditable ? '' : 'disabled'}>
       ${renderTaskOptionsWithGroups(shift.task || '', true)}
     </select>
   </div>
@@ -552,19 +583,19 @@ function renderEditModalContent() {
   <div style="min-width: 90px;">
     <label style="font-size: 0.75rem; color: #666; display: block;">Start</label>
     <input type="time" id="edit-shift-${shiftIdx}-start" value="${shift.start_time || '07:00'}" style="padding: 0.4rem; font-size: 0.85rem;"
-      onblur="commitModalTimeEdit(${shiftIdx}, 'start_time', this)" onkeydown="commitModalTimeOnEnter(event, ${shiftIdx}, 'start_time', this)">
+      onblur="commitModalTimeEdit(${shiftIdx}, 'start_time', this)" onkeydown="commitModalTimeOnEnter(event, ${shiftIdx}, 'start_time', this)" ${isEditable ? '' : 'disabled'}>
   </div>
 
   <div style="min-width: 90px;">
     <label style="font-size: 0.75rem; color: #666; display: block;">End</label>
     <input type="time" id="edit-shift-${shiftIdx}-end" value="${shift.end_time || '15:00'}" style="padding: 0.4rem; font-size: 0.85rem;"
-      onblur="commitModalTimeEdit(${shiftIdx}, 'end_time', this)" onkeydown="commitModalTimeOnEnter(event, ${shiftIdx}, 'end_time', this)">
+      onblur="commitModalTimeEdit(${shiftIdx}, 'end_time', this)" onkeydown="commitModalTimeOnEnter(event, ${shiftIdx}, 'end_time', this)" ${isEditable ? '' : 'disabled'}>
   </div>
 
   <div style="min-width: 70px;">
     <label style="font-size: 0.75rem; color: #666; display: block;">Modifier</label>
     <select id="edit-shift-${shiftIdx}-modifier" style="padding: 0.4rem; font-size: 0.85rem;"
-      onchange="updateShiftFromModal(${shiftIdx}, { Modifier: parseFloat(this.value) })">
+      onchange="updateShiftFromModal(${shiftIdx}, { Modifier: parseFloat(this.value) })" ${isEditable ? '' : 'disabled'}>
       <option value="0.5" ${shift.modifier === 0.5 ? 'selected' : ''}>0.5x</option>
       <option value="0.75" ${shift.modifier === 0.75 ? 'selected' : ''}>0.75x</option>
       <option value="1.0" ${!shift.modifier || shift.modifier === 1.0 ? 'selected' : ''}>1.0x</option>
@@ -576,7 +607,7 @@ function renderEditModalContent() {
   <div style="min-width: 100px;">
     <label style="font-size: 0.75rem; color: #666; display: block;">Hrs Count</label>
     <label class="hours-toggle" title="Checked = hours count towards load balancing. Unchecked = hours do NOT count.">
-      <input type="checkbox" id="edit-shift-${shiftIdx}-counts-hours" ${shift.counts_for_hours !== false ? 'checked' : ''} onchange="updateHoursToggleLabel(this); updateShiftFromModal(${shiftIdx}, { counts_for_hours: this.checked })">
+      <input type="checkbox" id="edit-shift-${shiftIdx}-counts-hours" ${shift.counts_for_hours !== false ? 'checked' : ''} onchange="updateHoursToggleLabel(this); updateShiftFromModal(${shiftIdx}, { counts_for_hours: this.checked })" ${isEditable ? '' : 'disabled'}>
       <span class="hours-toggle-label ${shift.counts_for_hours !== false ? 'counts' : 'no-count'}">${shift.counts_for_hours !== false ? 'Counts' : 'No count'}</span>
     </label>
   </div>
@@ -624,7 +655,7 @@ function renderEditModalContent() {
         const val = data.skills[skill] !== undefined ? data.skills[skill] : (isGapEntry ? -1 : 0);
         const selectId = `edit-shift-${shiftIdx}-${modKey}-skill-${skill}`;
         const onchangeHandler = `updateShiftSkillFromModal(${shiftIdx}, '${modKey}', '${skill}', this.value)`;
-        html += `<td>${renderSkillSelect(selectId, val, onchangeHandler)}</td>`;
+        html += `<td>${renderSkillSelect(selectId, val, onchangeHandler, { disabled: !isEditable })}</td>`;
       });
 
       html += `</tr>`;
@@ -638,7 +669,8 @@ function renderEditModalContent() {
 
 
   // Add New Shift/Gap section (same styling as Add Worker modal)
-  html += `<div style="margin-bottom: 1rem; padding: 0.75rem; background: #d4edda; border: 2px solid #28a745; border-radius: 8px;">
+  if (isEditable) {
+    html += `<div style="margin-bottom: 1rem; padding: 0.75rem; background: #d4edda; border: 2px solid #28a745; border-radius: 8px;">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
 <label style="font-weight: 600; color: #155724;">+ Add New Shift / Gap</label>
 <div style="display: flex; gap: 0.5rem;">
@@ -709,12 +741,16 @@ function renderEditModalContent() {
   html += `</tbody>
   </table>
 </div>`;
+  }
 
   document.getElementById('modal-title').textContent = `Edit Worker - ${group.worker}`;
   document.getElementById('modal-content').innerHTML = html;
+  applyModalEditModeUI();
 
   // Prefill the add-shift section with config + roster defaults for faster entry
-  initializeModalAddForm();
+  if (isEditable) {
+    initializeModalAddForm();
+  }
 }
 
 function renderAddWorkerModalContent(containerId = addWorkerModalState.containerId || 'modal-content') {
