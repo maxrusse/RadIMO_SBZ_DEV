@@ -361,397 +361,245 @@ vendor_mappings:
     # All skills are active (=1) to provide full coverage during late hours.
     # =========================================================================
 
-    - match: "Diag-Spätdienst"
-      type: "shift"
-      times:
-        default: "13:00-21:00"    # Late shift: 1pm to 9pm
-        Freitag: "13:00-19:00"    # Friday: shorter shift
-      skill_overrides:
-        # CT modality - all skills active
-        notfall_ct: 1
-        privat_ct: 1
-        gyn_ct: 1
-        paed_ct: 1
-        msk-haut_ct: 1
-        abd-onco_ct: 1
-        card-thor_ct: 1
-        uro_ct: 1
-        kopf-hals_ct: 1
-        # MR modality - all skills active
-        notfall_mr: 1
-        privat_mr: 1
-        gyn_mr: 1
-        paed_mr: 1
-        msk-haut_mr: 1
-        abd-onco_mr: 1
-        card-thor_mr: 1
-        uro_mr: 1
-        kopf-hals_mr: 1
-        # X-ray modality - all skills active
-        notfall_xray: 1
-        privat_xray: 1
-        gyn_xray: 1
-        paed_xray: 1
-        msk-haut_xray: 1
-        abd-onco_xray: 1
-        card-thor_xray: 1
-        uro_xray: 1
-        kopf-hals_xray: 1
-
-    - match: "Spätdienst SBZ"
-      type: "shift"
-      times:
-        default: "11:30-20:00"
-      skill_overrides:
-        # CT modality - all skills active
-        notfall_ct: 1
-        privat_ct: 1
-        gyn_ct: 1
-        paed_ct: 1
-        msk-haut_ct: 1
-        abd-onco_ct: 1
-        card-thor_ct: 1
-        uro_ct: 1
-        kopf-hals_ct: 1
-        # MR modality - all skills active
-        notfall_mr: 1
-        privat_mr: 1
-        gyn_mr: 1
-        paed_mr: 1
-        msk-haut_mr: 1
-        abd-onco_mr: 1
-        card-thor_mr: 1
-        uro_mr: 1
-        kopf-hals_mr: 1
-        # X-ray modality - all skills active
-        notfall_xray: 1
-        privat_xray: 1
-        gyn_xray: 1
-        paed_xray: 1
-        msk-haut_xray: 1
-        abd-onco_xray: 1
-        card-thor_xray: 1
-        uro_xray: 1
-        kopf-hals_xray: 1
-
-
-    # CT private patients shift - specialized assignment
-    - match: "CT privatpatienten"
+    - match: "OA CT"
       type: "shift"
       times:
         default: "07:30-15:45"
-        Freitag: "07:30-15:45"
       skill_overrides:
         all: -1
-        privat_ct: 1         # Primary: private patients
+        privat_ct: 1
 
-    - match: "CT Assistent 1. Monat"
-      label: "1. Monat"
+    - match: "OA MR"
       type: "shift"
       times:
         default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      modifier: 0.5  # Beginner: counts double toward their load
       skill_overrides:
         all: -1
-        notfall_ct: w      # Weighted: supervised, receives less work
-        privat_ct: 0       # Fallback only
+        privat_mr: 1
 
-
-    # MR senior physician shift - full skill coverage
-    - match: "MRT-OA"
+    - match: "OA Röntgen"
       type: "shift"
       times:
         default: "07:30-15:45"
-        Freitag: "07:30-15:45"
       skill_overrides:
+        all: -1
+        privat_xray: 1
+
+    - match: "OA Mammo"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        all: -1
+        privat_mammo: 1
+
+    - match: "Assistent Notfall"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        notfall_ct: 1
         notfall_mr: 1
-        privat_mr: 1
-        msk-haut_mr: 1
-        abd-onco_mr: 1
-        card-thor_mr: 1
-        uro_mr: 1
+        notfall_xray: 1
+        notfall_mammo: 1
+
+    - match: "UNZ Assistent"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        notfall_ct: 1
+        notfall_mr: 1
+        notfall_xray: 1
+        notfall_mammo: 1
+
+    - match: "Assistent Gyn"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        gyn_ct: 1
         gyn_mr: 1
+        gyn_mammo: 1
+
+    - match: "Gyn Assistent"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        gyn_ct: 1
+        gyn_mr: 1
+        gyn_mammo: 1
+
+    - match: "Assistent Päd"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        paed_ct: 1
         paed_mr: 1
+        paed_xray: 1
+
+    - match: "Assistent KiKLi"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        paed_ct: 1
+        paed_mr: 1
+        paed_xray: 1
+
+    - match: "Assistent"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        msk-haut_ct: 1
+        msk-haut_mr: 1
+        msk-haut_xray: 1
+
+    - match: "Assistent AbdOnco"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        abd-onco_ct: 1
+        abd-onco_mr: 1
+
+    - match: "Assistent CardThor"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        card-thor_ct: 1
+        card-thor_mr: 1
+
+    - match: "Assistent Uro"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        uro_ct: 1
+        uro_mr: 1
+
+    - match: "Assistent KopfHals"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        kopf-hals_ct: 1
         kopf-hals_mr: 1
 
-    # =========================================================================
-    # X-RAY SHIFTS
-    # =========================================================================
-    # Conventional radiography (Chir = surgical X-ray station)
-    # =========================================================================
-
-    - match: "Chir Assistent"
+    - match: "FA/Fellow Notfall"
       type: "shift"
       times:
         default: "07:30-15:45"
-        Freitag: "07:30-15:45"
       skill_overrides:
+        notfall_ct: 1
+        notfall_mr: 1
         notfall_xray: 1
-        privat_xray: 1
-        msk-haut_xray: 0     # Fallback for MSK
-        paed_xray: 0          # Fallback for pediatrics
+        notfall_mammo: 1
 
-    - match: "OA / FA Chir"
+    - match: "FA/Fellow Gyn"
       type: "shift"
       times:
         default: "07:30-15:45"
-        Freitag: "07:30-15:45"
       skill_overrides:
-        notfall_xray: 1
+        gyn_ct: 1
+        gyn_mr: 1
+        gyn_mammo: 1
+
+    - match: "FA/Fellow Päd"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        paed_ct: 1
+        paed_mr: 1
+        paed_xray: 1
+
+    - match: "FA/Fellow KiKLi"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        paed_ct: 1
+        paed_mr: 1
+        paed_xray: 1
+
+    - match: "FA/Fellow MskHaut"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        msk-haut_ct: 1
+        msk-haut_mr: 1
+        msk-haut_xray: 1
+
+    - match: "FA/Fellow AbdOnco"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        abd-onco_ct: 1
+        abd-onco_mr: 1
+
+    - match: "FA/Fellow CardThor"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        card-thor_ct: 1
+        card-thor_mr: 1
+
+    - match: "FA/Fellow Uro"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        uro_ct: 1
+        uro_mr: 1
+
+    - match: "FA/Fellow KopfHals"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        kopf-hals_ct: 1
+        kopf-hals_mr: 1
+
+    - match: "SBZ Spät Assistent"
+      type: "shift"
+      times:
+        default: "11:30-19:45"
+      skill_overrides:
+        privat_ct: 1
+        privat_mr: 1
         privat_xray: 1
-        msk-haut_xray: 1     # Full MSK coverage
-        paed_xray: 1          # Full pediatric coverage
+        msk-haut_ct: 1
+        msk-haut_mr: 1
+        msk-haut_xray: 1
+        abd-onco_ct: 1
+        abd-onco_mr: 1
+        card-thor_ct: 1
+        card-thor_mr: 1
+        uro_ct: 1
+        uro_mr: 1
+        kopf-hals_ct: 1
+        kopf-hals_mr: 1
+        gyn_ct: 1
+        gyn_mr: 1
+        gyn_mammo: 1
+        privat_mammo: 1
+        notfall_mr: 1
+        notfall_mammo: 1
 
     - match: "3. Dienst"
-      label: "Röntgendienst"
       type: "shift"
       times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
+        default: "11:30-19:45"
       skill_overrides:
         notfall_xray: 1
-        privat_xray: 1
-        msk-haut_xray: 0     # Fallback for MSK
-        paed_xray: 0         # Fallback for pediatrics
-
-    # =========================================================================
-    # MAMMO SHIFTS
-    # =========================================================================
-    # Mammography - specialized breast imaging
-    # =========================================================================
-
-    - match: "Mammo Assistent"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        notfall_mammo: 1
-        gyn_mammo: 0         # Fallback for gynecology cases
-
-    - match: "Mammo OA"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        notfall_mammo: 1
-        gyn_mammo: 1         # Full gyn coverage
-
-    - match: "gyn_oa"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        all: -1
-        privat_mammo: 1
-
-    # =========================================================================
-    # TEAM SHIFTS - Subspecialty teams across multiple modalities
-    # =========================================================================
-    # These shifts assign workers to specific subspecialty teams.
-    # Team members handle cases for their specialty across relevant modalities.
-    # =========================================================================
-
-    # - match: "msk-haut Assistent"
-    #   type: "shift"
-    #   times:
-    #     default: "07:30-15:45"
-    #     Freitag: "07:30-15:45"
-    #   skill_overrides:
-    #     msk-haut_ct: 1
-    #     msk-haut_mr: 1
-    #     msk-haut_xray: 1
-
-    - match: "msk-haut Team"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        msk-haut_ct: 1
-        msk-haut_mr: 1
-        msk-haut_xray: 1
-
-    # - match: "msk-haut Anfänger"
-    #   type: "shift"
-    #   times:
-    #     default: "07:30-15:45"
-    #     Freitag: "07:30-15:45"
-    #   modifier: 0.5          # Beginner: counts double toward their load
-    #   skill_overrides:
-    #     msk-haut_ct: w       # Weighted: supervised
-    #     msk-haut_xray: w
-
-    # - match: "CT Anfänger"
-    #   type: "shift"
-    #   times:
-    #     default: "07:30-15:45"
-    #     Freitag: "07:30-15:45"
-    #   modifier: 0.5          # Beginner: counts double toward their load
-    #   skill_overrides:
-    #     notfall_ct: w        # Weighted: supervised, receives less work
-
-    - match: "card-thor Team"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        card-thor_ct: 1       # Cardiac CT
-        card-thor_mr: 1       # Cardiac MR
-
-    - match: "abd-onco Team"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        abd-onco_ct: 1
-        abd-onco_mr: 1
-
-    - match: "uro Team"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        uro_ct: 1
-        uro_mr: 1
-
-    - match: "gyn Team"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        gyn_ct: 1
-        gyn_mr: 1
-        gyn_mammo: 1         # Mammography for gyn cases
-
-    - match: "paed Team"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        paed_ct: 1
-        paed_mr: 1
-        paed_xray: 1
-
-    - match: "kopf-hals Team"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        kopf-hals_ct: 1
-        kopf-hals_mr: 1
-
-    # =========================================================================
-    # NOTFALL TEAM - Emergency coverage across modalities
-    # =========================================================================
-    - match: "notfall Team"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        notfall_ct: 1
-        notfall_mr: 1
-        notfall_xray: 1
-
-    # =========================================================================
-    # PRIVAT SHIFTS - Separate gyn from general private patients
-    # =========================================================================
-    # privat Allgemein: All private patients EXCEPT gyn (ct, mr, xray)
-    - match: "privat Allgemein"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        all: -1
-        privat_ct: 1
-        privat_mr: 1
-        privat_xray: 1
-
-    - match: "privat CT"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        all: -1
-        privat_ct: 1
-
-    - match: "privat MR"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        all: -1
-        privat_mr: 1
-
-    - match: "privat Röntgen"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        all: -1
-        privat_xray: 1
-
-    # privat gyn: private mammo patients only 
-    - match: "privat gyn"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        all: -1
-        privat_mammo: 1
-
-    # =========================================================================
-    # FACHARZT FOKUS - Senior physician covering all subspecialties
-    # =========================================================================
-    # Facharzt can handle all skills EXCEPT gyn and notfall (focused work)
-    # Multimodality coverage across CT, MR, and xray where applicable
-    - match: "Facharzt Fokus"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-        Freitag: "07:30-15:45"
-      skill_overrides:
-        # Explicitly exclude gyn and notfall
-        gyn_ct: -1
-        gyn_mr: -1
-        gyn_mammo: -1
-        notfall_ct: -1
-        notfall_mr: -1
-        notfall_xray: -1
-        notfall_mammo: -1
-        # All other skills active across modalities
-        privat_ct: 1
-        privat_mr: 1
-        privat_xray: 1
-        paed_ct: 1
-        paed_mr: 1
-        paed_xray: 1
-        msk-haut_ct: 1
-        msk-haut_mr: 1
-        msk-haut_xray: 1
-        abd-onco_ct: 1
-        abd-onco_mr: 1
-        card-thor_ct: 1
-        card-thor_mr: 1
-        uro_ct: 1
-        uro_mr: 1
-        kopf-hals_ct: 1
-        kopf-hals_mr: 1
 
     # =========================================================================
     # ADMINISTRATIVE SHIFTS
