@@ -134,6 +134,12 @@
       margin: 0.5rem 0;
     }
 
+    .assigned-context {
+      font-size: 1.2rem;
+      color: #666;
+      margin-bottom: 0.25rem;
+    }
+
     .timer {
       color: #666;
       font-size: 1rem;
@@ -359,9 +365,11 @@
       const displayPerson = person || "Niemand verfügbar";
       const escapedPerson = escapeHtml(displayPerson);
 
+      const modalityLabel = modalities[modality]?.label || modality || lastModalityUsed;
       resultDiv.innerHTML = `
         <div class="result-panel">
           <div class="assigned-person">${escapedPerson}</div>
+          <div class="assigned-context">${escapeHtml(modalityLabel)}</div>
           <div class="timer" id="timer"></div>
         </div>
       `;
