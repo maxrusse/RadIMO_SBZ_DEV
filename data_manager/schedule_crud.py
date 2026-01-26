@@ -97,7 +97,7 @@ def build_day_plan_rows(rows: List[dict], target_date: date) -> List[dict]:
         return []
 
     rows_by_worker: Dict[str, List[dict]] = {}
-    for row in rows:
+    for order, row in enumerate(rows):
         normalized = dict(row)
         row_type_value = normalized.get('row_type') or 'shift'
         if isinstance(row_type_value, str):
@@ -107,6 +107,12 @@ def build_day_plan_rows(rows: List[dict], target_date: date) -> List[dict]:
         normalized['PPL'] = normalized.get('PPL', '')
         normalized['start_time'] = _coerce_time_value(normalized.get('start_time'))
         normalized['end_time'] = _coerce_time_value(normalized.get('end_time'))
+
+        if normalized.get('_order') is None:
+            if normalized.get('start_time') is not None:
+                normalized['_order'] = _time_to_minutes(normalized['start_time'])
+            else:
+                normalized['_order'] = order
 
         if not _is_valid_time_window(normalized.get('start_time'), normalized.get('end_time')):
             selection_logger.info(
@@ -186,6 +192,7 @@ def build_day_plan_rows(rows: List[dict], target_date: date) -> List[dict]:
             for seg_start, seg_end in remaining:
                 segment = dict(shift_row)
                 segment.pop('_was_segment', None)
+                segment.pop('_order', None)
                 segment_start = _minutes_to_time(seg_start)
                 segment_end = _minutes_to_time(seg_end)
                 segment['start_time'] = segment_start
@@ -208,6 +215,7 @@ def build_day_plan_rows(rows: List[dict], target_date: date) -> List[dict]:
             for skill in SKILL_COLUMNS:
                 gap_row[skill] = -1
             gap_row.pop('_was_segment', None)
+            gap_row.pop('_order', None)
 
         built_rows.extend(shift_segments + gap_rows)
 
@@ -281,10 +289,9 @@ def resolve_overlapping_shifts(shifts: List[dict], target_date: date) -> List[di
     """
     Resolve overlapping shifts for the same worker. Same-day operations only.
 
-    When two shifts overlap, the later shift wins:
-    - Prior shift's end time is cropped to the beginning of the later shift
-    - If a shift is completely covered by a later shift, it's removed
-    - Shifts are sorted by start time first, then processed
+    Later shifts take priority over earlier ones (based on input order). When overlaps
+    occur, earlier shifts are trimmed to remove the overlap, allowing edited shifts
+    to "win" while keeping non-overlapping time intact.
 
     Args:
         shifts: List of shift dicts with 'PPL', 'start_time', 'end_time', etc.
@@ -296,74 +303,93 @@ def resolve_overlapping_shifts(shifts: List[dict], target_date: date) -> List[di
     if not shifts or len(shifts) <= 1:
         return shifts
 
+    def _build_shift_segment(base_shift: dict, start_min: int, end_min: int) -> Optional[dict]:
+        if end_min <= start_min:
+            return None
+        duration_hours = round((end_min - start_min) / 60.0, 4)
+        if duration_hours < 0.1:
+            return None
+        segment = base_shift.copy()
+        segment['start_time'] = _minutes_to_time(start_min)
+        segment['end_time'] = _minutes_to_time(end_min)
+        segment['shift_duration'] = duration_hours
+        if 'TIME' in segment:
+            segment['TIME'] = (
+                f"{segment['start_time'].strftime(TIME_FORMAT)}-"
+                f"{segment['end_time'].strftime(TIME_FORMAT)}"
+            )
+        segment.pop('_order', None)
+        return segment
+
     # Group shifts by worker
     shifts_by_worker: Dict[str, List[dict]] = {}
-    for shift in shifts:
+    for order, shift in enumerate(shifts):
         worker = shift.get('PPL', '')
-        if worker not in shifts_by_worker:
-            shifts_by_worker[worker] = []
-        shifts_by_worker[worker].append(shift)
+        shift_copy = shift.copy()
+        if shift_copy.get('_order') is None:
+            start_time = shift_copy.get('start_time')
+            if isinstance(start_time, time):
+                shift_copy['_order'] = _time_to_minutes(start_time)
+            else:
+                shift_copy['_order'] = order
+        shifts_by_worker.setdefault(worker, []).append(shift_copy)
 
     result_shifts = []
 
     for worker, worker_shifts in shifts_by_worker.items():
         if len(worker_shifts) <= 1:
+            for shift in worker_shifts:
+                shift.pop('_order', None)
             result_shifts.extend(worker_shifts)
             continue
 
-        # Sort by start time (earlier first)
-        sorted_shifts = sorted(
-            worker_shifts,
-            key=lambda s: datetime.combine(target_date, s['start_time'])
-        )
+        ordered_shifts = sorted(worker_shifts, key=lambda s: s.get('_order', 0))
+        resolved: List[dict] = []
 
-        resolved = []
-        for i, current_shift in enumerate(sorted_shifts):
-            current_start = current_shift['start_time']
-            current_end = current_shift['end_time']
-
+        for current_shift in ordered_shifts:
+            current_start = current_shift.get('start_time')
+            current_end = current_shift.get('end_time')
+            if current_start is None or current_end is None:
+                continue
             current_start_dt = datetime.combine(target_date, current_start)
             current_end_dt = datetime.combine(target_date, current_end)
-            # Same-day only: skip invalid shifts where end <= start
             if current_end_dt <= current_start_dt:
                 continue
+            current_start_min = _time_to_minutes(current_start)
+            current_end_min = _time_to_minutes(current_end)
 
-            # Check all later shifts to see if they overlap
-            for j in range(i + 1, len(sorted_shifts)):
-                later_shift = sorted_shifts[j]
-                later_start = later_shift['start_time']
+            updated_resolved: List[dict] = []
+            for existing_shift in resolved:
+                existing_start = existing_shift.get('start_time')
+                existing_end = existing_shift.get('end_time')
+                if existing_start is None or existing_end is None:
+                    continue
+                existing_start_min = _time_to_minutes(existing_start)
+                existing_end_min = _time_to_minutes(existing_end)
+                remaining = subtract_intervals(
+                    (existing_start_min, existing_end_min),
+                    [(current_start_min, current_end_min)],
+                )
+                for seg_start, seg_end in remaining:
+                    segment = _build_shift_segment(existing_shift, seg_start, seg_end)
+                    if segment is not None:
+                        updated_resolved.append(segment)
 
-                later_start_dt = datetime.combine(target_date, later_start)
-
-                # If later shift starts before current ends, crop current end
-                if later_start_dt < current_end_dt:
-                    current_end_dt = later_start_dt
-                    current_end = later_start
-
-            # If shift still has positive duration, add it
-            if current_end_dt > current_start_dt:
-                duration_hours = (current_end_dt - current_start_dt).total_seconds() / 3600
-
-                # Only add if duration is meaningful (at least 6 minutes)
-                if duration_hours >= 0.1:
-                    resolved_shift = current_shift.copy()
-                    resolved_shift['end_time'] = current_end
-                    resolved_shift['shift_duration'] = duration_hours
-
-                    # Update TIME field only if it was present in original shift
-                    if 'TIME' in current_shift:
-                        resolved_shift['TIME'] = f"{current_start.strftime(TIME_FORMAT)}-{current_end.strftime(TIME_FORMAT)}"
-
-                    resolved.append(resolved_shift)
-                    selection_logger.debug(
-                        f"Shift for {worker}: {current_start.strftime(TIME_FORMAT)}-{current_end.strftime(TIME_FORMAT)} "
-                        f"(duration: {duration_hours:.2f}h)"
-                    )
-                else:
-                    selection_logger.info(
-                        f"Removed zero-duration shift for {worker} "
-                        f"(was {current_shift['start_time'].strftime(TIME_FORMAT)}-{current_shift['end_time'].strftime(TIME_FORMAT)})"
-                    )
+            resolved = updated_resolved
+            current_segment = _build_shift_segment(current_shift, current_start_min, current_end_min)
+            if current_segment is not None:
+                resolved.append(current_segment)
+                selection_logger.debug(
+                    f"Shift for {worker}: {current_segment['start_time'].strftime(TIME_FORMAT)}-"
+                    f"{current_segment['end_time'].strftime(TIME_FORMAT)} "
+                    f"(duration: {current_segment['shift_duration']:.2f}h)"
+                )
+            else:
+                selection_logger.info(
+                    f"Removed zero-duration shift for {worker} "
+                    f"(was {current_shift['start_time'].strftime(TIME_FORMAT)}-"
+                    f"{current_shift['end_time'].strftime(TIME_FORMAT)})"
+                )
 
         result_shifts.extend(resolved)
 
@@ -374,8 +400,8 @@ def resolve_overlapping_shifts_df(df: pd.DataFrame, target_date: Optional[date] 
     """
     Resolve overlapping shifts in a DataFrame.
 
-    When two shifts overlap for the same worker, the later shift wins:
-    - Prior shift's end time is cropped to the beginning of the later shift
+    When two shifts overlap for the same worker, the later shift wins (based on input order):
+    - Prior shift's time is trimmed to remove the overlap
     - Gaps (missing time) always win - they are not filled
 
     Args:
@@ -528,7 +554,25 @@ def _update_schedule_row(modality: str, row_index: int, updates: dict, use_stage
             break
 
         target_date = _get_staged_target_date() if use_staged else datetime.today().date()
-        raw_rows = [row for _, row in rows_with_index]
+        raw_rows = []
+        updated_row = None
+        for idx, row in rows_with_index:
+            if idx == row_index:
+                updated_row = row
+            else:
+                raw_rows.append(row)
+        if updated_row is not None:
+            existing_orders = []
+            for row in raw_rows:
+                if row.get('_order') is not None:
+                    existing_orders.append(row['_order'])
+                    continue
+                start_time = row.get('start_time')
+                if isinstance(start_time, time):
+                    existing_orders.append(_time_to_minutes(start_time))
+            max_order = max(existing_orders, default=0)
+            updated_row['_order'] = max_order + 1
+            raw_rows.append(updated_row)
         success, info, error = _replace_worker_schedule(
             modality,
             worker_name,
