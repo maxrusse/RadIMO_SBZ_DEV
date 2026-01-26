@@ -1102,9 +1102,17 @@ async function onEditShiftTaskChange(shiftIdx, taskName) {
   updateEditPlanDraftShift(shiftIdx, updates);
   updateEditPlanDraftShiftSkills(shiftIdx, skillUpdates);
   if (modalMode === 'edit-plan') {
-    const modalState = captureModalState();
-    renderEditModalContent();
-    restoreModalState(modalState);
+    // All DOM updates already done above - no need for full re-render
+    // Just update the visual GAP indicator if row type changed
+    const shiftContainer = document.getElementById(`edit-shift-${shiftIdx}-task`)?.closest('[style*="margin-bottom: 1rem"]');
+    if (shiftContainer) {
+      const headerSpan = shiftContainer.querySelector('span[style*="font-weight: 600"]');
+      if (headerSpan) {
+        const isGap = updates.row_type === 'gap';
+        const gapBadge = isGap ? ' <span style="background:#f8d7da;color:#721c24;padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;">GAP</span>' : '';
+        headerSpan.innerHTML = `Shift ${shiftIdx + 1}${gapBadge}`;
+      }
+    }
     return;
   }
 
