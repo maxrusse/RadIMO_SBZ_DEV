@@ -137,6 +137,7 @@ const TimelineChart = (function() {
           TIME: entry.TIME,
           modalities: new Set(),
           skillValues: {},
+          explicitSkillValues: {},
           tasks: new Set()
         };
       } else {
@@ -149,6 +150,7 @@ const TimelineChart = (function() {
             TIME: entry.TIME,
             modalities: new Set(),
             skillValues: {},
+            explicitSkillValues: {},
             tasks: new Set()
           };
         } else if (endMin > currentEndMin) {
@@ -167,6 +169,9 @@ const TimelineChart = (function() {
       skillColumns.forEach(s => {
         if (isSkillActive(entry[s])) {
           current.skillValues[s] = 1;
+        }
+        if (isSkillExplicitOne(entry[s])) {
+          current.explicitSkillValues[s] = 1;
         }
       });
 
@@ -193,16 +198,27 @@ const TimelineChart = (function() {
       const end = timeToMinutes(entry.end_time);
 
       const skillValues = {};
+      const explicitSkillValues = {};
       if (entry.skillValues) {
         Object.keys(entry.skillValues).forEach(s => {
           if (isSkillActive(entry.skillValues[s])) {
             skillValues[s] = 1;
           }
         });
+        if (entry.explicitSkillValues) {
+          Object.keys(entry.explicitSkillValues).forEach(s => {
+            if (isSkillExplicitOne(entry.explicitSkillValues[s])) {
+              explicitSkillValues[s] = 1;
+            }
+          });
+        }
       } else {
         skillColumns.forEach(s => {
           if (isSkillActive(entry[s])) {
             skillValues[s] = 1;
+          }
+          if (isSkillExplicitOne(entry[s])) {
+            explicitSkillValues[s] = 1;
           }
         });
       }
@@ -228,6 +244,7 @@ const TimelineChart = (function() {
           end_time: entry.end_time,
           TIME: entry.TIME,
           skillValues: { ...skillValues },
+          explicitSkillValues: { ...explicitSkillValues },
           modalities,
           tasks: [...tasks]
         });
@@ -243,6 +260,9 @@ const TimelineChart = (function() {
         Object.keys(skillValues).forEach(s => {
           last.skillValues[s] = 1;
         });
+        Object.keys(explicitSkillValues).forEach(s => {
+          last.explicitSkillValues[s] = 1;
+        });
         modalities.forEach(m => last.modalities.add(m));
         tasks.forEach(task => last.tasks.push(task));
         last.tasks = Array.from(new Set(last.tasks));
@@ -254,6 +274,7 @@ const TimelineChart = (function() {
         end_time: entry.end_time,
         TIME: entry.TIME,
         skillValues: { ...skillValues },
+        explicitSkillValues: { ...explicitSkillValues },
         modalities,
         tasks: [...tasks]
       });
@@ -458,23 +479,30 @@ const TimelineChart = (function() {
         }
 
         let activeSkills;
+        let explicitSkills;
         let tooltipSkills;
         let tooltipMods = '';
 
         if (entry.skillValues) {
           activeSkills = Object.keys(entry.skillValues)
             .map(s => skillSlugMap[s] || s.toLowerCase());
-          tooltipSkills = Object.keys(entry.skillValues)
-            .filter(s => isSkillExplicitOne(entry.skillValues[s]))
-            .map(s => skillSlugMap[s] || s.toLowerCase());
+          explicitSkills = entry.explicitSkillValues
+            ? Object.keys(entry.explicitSkillValues)
+              .filter(s => isSkillExplicitOne(entry.explicitSkillValues[s]))
+              .map(s => skillSlugMap[s] || s.toLowerCase())
+            : Object.keys(entry.skillValues)
+              .filter(s => isSkillExplicitOne(entry.skillValues[s]))
+              .map(s => skillSlugMap[s] || s.toLowerCase());
         } else {
           activeSkills = skillColumns
             .filter(s => isSkillActive(entry[s]))
             .map(s => skillSlugMap[s] || s.toLowerCase());
-          tooltipSkills = skillColumns
+          explicitSkills = skillColumns
             .filter(s => isSkillExplicitOne(entry[s]))
             .map(s => skillSlugMap[s] || s.toLowerCase());
         }
+        tooltipSkills = explicitSkills || [];
+        const displaySkills = tooltipSkills.length > 0 ? tooltipSkills : activeSkills;
 
         if (entry.modalities && entry.modalities.size > 0) {
           tooltipMods = `Modalities: ${Array.from(entry.modalities).join(', ')}\n`;
@@ -490,12 +518,12 @@ const TimelineChart = (function() {
         const tasks = normalizeTasks(entry.tasks || entry.task);
         const taskTooltip = tasks.length ? `Shifts: ${tasks.join(', ')}\n` : '';
 
-        if (activeSkills.length > 0) {
+        if (displaySkills.length > 0) {
           const bar = document.createElement('div');
           bar.className = 'shift-bar';
           bar.style.left = `${left}%`;
           bar.style.width = `${width}%`;
-          bar.style.background = buildSkillGradient(activeSkills, skillColorMap);
+          bar.style.background = buildSkillGradient(displaySkills, skillColorMap);
           bar.style.zIndex = '1';
           bar.dataset.skills = activeSkills.join(',');
           bar.dataset.hasActive = 'true';
@@ -511,7 +539,7 @@ const TimelineChart = (function() {
 
           // Tooltip
           const timeDisplay = entry.TIME || `${entry.start_time}-${entry.end_time}`;
-          const skillsTooltip = `Skills (1): ${tooltipSkillLabels.join(', ')}`;
+          const skillsTooltip = `Skills (1): ${tooltipSkillLabels.join(', ') || 'none'}`;
           bar.title = `${worker}\n${tooltipMods}${taskTooltip}Zeit: ${timeDisplay}\n${skillsTooltip}`;
 
           timelineCell.appendChild(bar);
