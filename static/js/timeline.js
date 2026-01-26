@@ -526,10 +526,10 @@ const TimelineChart = (function() {
         const barSkills = (bar.dataset.skills || '').split(',').filter(s => s);
         bar.style.display = barSkills.includes(skillSlug) ? '' : 'none';
       });
-      gapBars.forEach(bar => bar.style.display = 'none');
+      gapBars.forEach(bar => bar.style.display = '');
 
       // Hide row if no matching bars
-      row.style.display = matchingBars.length > 0 ? '' : 'none';
+      row.style.display = (matchingBars.length > 0 || gapBars.length > 0) ? '' : 'none';
     });
   }
 
@@ -560,10 +560,10 @@ const TimelineChart = (function() {
         const barMods = (bar.dataset.modalities || '').split(',').filter(m => m);
         bar.style.display = barMods.includes(mod) ? '' : 'none';
       });
-      gapBars.forEach(bar => bar.style.display = 'none');
+      gapBars.forEach(bar => bar.style.display = '');
 
       // Hide row if no matching bars
-      row.style.display = matchingBars.length > 0 ? '' : 'none';
+      row.style.display = (matchingBars.length > 0 || gapBars.length > 0) ? '' : 'none';
     });
   }
 

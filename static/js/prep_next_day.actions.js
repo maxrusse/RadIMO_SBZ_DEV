@@ -1161,6 +1161,7 @@ async function deleteShiftFromModal(shiftIdx) {
   const group = entriesData[tab]?.[groupIdx];
   if (!group) return;
 
+  setEditPlanDraftFromGroup(group);
   const shifts = getModalShifts(group);
   const shift = shifts[shiftIdx];
   if (!shift) return;
@@ -1172,22 +1173,23 @@ async function deleteShiftFromModal(shiftIdx) {
 
   if (!confirm(confirmMessage)) return;
 
-  const endpoint = tab === 'today' ? '/api/live-schedule/delete-worker' : '/api/prep-next-day/delete-worker';
+  const endpoint = tab === 'today' ? '/api/live-schedule/apply-worker-plan' : '/api/prep-next-day/apply-worker-plan';
+  const workerName = group.worker;
 
   try {
-    // Delete all modality entries for this shift
-    for (const [modKey, modData] of Object.entries(shift.modalities)) {
-      if (modData.row_index !== undefined && modData.row_index >= 0) {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ modality: modKey, row_index: modData.row_index, verify_ppl: group.worker })
-        });
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error || 'Failed to delete shift');
-        }
-      }
+    const updatedShifts = [...shifts];
+    updatedShifts.splice(shiftIdx, 1);
+    if (editPlanDraft) {
+      editPlanDraft.shifts = updatedShifts;
+    }
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ worker: group.worker, shifts: updatedShifts })
+    });
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || 'Failed to delete shift');
     }
     showMessage('success', 'Shift deleted');
 
@@ -1199,14 +1201,15 @@ async function deleteShiftFromModal(shiftIdx) {
       // More shifts remain - reload and re-render modal
       const formState = saveModalAddFormState();
       await loadData();
-      if (entriesData[tab] && entriesData[tab][groupIdx]) {
-        currentEditEntry = { tab, groupIdx };
+      const updatedGroupIdx = entriesData[tab]?.findIndex(entry => entry.worker === workerName);
+      if (updatedGroupIdx !== undefined && updatedGroupIdx >= 0) {
+        currentEditEntry = { tab, groupIdx: updatedGroupIdx };
         renderEditModalContent();
         restoreModalAddFormState(formState);
-      } else {
-        // Worker no longer exists (edge case) - close modal
-        closeModal();
+        return;
       }
+      // Worker no longer exists (edge case) - close modal
+      closeModal();
     }
   } catch (error) {
     showMessage('error', error.message);
