@@ -576,11 +576,86 @@ const TimelineChart = (function() {
     });
   }
 
+  /**
+   * Apply combined filters (skill, modality, hideZero) to timeline
+   * When hideZero is true, only show workers who have active skills (1 or w)
+   * for the filtered skill×modality combination.
+   *
+   * @param {HTMLElement} gridEl - The timeline grid element
+   * @param {Object} filters - Filter options
+   * @param {string} filters.skill - Skill slug to filter by (or 'all'/empty)
+   * @param {string} filters.modality - Modality to filter by (or 'all'/empty)
+   * @param {boolean} filters.hideZero - If true, hide rows without active skills for the filter combination
+   */
+  function applyFilters(gridEl, filters = {}) {
+    const { skill = '', modality = '', hideZero = false } = filters;
+    const rows = gridEl.querySelectorAll('.worker-row');
+    const mod = (modality || '').toLowerCase();
+    const skillSlug = (skill || '').toLowerCase();
+
+    const hasModFilter = mod && mod !== 'all';
+    const hasSkillFilter = skillSlug && skillSlug !== 'all';
+    const anyFilterActive = hasModFilter || hasSkillFilter || hideZero;
+
+    rows.forEach(row => {
+      const bars = Array.from(row.querySelectorAll('.shift-bar'));
+      const gapBars = Array.from(row.querySelectorAll('.gap-bar'));
+
+      // No filters active - show everything
+      if (!anyFilterActive) {
+        bars.forEach(bar => bar.style.display = '');
+        gapBars.forEach(bar => bar.style.display = '');
+        row.style.display = '';
+        return;
+      }
+
+      // Find bars that match the filter criteria
+      const matchingBars = bars.filter(bar => {
+        const barSkills = (bar.dataset.skills || '').split(',').filter(s => s);
+        const barMods = (bar.dataset.modalities || '').split(',').filter(m => m);
+
+        // Check modality match (if filter set)
+        const modMatch = !hasModFilter || barMods.includes(mod);
+        // Check skill match (if filter set)
+        const skillMatch = !hasSkillFilter || barSkills.includes(skillSlug);
+
+        return modMatch && skillMatch;
+      });
+
+      // Show/hide bars based on filter
+      bars.forEach(bar => {
+        const barSkills = (bar.dataset.skills || '').split(',').filter(s => s);
+        const barMods = (bar.dataset.modalities || '').split(',').filter(m => m);
+
+        const modMatch = !hasModFilter || barMods.includes(mod);
+        const skillMatch = !hasSkillFilter || barSkills.includes(skillSlug);
+
+        bar.style.display = (modMatch && skillMatch) ? '' : 'none';
+      });
+
+      // Always show gap bars (they're valid regardless of skill filters)
+      gapBars.forEach(bar => bar.style.display = '');
+
+      // Determine if row should be visible
+      // If hideZero is true, only show row if it has matching bars with active skills
+      // If hideZero is false, show row if it has any visible bars or gaps
+      if (hideZero) {
+        // With hideZero, row must have at least one matching bar (active skill for the filter)
+        row.style.display = matchingBars.length > 0 ? '' : 'none';
+      } else {
+        // Without hideZero, show if any bars match OR if there are gaps
+        const hasVisibleBars = bars.some(bar => bar.style.display !== 'none');
+        row.style.display = (hasVisibleBars || gapBars.length > 0) ? '' : 'none';
+      }
+    });
+  }
+
   // Public API
   return {
     render,
     filterBySkill,
     filterByModality,
+    applyFilters,
     updateCurrentTimeLine,
     timeToMinutes,
     timeToPercent,

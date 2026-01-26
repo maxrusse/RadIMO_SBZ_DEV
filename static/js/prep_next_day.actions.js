@@ -24,6 +24,25 @@ function updateTableFilter(tab) {
     tableFilters[tab].hideZero = hideZero;
   }
   renderTable(tab);
+
+  // Also apply filters to the timeline
+  applyTimelineFilters(tab);
+}
+
+// Helper: Apply current filters to the timeline
+function applyTimelineFilters(tab) {
+  const gridEl = document.getElementById(`timeline-grid-${tab}`);
+  if (!gridEl || typeof TimelineChart === 'undefined') return;
+
+  const filter = tableFilters[tab] || {};
+  // Convert skill name to slug for timeline filtering
+  const skillSlug = filter.skill ? (SKILL_SETTINGS[filter.skill]?.slug || filter.skill.toLowerCase().replace(/[^a-z0-9-]/g, '-')) : '';
+
+  TimelineChart.applyFilters(gridEl, {
+    skill: skillSlug,
+    modality: filter.modality || '',
+    hideZero: filter.hideZero || false
+  });
 }
 
 function filterByModality(tab, modality) {
@@ -44,11 +63,8 @@ function filterByModality(tab, modality) {
   };
   renderTable(tab);
 
-  // Also filter the timeline (like skill filter does)
-  const gridEl = document.getElementById(`timeline-grid-${tab}`);
-  if (gridEl && typeof TimelineChart !== 'undefined') {
-    TimelineChart.filterByModality(gridEl, modality || 'all');
-  }
+  // Apply combined filters to the timeline (respects skill + modality + hideZero)
+  applyTimelineFilters(tab);
 }
 
 function filterBySkill(tab, skill) {
@@ -69,11 +85,8 @@ function filterBySkill(tab, skill) {
   };
   renderTable(tab);
 
-  // Also filter the timeline (like on timetable page)
-  const gridEl = document.getElementById(`timeline-grid-${tab}`);
-  if (gridEl && typeof TimelineChart !== 'undefined') {
-    TimelineChart.filterBySkill(gridEl, skill || 'all');
-  }
+  // Apply combined filters to the timeline (respects skill + modality + hideZero)
+  applyTimelineFilters(tab);
 }
 
 function parseDayTimes(dayTimes) {
@@ -526,6 +539,7 @@ async function loadTabData(tab) {
 
     renderTable(tab);
     renderTimeline(tab);  // Update timeline chart
+    applyTimelineFilters(tab);  // Apply current filters to timeline
   } catch (error) {
     console.error(`Load error for ${tab}:`, error);
     if (requestId === loadRequestId[tab]) {
