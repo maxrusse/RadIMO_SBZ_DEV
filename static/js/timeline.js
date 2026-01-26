@@ -510,6 +510,16 @@ const TimelineChart = (function() {
     }
   }
 
+  // Helper to show/hide row and its children (handles display:contents)
+  function setRowVisibility(row, visible) {
+    row.style.display = visible ? '' : 'none';
+    // Also set children visibility for display:contents compatibility
+    const nameCell = row.querySelector('.worker-name-cell');
+    const timeline = row.querySelector('.worker-timeline');
+    if (nameCell) nameCell.style.display = visible ? '' : 'none';
+    if (timeline) timeline.style.display = visible ? '' : 'none';
+  }
+
   // Filter rows by skill
   function filterBySkill(gridEl, skillSlug) {
     const rows = gridEl.querySelectorAll('.worker-row');
@@ -521,7 +531,7 @@ const TimelineChart = (function() {
       if (skillSlug === 'all' || !skillSlug) {
         bars.forEach(bar => bar.style.display = '');
         gapBars.forEach(bar => bar.style.display = '');
-        row.style.display = '';
+        setRowVisibility(row, true);
         return;
       }
 
@@ -541,7 +551,7 @@ const TimelineChart = (function() {
       gapBars.forEach(bar => bar.style.display = hasMatchingShifts ? '' : 'none');
 
       // Hide row if no matching shift bars
-      row.style.display = hasMatchingShifts ? '' : 'none';
+      setRowVisibility(row, hasMatchingShifts);
     });
   }
 
@@ -558,7 +568,7 @@ const TimelineChart = (function() {
       if (mod === 'all' || mod === '' || !mod) {
         bars.forEach(bar => bar.style.display = '');
         gapBars.forEach(bar => bar.style.display = '');
-        row.style.display = '';
+        setRowVisibility(row, true);
         return;
       }
 
@@ -578,7 +588,7 @@ const TimelineChart = (function() {
       gapBars.forEach(bar => bar.style.display = hasMatchingShifts ? '' : 'none');
 
       // Hide row if no matching shift bars
-      row.style.display = hasMatchingShifts ? '' : 'none';
+      setRowVisibility(row, hasMatchingShifts);
     });
   }
 
@@ -611,7 +621,7 @@ const TimelineChart = (function() {
       if (!anyFilterActive) {
         bars.forEach(bar => bar.style.display = '');
         gapBars.forEach(bar => bar.style.display = '');
-        row.style.display = '';
+        setRowVisibility(row, true);
         return;
       }
 
@@ -644,7 +654,7 @@ const TimelineChart = (function() {
       gapBars.forEach(bar => bar.style.display = hasMatchingShifts ? '' : 'none');
 
       // Row visible only when it has matching shift bars
-      row.style.display = hasMatchingShifts ? '' : 'none';
+      setRowVisibility(row, hasMatchingShifts);
     });
   }
 
