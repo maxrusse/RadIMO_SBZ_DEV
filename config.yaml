@@ -449,15 +449,6 @@ vendor_mappings:
         paed_mr: 1
         paed_xray: 1
 
-    - match: "Assistent"
-      type: "shift"
-      times:
-        default: "07:30-15:45"
-      skill_overrides:
-        msk-haut_ct: 1
-        msk-haut_mr: 1
-        msk-haut_xray: 1
-
     - match: "Assistent AbdOnco"
       type: "shift"
       times:
@@ -573,28 +564,15 @@ vendor_mappings:
       times:
         default: "11:30-19:45"
       skill_overrides:
-        privat_ct: 1
-        privat_mr: 1
-        privat_xray: 1
-        msk-haut_ct: 1
-        msk-haut_mr: 1
-        msk-haut_xray: 1
-        abd-onco_ct: 1
-        abd-onco_mr: 1
-        card-thor_ct: 1
-        card-thor_mr: 1
-        uro_ct: 1
-        uro_mr: 1
-        kopf-hals_ct: 1
-        kopf-hals_mr: 1
-        gyn_ct: 1
-        gyn_mr: 1
-        gyn_mammo: 1
-        privat_mammo: 1
-        notfall_mr: 1
-        notfall_mammo: 1
+        all: 1
+        notfall_ct: -1
+        notfall_xray: -1
+        paed_ct: -1
+        paed_mr: -1
+        paed_xray: -1
 
     - match: "3. Dienst"
+      label: "Röntgendienst"
       type: "shift"
       times:
         default: "11:30-19:45"
