@@ -41,11 +41,30 @@ const TimelineChart = (function() {
     return !isNaN(n) && n >= 1;
   }
 
+  // Check if skill is visible (value >= 0 or weighted)
+  function isSkillVisible(val) {
+    if (val === 'w' || val === 'W') return true;
+    if (val === '' || val === null || val === undefined) return false;
+    const n = Number(val);
+    return !isNaN(n) && n >= 0;
+  }
+
   // Check if any skill in entry is active
   function hasAnyActiveSkill(entry, skillColumns) {
     const hasSkills = skillColumns.some(s => {
       const val = entry[s];
       return isSkillActive(val);
+    });
+    if (hasSkills) return true;
+    const rowType = (entry.row_type || '').toString().toLowerCase();
+    return rowType === 'gap' || rowType === 'gap_segment';
+  }
+
+  // Check if any skill in entry is visible (active or zero)
+  function hasAnyVisibleSkill(entry, skillColumns) {
+    const hasSkills = skillColumns.some(s => {
+      const val = entry[s];
+      return isSkillVisible(val);
     });
     if (hasSkills) return true;
     const rowType = (entry.row_type || '').toString().toLowerCase();
@@ -346,7 +365,7 @@ const TimelineChart = (function() {
       if (!e) return false;
       if (e.TIME === '00:00-00:00') return false;
       if (!e.start_time || !e.end_time) return false;
-      return hasAnyActiveSkill(e, skillColumns);
+      return hasAnyVisibleSkill(e, skillColumns);
     });
 
     if (validData.length === 0) {
@@ -479,6 +498,7 @@ const TimelineChart = (function() {
           bar.style.background = buildSkillGradient(activeSkills, skillColorMap);
           bar.style.zIndex = '1';
           bar.dataset.skills = activeSkills.join(',');
+          bar.dataset.hasActive = 'true';
 
           // Store modality data for filtering
           let modList = [];
@@ -492,6 +512,28 @@ const TimelineChart = (function() {
           // Tooltip
           const timeDisplay = entry.TIME || `${entry.start_time}-${entry.end_time}`;
           const skillsTooltip = `Skills (1): ${tooltipSkillLabels.join(', ')}`;
+          bar.title = `${worker}\n${tooltipMods}${taskTooltip}Zeit: ${timeDisplay}\n${skillsTooltip}`;
+
+          timelineCell.appendChild(bar);
+        } else {
+          const bar = document.createElement('div');
+          bar.className = 'shift-bar shift-bar--neutral';
+          bar.style.left = `${left}%`;
+          bar.style.width = `${width}%`;
+          bar.style.zIndex = '1';
+          bar.dataset.skills = '';
+          bar.dataset.hasActive = 'false';
+
+          let modList = [];
+          if (entry.modalities && entry.modalities.size > 0) {
+            modList = Array.from(entry.modalities).map(m => m.toLowerCase());
+          } else if (entry._modality || entry.modality) {
+            modList = [(entry._modality || entry.modality).toLowerCase()];
+          }
+          bar.dataset.modalities = modList.join(',');
+
+          const timeDisplay = entry.TIME || `${entry.start_time}-${entry.end_time}`;
+          const skillsTooltip = 'Skills (0): none';
           bar.title = `${worker}\n${tooltipMods}${taskTooltip}Zeit: ${timeDisplay}\n${skillsTooltip}`;
 
           timelineCell.appendChild(bar);
@@ -629,24 +671,28 @@ const TimelineChart = (function() {
       const matchingBars = bars.filter(bar => {
         const barSkills = (bar.dataset.skills || '').split(',').filter(s => s);
         const barMods = (bar.dataset.modalities || '').split(',').filter(m => m);
+        const hasActive = bar.dataset.hasActive !== 'false';
+        const activeMatch = !hideZero || hasActive;
 
         // Check modality match (if filter set)
         const modMatch = !hasModFilter || barMods.includes(mod);
         // Check skill match (if filter set)
         const skillMatch = !hasSkillFilter || barSkills.includes(skillSlug);
 
-        return modMatch && skillMatch;
+        return modMatch && skillMatch && activeMatch;
       });
 
       // Show/hide bars based on filter
       bars.forEach(bar => {
         const barSkills = (bar.dataset.skills || '').split(',').filter(s => s);
         const barMods = (bar.dataset.modalities || '').split(',').filter(m => m);
+        const hasActive = bar.dataset.hasActive !== 'false';
+        const activeMatch = !hideZero || hasActive;
 
         const modMatch = !hasModFilter || barMods.includes(mod);
         const skillMatch = !hasSkillFilter || barSkills.includes(skillSlug);
 
-        bar.style.display = (modMatch && skillMatch) ? '' : 'none';
+        bar.style.display = (modMatch && skillMatch && activeMatch) ? '' : 'none';
       });
 
       // Only show gap bars when row has matching shift bars
@@ -668,7 +714,9 @@ const TimelineChart = (function() {
     timeToMinutes,
     timeToPercent,
     isSkillActive,
+    isSkillVisible,
     hasAnyActiveSkill,
+    hasAnyVisibleSkill,
     escapeHtml,
     TIMELINE_START,
     TIMELINE_END,

@@ -1170,6 +1170,12 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
 
+    .shift-bar--neutral {
+      background: #e0e0e0;
+      border-style: dashed;
+      border-color: rgba(0, 0, 0, 0.25);
+    }
+
     /* Gap bars - overlay on shift bars to show breaks/pauses */
     .gap-bar {
       position: absolute;
@@ -1320,7 +1326,7 @@
         <button class="filter-btn" data-modality="{{ mod|lower }}" onclick="filterByModality('today', '{{ mod|lower }}')">{{ mod|upper }}</button>
         {% endfor %}
         <label class="filter-toggle" style="margin-left: auto;">
-          <input type="checkbox" id="filter-hide-zero-today" onchange="updateTableFilter('today')" checked> Hide 0/-1
+          <input type="checkbox" id="filter-hide-zero-today" onchange="updateTableFilter('today')"> Hide 0/-1
         </label>
         <button id="display-order-toggle-today" class="btn btn-secondary" onclick="toggleDisplayOrder()"
           title="Current: Modalities as groups, skills as sub-columns. Click to switch.">Mod → Skill</button>
@@ -1414,7 +1420,7 @@
         <button class="filter-btn" data-modality="{{ mod|lower }}" onclick="filterByModality('tomorrow', '{{ mod|lower }}')">{{ mod|upper }}</button>
         {% endfor %}
         <label class="filter-toggle" style="margin-left: auto;">
-          <input type="checkbox" id="filter-hide-zero-tomorrow" onchange="updateTableFilter('tomorrow')" checked> Hide 0/-1
+          <input type="checkbox" id="filter-hide-zero-tomorrow" onchange="updateTableFilter('tomorrow')"> Hide 0/-1
         </label>
         <button id="display-order-toggle-tomorrow" class="btn btn-secondary" onclick="toggleDisplayOrder()"
           title="Current: Modalities as groups, skills as sub-columns. Click to switch.">Mod → Skill</button>

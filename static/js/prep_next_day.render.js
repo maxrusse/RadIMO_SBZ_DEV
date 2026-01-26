@@ -12,6 +12,13 @@ function renderSkillSelect(id, value, onchangeHandler, options = {}) {
   </select>`;
 }
 
+function isVisibleSkillValue(value, filter) {
+  if (filter?.hideZero) {
+    return isActiveSkillValue(value);
+  }
+  return isNonNegativeSkillValue(value);
+}
+
 function groupHasActiveSkills(group, filter) {
   if (!group) return false;
   const shifts = getTableShifts(group).filter(s => !s.is_gap_entry && !s.deleted);
@@ -24,14 +31,14 @@ function groupHasActiveSkills(group, filter) {
     return shifts.some(shift => modalitiesToCheck.some(modKey => {
       const modData = shift.modalities?.[modKey];
       if (!modData) return false;
-      return isActiveSkillValue(modData.skills?.[skillFilter]);
+      return isVisibleSkillValue(modData.skills?.[skillFilter], filter);
     }));
   }
 
   return shifts.some(shift => modalitiesToCheck.some(modKey => {
     const modData = shift.modalities?.[modKey];
     if (!modData) return false;
-    return SKILLS.some(skill => isActiveSkillValue(modData.skills?.[skill]));
+    return SKILLS.some(skill => isVisibleSkillValue(modData.skills?.[skill], filter));
   }));
 }
 
@@ -55,14 +62,14 @@ function shiftMatchesFilters(shift, filter, group) {
 
     if (skill) {
       const val = modData.skills[skill];
-      if (isActiveSkillValue(val)) {
+      if (isVisibleSkillValue(val, filter)) {
         matchFound = true;
         break;
       }
     } else {
       const hasSkill = SKILLS.some(s => {
         const val = modData.skills[s];
-        return isActiveSkillValue(val);
+        return isVisibleSkillValue(val, filter);
       });
       if (hasSkill) {
         matchFound = true;
@@ -413,7 +420,7 @@ function renderTable(tab) {
           const matchesSkill = !filter.skill || filter.skill === skill;
           if (matchesModality && matchesSkill) {
             const filterVal = modData.skills[skill];
-            isFilteredMatch = filter.hideZero ? isActiveSkillValue(filterVal) : filterVal !== undefined;
+            isFilteredMatch = isVisibleSkillValue(filterVal, filter);
           }
         }
         const cellClass = `grid-cell ${isAssigned ? '' : 'ghost'}${isFilteredMatch ? ' filtered-cell' : ''}`;

@@ -86,7 +86,7 @@ function isValidTimelineEntry(entry, skillColumns) {
   if (!entry.start_time || !entry.end_time) return false;
   const rowType = (entry.row_type || '').toString().toLowerCase();
   if (rowType === 'gap' || rowType === 'gap_segment') return true;
-  return TimelineChart.hasAnyActiveSkill(entry, skillColumns);
+  return TimelineChart.hasAnyVisibleSkill(entry, skillColumns);
 }
 
 /**
