@@ -106,54 +106,35 @@ def _validate_modality(modality: str, data_store: dict) -> Optional[Any]:
 def _build_rows_from_plan(worker: str, shifts: list, modality: str) -> list:
     rows = []
     for shift in shifts:
-        raw_rows = shift.get('originalShifts')
-        if raw_rows:
-            for raw in raw_rows:
-                raw = strip_builder_fields(raw)
-                mod_key = (raw.get('modality') or '').lower()
-                if mod_key and mod_key != modality:
-                    continue
-                mod_data = (shift.get('modalities') or {}).get(mod_key, {})
-                is_gap_entry = bool(
-                    shift.get('is_gap_entry')
-                    or str(shift.get('row_type', '')).lower() in {'gap', 'gap_segment'}
-                    or raw.get('is_gap_entry')
-                )
-                if mod_key and not mod_data and raw.get('is_gap_entry') is False:
-                    continue
-                if mod_data and not is_gap_entry and not _modality_has_active_skills(mod_data):
-                    continue
-                skills = mod_data.get('skills', {}) or raw.get('skills', {}) or {}
-                if is_gap_entry:
-                    skills = {skill: -1 for skill in SKILL_COLUMNS}
-
-                rows.append(strip_builder_fields({
-                    'PPL': worker,
-                    'start_time': raw.get('start_time') or shift.get('start_time'),
-                    'end_time': raw.get('end_time') or shift.get('end_time'),
-                    'Modifier': raw.get('modifier', shift.get('modifier', 1.0)),
-                    'counts_for_hours': raw.get('counts_for_hours', shift.get('counts_for_hours', not is_gap_entry)),
-                    'tasks': raw.get('task', shift.get('task', '')),
-                    'row_type': 'gap' if is_gap_entry else 'shift',
-                    **{skill: skills.get(skill) for skill in SKILL_COLUMNS if skill in skills},
-                }))
-            continue
-
         row_type = shift.get('row_type', 'shift')
         is_gap_row = str(row_type).lower() in {'gap', 'gap_segment'}
         if is_gap_row and shift.get('counts_for_hours') is None:
             shift['counts_for_hours'] = False
-        skills = shift.get('skills') or {}
-        rows.append(strip_builder_fields({
-            'PPL': worker,
-            'start_time': shift.get('start_time'),
-            'end_time': shift.get('end_time'),
-            'Modifier': shift.get('Modifier', shift.get('modifier', 1.0)),
-            'counts_for_hours': shift.get('counts_for_hours', not is_gap_row),
-            'tasks': shift.get('tasks', shift.get('task', '')),
-            'row_type': 'gap' if is_gap_row else row_type,
-            **{skill: skills.get(skill) for skill in SKILL_COLUMNS if skill in skills},
-        }))
+
+        modalities = shift.get('modalities') or {}
+        if not modalities:
+            continue
+
+        for mod_key, mod_data in modalities.items():
+            mod_key = (mod_key or '').lower()
+            if mod_key and mod_key != modality:
+                continue
+            if mod_data and not is_gap_row and not _modality_has_active_skills(mod_data):
+                continue
+            skills = mod_data.get('skills', {}) or {}
+            if is_gap_row:
+                skills = {skill: -1 for skill in SKILL_COLUMNS}
+
+            rows.append(strip_builder_fields({
+                'PPL': worker,
+                'start_time': shift.get('start_time'),
+                'end_time': shift.get('end_time'),
+                'Modifier': shift.get('Modifier', shift.get('modifier', 1.0)),
+                'counts_for_hours': shift.get('counts_for_hours', not is_gap_row),
+                'tasks': shift.get('tasks', shift.get('task', '')),
+                'row_type': 'gap' if is_gap_row else row_type,
+                **{skill: skills.get(skill) for skill in SKILL_COLUMNS if skill in skills},
+            }))
     return rows
 
 

@@ -42,8 +42,8 @@ function shiftMatchesFilters(shift, filter, group) {
     return filterActive ? groupHasActiveSkills(group, filter) : true;
   }
   if (!filter) return true;
-  const { modality, skill, hideZero } = filter;
-  const filterActive = Boolean(modality || skill || hideZero);
+  const { modality, skill } = filter;
+  const filterActive = Boolean(modality || skill || filter.hideZero);
   if (!filterActive) return true;
 
   const modalitiesToCheck = modality ? [modality] : MODALITIES.map(m => m.toLowerCase());
@@ -55,14 +55,14 @@ function shiftMatchesFilters(shift, filter, group) {
 
     if (skill) {
       const val = modData.skills[skill];
-      if (hideZero ? isActiveSkillValue(val) : val !== undefined) {
+      if (isActiveSkillValue(val)) {
         matchFound = true;
         break;
       }
     } else {
       const hasSkill = SKILLS.some(s => {
         const val = modData.skills[s];
-        return hideZero ? isActiveSkillValue(val) : val !== undefined;
+        return isActiveSkillValue(val);
       });
       if (hasSkill) {
         matchFound = true;
@@ -305,7 +305,12 @@ function renderTable(tab) {
     const shifts = getTableShifts(group).filter(shift => !shift.deleted);
     if (shifts.length === 0) return;
 
-    const shiftsToRender = filterActive ? shifts.filter(shift => shiftMatchesFilters(shift, filter, group)) : shifts;
+    if (filter.hideZero && !groupHasActiveSkills(group, filter)) {
+      return;
+    }
+
+    const useRowFiltering = filterActive && (filter.modality || filter.skill);
+    const shiftsToRender = useRowFiltering ? shifts.filter(shift => shiftMatchesFilters(shift, filter, group)) : shifts;
     if (filterActive && shiftsToRender.length === 0) return;
 
     const escapedWorker = escapeHtml(group.worker);

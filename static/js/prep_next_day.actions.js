@@ -86,10 +86,15 @@ function parseDayTimes(dayTimes) {
 }
 
 // Toggle inline edit mode
-function toggleEditMode(tab) {
+async function toggleEditMode(tab) {
+  const wasActive = editMode[tab];
   editMode[tab] = !editMode[tab];
   pendingChanges[tab] = {};  // Reset pending changes
   applyEditModeUI(tab);
+  if (wasActive && !editMode[tab]) {
+    await loadData();
+    return;
+  }
   renderTable(tab);
 }
 
@@ -700,7 +705,6 @@ function buildEntriesByWorker(data, tab = 'today') {
           task: entry.task,
         modalities: {},
         timeSegments: [{ start: entry.start_time, end: entry.end_time }],
-        originalShifts: [entry],
         is_manual: entry.is_manual,
         is_gap_entry: entry.is_gap_entry
         };
@@ -714,7 +718,6 @@ function buildEntriesByWorker(data, tab = 'today') {
           task: entry.task,
         modalities: {},
         timeSegments: [{ start: entry.start_time, end: entry.end_time }],
-        originalShifts: [entry],
         is_manual: entry.is_manual,
         is_gap_entry: entry.is_gap_entry
         };
@@ -779,7 +782,7 @@ function buildEntriesByWorker(data, tab = 'today') {
     });
   });
 
-  // Convert shifts to array and merge consecutive shifts with same task
+  // Convert shifts to array (no split-shift merging).
   Object.values(grouped).forEach(group => {
     const shiftsArr = Object.entries(group.shifts)
       .map(([key, shift]) => ({ ...shift, shiftKey: key }))
@@ -820,7 +823,6 @@ function buildEntriesByWorker(data, tab = 'today') {
         currentMerged = {
           ...shift,
           timeSegments: [{ start: shift.start_time, end: shift.end_time }],
-          originalShifts: [shift],
           is_manual: shift.is_manual,
           is_gap_entry: shift.is_gap_entry
         };
@@ -830,7 +832,6 @@ function buildEntriesByWorker(data, tab = 'today') {
         currentMerged = {
           ...shift,
           timeSegments: [{ start: shift.start_time, end: shift.end_time }],
-          originalShifts: [shift],
           is_manual: shift.is_manual,
           is_gap_entry: shift.is_gap_entry
         };
@@ -1623,7 +1624,6 @@ async function addShiftFromModal() {
       return;
     }
     const modalities = {};
-    const originalShifts = [];
     selectedModalities.forEach(modKey => {
       const skills = {};
       SKILLS.forEach(skill => {
@@ -1639,16 +1639,6 @@ async function addShiftFromModal() {
         row_index: -1,
         modifier
       };
-      originalShifts.push({
-        modality: modKey,
-        start_time: startTime,
-        end_time: endTime,
-        modifier,
-        counts_for_hours: countsForHours,
-        task: taskName,
-        is_gap_entry: isGap,
-        row_type: isGap ? 'gap' : 'shift'
-      });
     });
 
     editPlanDraft.shifts = [
@@ -1663,7 +1653,6 @@ async function addShiftFromModal() {
         is_gap_entry: isGap,
         modalities,
         timeSegments: [{ start: startTime, end: endTime }],
-        originalShifts
       }
     ];
     showMessage('success', `Added new ${isGap ? 'gap' : 'shift'} for ${group.worker}. Save edits to apply.`);
@@ -2128,14 +2117,14 @@ function applyModalEditModeUI() {
   const saveButton = document.getElementById('modal-save-button');
   if (toggleBtn) {
     toggleBtn.style.display = modalMode === 'edit-plan' ? '' : 'none';
-    toggleBtn.textContent = modalEditMode ? 'Exit Edit Mode' : 'Edit Mode';
-    toggleBtn.className = modalEditMode ? 'btn btn-warning' : 'btn btn-secondary';
+    toggleBtn.textContent = modalMode === 'edit-plan' ? 'Exit' : 'Edit Mode';
+    toggleBtn.className = 'btn btn-secondary';
   }
   if (saveButton) {
     if (modalMode === 'add-worker') {
       saveButton.style.display = '';
     } else if (modalMode === 'edit-plan') {
-      saveButton.style.display = modalEditMode ? '' : 'none';
+      saveButton.style.display = '';
     } else {
       saveButton.style.display = 'none';
     }
@@ -2143,13 +2132,8 @@ function applyModalEditModeUI() {
 }
 
 function toggleModalEditMode() {
-  if (modalMode !== 'edit-plan' || !currentEditEntry) return;
-  const { tab, groupIdx } = currentEditEntry;
-  const group = entriesData[tab]?.[groupIdx];
-  if (!group) return;
-  modalEditMode = !modalEditMode;
-  setEditPlanDraftFromGroup(group, { force: true });
-  renderEditModalContent();
+  if (modalMode !== 'edit-plan') return;
+  closeModal();
 }
 
 function saveModalAction() {
