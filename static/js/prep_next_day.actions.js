@@ -1173,6 +1173,16 @@ async function deleteShiftFromModal(shiftIdx) {
 
   if (!confirm(confirmMessage)) return;
 
+  if (modalMode === 'edit-plan') {
+    const updatedShifts = [...shifts];
+    updatedShifts.splice(shiftIdx, 1);
+    if (editPlanDraft) {
+      editPlanDraft.shifts = updatedShifts;
+    }
+    renderEditModalContent();
+    return;
+  }
+
   const endpoint = tab === 'today' ? '/api/live-schedule/apply-worker-plan' : '/api/prep-next-day/apply-worker-plan';
   const workerName = group.worker;
 
