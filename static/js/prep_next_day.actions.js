@@ -974,6 +974,7 @@ function openEditModal(tab, groupIdx) {
   currentEditEntry = { tab, groupIdx };
   setEditPlanDraftFromGroup(group, { force: true });
   setModalMode('edit-plan');
+  modalEditMode = true;
   renderEditModalContent();
   document.getElementById('edit-modal').classList.add('show');
 }
@@ -1616,6 +1617,59 @@ async function addShiftFromModal() {
   const taskKey = (taskName || '').trim();
   const addedShiftKey = `${startTime}-${endTime}-${isGap ? 'gap' : 'shift'}-${taskKey}`;
 
+  if (modalMode === 'edit-plan') {
+    if (!editPlanDraft) {
+      showMessage('error', 'No edit plan available');
+      return;
+    }
+    const modalities = {};
+    const originalShifts = [];
+    selectedModalities.forEach(modKey => {
+      const skills = {};
+      if (!isGap) {
+        SKILLS.forEach(skill => {
+          const el = document.getElementById(`modal-add-${modKey}-skill-${skill}`);
+          skills[skill] = normalizeSkillValueJS(el ? el.value : 0);
+        });
+      }
+      modalities[modKey] = {
+        skills,
+        row_index: -1,
+        modifier
+      };
+      originalShifts.push({
+        modality: modKey,
+        start_time: startTime,
+        end_time: endTime,
+        modifier,
+        counts_for_hours: countsForHours,
+        task: taskName,
+        is_gap_entry: isGap,
+        row_type: isGap ? 'gap' : 'shift'
+      });
+    });
+
+    editPlanDraft.shifts = [
+      ...(editPlanDraft.shifts || []),
+      {
+        start_time: startTime,
+        end_time: endTime,
+        modifier,
+        counts_for_hours: countsForHours,
+        task: taskName,
+        row_type: isGap ? 'gap' : 'shift',
+        is_gap_entry: isGap,
+        modalities,
+        timeSegments: [{ start: startTime, end: endTime }],
+        originalShifts
+      }
+    ];
+    showMessage('success', `Added new ${isGap ? 'gap' : 'shift'} for ${group.worker}. Save edits to apply.`);
+    lastAddedShiftMeta = { worker: group.worker, shiftKey: addedShiftKey };
+    renderEditModalContent();
+    return;
+  }
+
   const addWorkerEndpoint = tab === 'today' ? '/api/live-schedule/add-worker' : '/api/prep-next-day/add-worker';
   const addGapEndpoint = tab === 'today' ? '/api/live-schedule/add-gap' : '/api/prep-next-day/add-gap';
 
@@ -1906,6 +1960,10 @@ async function saveModalChanges() {
   const shifts = getModalShifts(group);
 
   if (modalMode === 'edit-plan') {
+    if (!modalEditMode) {
+      showMessage('error', 'Enable Edit Mode to save changes.');
+      return;
+    }
     if (!editPlanDraft || !editPlanDraft.worker) {
       showMessage('error', 'No edit plan available');
       return;
@@ -1914,6 +1972,7 @@ async function saveModalChanges() {
       ? '/api/live-schedule/apply-worker-plan'
       : '/api/prep-next-day/apply-worker-plan';
     try {
+      syncEditPlanDraftFromModal();
       const response = await fetch(applyEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1996,6 +2055,44 @@ async function saveModalChanges() {
   }
 }
 
+function syncEditPlanDraftFromModal() {
+  if (!currentEditEntry || !editPlanDraft) return;
+  const { tab, groupIdx } = currentEditEntry;
+  const group = entriesData[tab]?.[groupIdx];
+  if (!group) return;
+  const shifts = getModalShifts(group);
+  shifts.forEach((shift, shiftIdx) => {
+    const updates = {};
+    const taskEl = document.getElementById(`edit-shift-${shiftIdx}-task`);
+    if (taskEl && taskEl.value) updates.tasks = taskEl.value;
+    const startEl = document.getElementById(`edit-shift-${shiftIdx}-start`);
+    if (startEl && isValidTimeValue(startEl.value)) updates.start_time = startEl.value;
+    const endEl = document.getElementById(`edit-shift-${shiftIdx}-end`);
+    if (endEl && isValidTimeValue(endEl.value)) updates.end_time = endEl.value;
+    const modifierEl = document.getElementById(`edit-shift-${shiftIdx}-modifier`);
+    if (modifierEl) updates.Modifier = parseFloat(modifierEl.value) || 1.0;
+    const countsEl = document.getElementById(`edit-shift-${shiftIdx}-counts-hours`);
+    if (countsEl) updates.counts_for_hours = countsEl.checked;
+    if (Object.keys(updates).length) {
+      updateEditPlanDraftShift(shiftIdx, updates);
+    }
+
+    const skillUpdatesByMod = {};
+    Object.keys(shift.modalities || {}).forEach(modKey => {
+      SKILLS.forEach(skill => {
+        const el = document.getElementById(`edit-shift-${shiftIdx}-${modKey}-skill-${skill}`);
+        if (el) {
+          if (!skillUpdatesByMod[modKey]) skillUpdatesByMod[modKey] = {};
+          skillUpdatesByMod[modKey][skill] = normalizeSkillValueJS(el.value);
+        }
+      });
+    });
+    if (Object.keys(skillUpdatesByMod).length) {
+      updateEditPlanDraftShiftSkills(shiftIdx, skillUpdatesByMod);
+    }
+  });
+}
+
 function closeModal() {
   document.getElementById('edit-modal').classList.remove('show');
   currentEditEntry = null;
@@ -2003,6 +2100,7 @@ function closeModal() {
   if (modalMode === 'add-worker') {
     resetAddWorkerModalState();
   }
+  modalEditMode = true;
   setModalMode('edit');
 }
 
@@ -2013,15 +2111,43 @@ function setModalMode(mode) {
   if (mode === 'add-worker') {
     saveButton.textContent = 'Add Worker';
     saveButton.className = 'btn btn-success';
-    saveButton.style.display = '';
   } else if (mode === 'edit-plan') {
-    saveButton.textContent = 'Apply Changes';
+    saveButton.textContent = 'Save Edits';
     saveButton.className = 'btn btn-primary';
-    saveButton.style.display = '';
   } else {
     // Edit mode: all edits are live, no Save button needed
     saveButton.style.display = 'none';
   }
+  applyModalEditModeUI();
+}
+
+function applyModalEditModeUI() {
+  const toggleBtn = document.getElementById('modal-edit-toggle');
+  const saveButton = document.getElementById('modal-save-button');
+  if (toggleBtn) {
+    toggleBtn.style.display = modalMode === 'edit-plan' ? '' : 'none';
+    toggleBtn.textContent = modalEditMode ? 'Exit Edit Mode' : 'Edit Mode';
+    toggleBtn.className = modalEditMode ? 'btn btn-warning' : 'btn btn-secondary';
+  }
+  if (saveButton) {
+    if (modalMode === 'add-worker') {
+      saveButton.style.display = '';
+    } else if (modalMode === 'edit-plan') {
+      saveButton.style.display = modalEditMode ? '' : 'none';
+    } else {
+      saveButton.style.display = 'none';
+    }
+  }
+}
+
+function toggleModalEditMode() {
+  if (modalMode !== 'edit-plan' || !currentEditEntry) return;
+  const { tab, groupIdx } = currentEditEntry;
+  const group = entriesData[tab]?.[groupIdx];
+  if (!group) return;
+  modalEditMode = !modalEditMode;
+  setEditPlanDraftFromGroup(group, { force: true });
+  renderEditModalContent();
 }
 
 function saveModalAction() {

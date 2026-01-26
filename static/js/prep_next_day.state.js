@@ -13,6 +13,7 @@ let tableFilters = { today: { modality: '', skill: '', hideZero: true }, tomorro
 let displayOrder = 'modality-first';  // 'modality-first' or 'skill-first'
 let sortState = { today: { column: 'worker', direction: 'asc' }, tomorrow: { column: 'worker', direction: 'asc' } };
 let modalMode = 'edit';
+let modalEditMode = true;
 let lastAddedShiftMeta = null;
 let loadRequestId = { today: 0, tomorrow: 0 };
 const GERMAN_WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
@@ -144,6 +145,30 @@ function updateEditPlanDraftShift(shiftIdx, updates) {
   if (updates.Modifier !== undefined) shift.modifier = updates.Modifier;
   if (updates.counts_for_hours !== undefined) shift.counts_for_hours = updates.counts_for_hours;
   if (updates.tasks !== undefined) shift.task = updates.tasks;
+  if (updates.row_type !== undefined) {
+    shift.row_type = updates.row_type;
+    shift.is_gap_entry = String(updates.row_type).toLowerCase().includes('gap');
+  }
+  if (updates.start_time !== undefined || updates.end_time !== undefined) {
+    const start = updates.start_time !== undefined ? updates.start_time : shift.start_time;
+    const end = updates.end_time !== undefined ? updates.end_time : shift.end_time;
+    shift.timeSegments = [{ start, end }];
+  }
+  if (Array.isArray(shift.originalShifts)) {
+    shift.originalShifts = shift.originalShifts.map(raw => {
+      const updated = { ...raw };
+      if (updates.start_time !== undefined) updated.start_time = updates.start_time;
+      if (updates.end_time !== undefined) updated.end_time = updates.end_time;
+      if (updates.Modifier !== undefined) updated.modifier = updates.Modifier;
+      if (updates.counts_for_hours !== undefined) updated.counts_for_hours = updates.counts_for_hours;
+      if (updates.tasks !== undefined) updated.task = updates.tasks;
+      if (updates.row_type !== undefined) {
+        updated.row_type = updates.row_type;
+        updated.is_gap_entry = String(updates.row_type).toLowerCase().includes('gap');
+      }
+      return updated;
+    });
+  }
 }
 
 function updateEditPlanDraftShiftSkills(shiftIdx, skillUpdatesByMod) {
