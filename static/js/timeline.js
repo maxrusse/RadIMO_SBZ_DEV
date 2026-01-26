@@ -97,56 +97,65 @@ const TimelineChart = (function() {
     if (!entries || entries.length === 0) return [];
 
     const sorted = [...entries].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
+    const mergedEntries = [];
+    let current = null;
 
-    const merged = {
-      start_time: sorted[0].start_time,
-      end_time: sorted[0].end_time,
-      TIME: sorted[0].TIME,
-      modalities: new Set(),
-      skillValues: {},
-      tasks: new Set()
+    const pushCurrent = () => {
+      if (!current) return;
+      current.TIME = `${current.start_time}-${current.end_time}`;
+      current.tasks = Array.from(current.tasks);
+      mergedEntries.push(current);
     };
 
-    let lastEndMinutes = timeToMinutes(sorted[0].end_time);
-    let mergedEndMinutes = lastEndMinutes;
-    let lastEndLabel = sorted[0].end_time;
-
-    sorted.forEach((entry, idx) => {
-      if (entry._modality) merged.modalities.add(entry._modality.toUpperCase());
-      if (entry.modalities) {
-        const modalList = entry.modalities instanceof Set ? Array.from(entry.modalities) : entry.modalities;
-        if (Array.isArray(modalList)) {
-          modalList.forEach(mod => merged.modalities.add(String(mod).toUpperCase()));
-        }
-      }
-
-      // Merge skills - mark active if any modality has it active
-      skillColumns.forEach(s => {
-        if (isSkillActive(entry[s])) {
-          merged.skillValues[s] = 1;
-        }
-      });
-
-      normalizeTasks(entry.tasks || entry.task).forEach(task => merged.tasks.add(task));
-
+    sorted.forEach(entry => {
       const startMin = timeToMinutes(entry.start_time);
       const endMin = timeToMinutes(entry.end_time);
 
-      if (endMin > mergedEndMinutes) {
-        mergedEndMinutes = endMin;
-        merged.end_time = entry.end_time;
+      if (!current) {
+        current = {
+          start_time: entry.start_time,
+          end_time: entry.end_time,
+          TIME: entry.TIME,
+          modalities: new Set(),
+          skillValues: {},
+          tasks: new Set()
+        };
+      } else {
+        const currentEndMin = timeToMinutes(current.end_time);
+        if (startMin >= currentEndMin) {
+          pushCurrent();
+          current = {
+            start_time: entry.start_time,
+            end_time: entry.end_time,
+            TIME: entry.TIME,
+            modalities: new Set(),
+            skillValues: {},
+            tasks: new Set()
+          };
+        } else if (endMin > currentEndMin) {
+          current.end_time = entry.end_time;
+        }
       }
 
-      if (endMin > lastEndMinutes) {
-        lastEndMinutes = endMin;
-        lastEndLabel = entry.end_time;
+      if (entry._modality) current.modalities.add(entry._modality.toUpperCase());
+      if (entry.modalities) {
+        const modalList = entry.modalities instanceof Set ? Array.from(entry.modalities) : entry.modalities;
+        if (Array.isArray(modalList)) {
+          modalList.forEach(mod => current.modalities.add(String(mod).toUpperCase()));
+        }
       }
+
+      skillColumns.forEach(s => {
+        if (isSkillActive(entry[s])) {
+          current.skillValues[s] = 1;
+        }
+      });
+
+      normalizeTasks(entry.tasks || entry.task).forEach(task => current.tasks.add(task));
     });
 
-    merged.TIME = `${merged.start_time}-${merged.end_time}`;
-    merged.tasks = Array.from(merged.tasks);
-
-    return [merged];
+    pushCurrent();
+    return mergedEntries;
   }
 
   function mergeEntriesForSingleLane(entries, skillColumns) {
@@ -207,7 +216,7 @@ const TimelineChart = (function() {
       }
 
       const lastEnd = timeToMinutes(last.end_time);
-      if (start <= lastEnd) {
+      if (start < lastEnd) {
         if (end > lastEnd) {
           last.end_time = entry.end_time;
         }
