@@ -535,10 +535,13 @@ const TimelineChart = (function() {
         const barSkills = (bar.dataset.skills || '').split(',').filter(s => s);
         bar.style.display = barSkills.includes(skillSlug) ? '' : 'none';
       });
-      gapBars.forEach(bar => bar.style.display = '');
 
-      // Hide row if no matching bars
-      row.style.display = (matchingBars.length > 0 || gapBars.length > 0) ? '' : 'none';
+      // Only show gaps when row has matching shift bars
+      const hasMatchingShifts = matchingBars.length > 0;
+      gapBars.forEach(bar => bar.style.display = hasMatchingShifts ? '' : 'none');
+
+      // Hide row if no matching shift bars
+      row.style.display = hasMatchingShifts ? '' : 'none';
     });
   }
 
@@ -569,10 +572,13 @@ const TimelineChart = (function() {
         const barMods = (bar.dataset.modalities || '').split(',').filter(m => m);
         bar.style.display = barMods.includes(mod) ? '' : 'none';
       });
-      gapBars.forEach(bar => bar.style.display = '');
 
-      // Hide row if no matching bars
-      row.style.display = (matchingBars.length > 0 || gapBars.length > 0) ? '' : 'none';
+      // Only show gaps when row has matching shift bars
+      const hasMatchingShifts = matchingBars.length > 0;
+      gapBars.forEach(bar => bar.style.display = hasMatchingShifts ? '' : 'none');
+
+      // Hide row if no matching shift bars
+      row.style.display = hasMatchingShifts ? '' : 'none';
     });
   }
 
@@ -633,20 +639,12 @@ const TimelineChart = (function() {
         bar.style.display = (modMatch && skillMatch) ? '' : 'none';
       });
 
-      // Always show gap bars (they're valid regardless of skill filters)
-      gapBars.forEach(bar => bar.style.display = '');
+      // Only show gap bars when row has matching shift bars
+      const hasMatchingShifts = matchingBars.length > 0;
+      gapBars.forEach(bar => bar.style.display = hasMatchingShifts ? '' : 'none');
 
-      // Determine if row should be visible
-      // If hideZero is true, only show row if it has matching bars with active skills
-      // If hideZero is false, show row if it has any visible bars or gaps
-      if (hideZero) {
-        // With hideZero, row must have at least one matching bar (active skill for the filter)
-        row.style.display = matchingBars.length > 0 ? '' : 'none';
-      } else {
-        // Without hideZero, show if any bars match OR if there are gaps
-        const hasVisibleBars = bars.some(bar => bar.style.display !== 'none');
-        row.style.display = (hasVisibleBars || gapBars.length > 0) ? '' : 'none';
-      }
+      // Row visible only when it has matching shift bars
+      row.style.display = hasMatchingShifts ? '' : 'none';
     });
   }
 
