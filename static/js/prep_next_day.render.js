@@ -12,6 +12,7 @@ function renderSkillSelect(id, value, onchangeHandler) {
 }
 
 function shiftMatchesFilters(shift, filter) {
+  if (shift?.is_gap_entry) return true;
   if (!filter) return true;
   const { modality, skill, hideZero } = filter;
   const filterActive = Boolean(modality || skill || hideZero);
@@ -855,7 +856,7 @@ function convertToTimelineData(tab) {
 
   groups.forEach(group => {
     const worker = (group.worker || '').trim();
-    const shifts = (group.shiftsArray || []).filter(shift => !shift.deleted);
+    const shifts = getTableShifts(group).filter(shift => !shift.deleted);
     shifts.forEach(shift => {
       const isGapRow = Boolean(shift.is_gap_entry);
       const assignedModalities = Object.entries(shift.modalities || {})
