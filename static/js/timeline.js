@@ -73,7 +73,10 @@ const TimelineChart = (function() {
 
   // Check if skill is explicitly active (value === 1)
   function isSkillExplicitOne(val) {
-    return val === 1 || val === '1';
+    if (val === 1 || val === '1') return true;
+    if (val === null || val === undefined) return false;
+    const numeric = Number(val);
+    return !Number.isNaN(numeric) && numeric === 1;
   }
 
   // Escape HTML for XSS protection

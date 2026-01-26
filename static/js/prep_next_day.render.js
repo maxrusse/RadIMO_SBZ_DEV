@@ -919,14 +919,20 @@ function convertToTimelineData(tab) {
         TIME: `${shift.start_time}-${shift.end_time}`,
         modalities: modalityList,
         row_type: isGapRow ? 'gap_segment' : 'shift_segment',
-        tasks: shift.task ? [shift.task] : []
+        tasks: shift.task ? [shift.task] : [],
+        explicitSkillValues: {}
       };
 
       SKILLS.forEach(skill => {
         let isActive = false;
+        let isExplicit = false;
         if (!isGapRow) {
           assignedModalities.forEach(([_, modData]) => {
             const val = modData.skills?.[skill];
+            const normalized = normalizeSkillValueJS(val);
+            if (normalized === 1) {
+              isExplicit = true;
+            }
             if (val === 'w' || val === 'W') {
               isActive = true;
               return;
@@ -938,6 +944,9 @@ function convertToTimelineData(tab) {
           });
         }
         entry[skill] = isActive ? 1 : 0;
+        if (isExplicit) {
+          entry.explicitSkillValues[skill] = 1;
+        }
       });
 
       timelineEntries.push(entry);
