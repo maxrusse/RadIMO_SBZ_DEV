@@ -102,6 +102,7 @@ def build_day_plan_rows(rows: List[dict], target_date: date) -> List[dict]:
         row_type_value = normalized.get('row_type') or 'shift'
         if isinstance(row_type_value, str):
             row_type_value = row_type_value.strip().lower() or 'shift'
+        normalized['_was_segment'] = row_type_value == 'shift_segment'
         normalized['row_type'] = 'gap' if row_type_value in {'gap', 'gap_segment'} else 'shift'
         normalized['PPL'] = normalized.get('PPL', '')
         normalized['start_time'] = _coerce_time_value(normalized.get('start_time'))
@@ -155,6 +156,7 @@ def build_day_plan_rows(rows: List[dict], target_date: date) -> List[dict]:
         gap_rows = [row for row in worker_rows if _is_gap_row_type(row.get('row_type'))]
 
         resolved_shifts = resolve_overlapping_shifts(shift_rows, target_date) if shift_rows else []
+        resolved_shifts = _merge_shift_segments(resolved_shifts)
 
         gap_intervals: List[Tuple[int, int]] = []
         for gap_row in gap_rows:
@@ -184,6 +186,7 @@ def build_day_plan_rows(rows: List[dict], target_date: date) -> List[dict]:
             remaining = subtract_intervals((start_min, end_min), gap_intervals)
             for seg_start, seg_end in remaining:
                 segment = dict(shift_row)
+                segment.pop('_was_segment', None)
                 segment_start = _minutes_to_time(seg_start)
                 segment_end = _minutes_to_time(seg_end)
                 segment['start_time'] = segment_start
@@ -205,10 +208,52 @@ def build_day_plan_rows(rows: List[dict], target_date: date) -> List[dict]:
                 gap_row['counts_for_hours'] = False
             for skill in SKILL_COLUMNS:
                 gap_row[skill] = -1
+            gap_row.pop('_was_segment', None)
 
         built_rows.extend(shift_segments + gap_rows)
 
     return built_rows
+
+
+def _shift_signature(shift_row: dict) -> Tuple:
+    normalized_tasks = shift_row.get('tasks') or ''
+    normalized_modifier = shift_row.get('Modifier', 1.0)
+    normalized_counts = shift_row.get('counts_for_hours')
+    skill_values = tuple(shift_row.get(skill, 0) for skill in SKILL_COLUMNS)
+    return (
+        normalized_tasks,
+        normalized_modifier,
+        normalized_counts,
+        skill_values,
+    )
+
+
+def _merge_shift_segments(shifts: List[dict]) -> List[dict]:
+    if not shifts:
+        return []
+
+    grouped: Dict[Tuple, List[dict]] = {}
+    for shift in shifts:
+        shift['row_type'] = 'shift'
+        grouped.setdefault(_shift_signature(shift), []).append(shift)
+
+    merged_shifts: List[dict] = []
+    for signature, signature_shifts in grouped.items():
+        if signature_shifts and all(shift.get('_was_segment') for shift in signature_shifts):
+            ordered = sorted(signature_shifts, key=lambda s: _time_to_minutes(s['start_time']))
+            base = ordered[0].copy()
+            base['start_time'] = ordered[0]['start_time']
+            base['end_time'] = ordered[-1]['end_time']
+            base['TIME'] = (
+                f"{base['start_time'].strftime(TIME_FORMAT)}-"
+                f"{base['end_time'].strftime(TIME_FORMAT)}"
+            )
+            merged_shifts.append(base)
+            continue
+
+        merged_shifts.extend([shift.copy() for shift in signature_shifts])
+
+    return sorted(merged_shifts, key=lambda s: _time_to_minutes(s['start_time']))
 
 
 def _recalculate_worker_shift_durations(df: pd.DataFrame, worker_name: str) -> None:
