@@ -467,7 +467,7 @@ def _get_worker_exclusion_based(
             else:
                 # Check if should overflow to generalists based on imbalance
                 overflow_triggered = False
-                if not generalists_df.empty and imbalance_threshold_pct > 0:
+                if allow_overflow and not generalists_df.empty and imbalance_threshold_pct > 0:
                     # Calculate min ratios for both pools
                     min_specialist_ratio = min(specialist_ratios.values())
 
@@ -524,6 +524,14 @@ def _get_worker_exclusion_based(
                     )
 
                     return candidate, primary_skill, modality
+
+        if not allow_overflow:
+            selection_logger.info(
+                "Overflow disabled for skill %s in modality %s; skipping generalists",
+                primary_skill,
+                modality,
+            )
+            return None
 
         # Use generalists if: (1) no specialists, OR (2) overflow triggered
         # If no buffer-filtered generalists but specialists_df is empty, fallback to all generalists
