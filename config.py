@@ -144,6 +144,115 @@ def _build_app_config() -> Dict[str, Any]:
 
     config['skills'] = merged_skills
 
+    # ------------------------------------------------------------------
+    # Special Tasks
+    # ------------------------------------------------------------------
+    # Build local lookup helpers for combo resolution (global maps not yet
+    # available at this point).
+    _skills_lower = {k.lower(): k for k in merged_skills}
+    _slug_to_skill: Dict[str, str] = {}
+    for _sk, _sv in merged_skills.items():
+        _sl = (_sv.get('slug') or '').lower()
+        if _sl:
+            _slug_to_skill[_sl] = _sk
+    _mods_lower = {k.lower(): k for k in merged_modalities}
+
+    def _resolve_combo(combo_str: str):
+        """Resolve 'skill_modality' string to (canonical_skill, canonical_mod)."""
+        parts = combo_str.strip().lower().split('_', 1)
+        if len(parts) != 2:
+            return None
+        a, b = parts
+        # Try a=skill, b=mod
+        skill = _skills_lower.get(a) or _slug_to_skill.get(a)
+        mod = _mods_lower.get(b)
+        if skill and mod:
+            return (skill, mod)
+        # Try a=mod, b=skill
+        skill = _skills_lower.get(b) or _slug_to_skill.get(b)
+        mod = _mods_lower.get(a)
+        if skill and mod:
+            return (skill, mod)
+        return None
+
+    special_tasks: List[Dict[str, Any]] = []
+    raw_special_tasks = raw_config.get('special_tasks') or []
+    if isinstance(raw_special_tasks, list):
+        for task in raw_special_tasks:
+            if not isinstance(task, dict):
+                continue
+            name = str(task.get('name', '')).strip()
+            if not name:
+                continue
+
+            # Parse needed_skill_mod combos
+            raw_combos = task.get('needed_skill_mod') or []
+            if not isinstance(raw_combos, list):
+                raw_combos = [raw_combos]
+            skill_mod_combos: List[tuple] = []
+            mod_to_skill: Dict[str, str] = {}
+            for rc in raw_combos:
+                resolved = _resolve_combo(str(rc))
+                if resolved:
+                    skill_mod_combos.append(resolved)
+                    mod_to_skill[resolved[1]] = resolved[0]
+                else:
+                    selection_logger.warning(
+                        "Special task '%s': unresolved combo '%s'", name, rc,
+                    )
+            if not skill_mod_combos:
+                selection_logger.warning(
+                    "Special task '%s' has no valid needed_skill_mod combos", name,
+                )
+                continue
+
+            label = task.get('label', name)
+            slug = task.get('slug') or _slugify(name)
+
+            # Dashboard visibility: infer from combos, allow explicit override
+            inferred_mod_dashboards = list(dict.fromkeys(
+                mod for _, mod in skill_mod_combos
+            ))
+            inferred_skill_dashboards = list(dict.fromkeys(
+                sk for sk, _ in skill_mod_combos
+            ))
+
+            raw_mod_dash = task.get('modalities_dashboard')
+            if isinstance(raw_mod_dash, list):
+                modalities_dashboard = [m for m in raw_mod_dash if m in merged_modalities]
+            else:
+                modalities_dashboard = inferred_mod_dashboards
+
+            raw_skill_dash = task.get('skill_dashboards')
+            if isinstance(raw_skill_dash, list):
+                skill_dashboards = [s for s in raw_skill_dash if s in merged_skills]
+            else:
+                skill_dashboards = inferred_skill_dashboards
+
+            # Inherit colours from the first combo's skill
+            primary_skill = skill_mod_combos[0][0]
+            primary_skill_cfg = merged_skills.get(primary_skill, {})
+            button_color = task.get('button_color') or primary_skill_cfg.get('button_color', '#004892')
+            text_color = task.get('text_color') or primary_skill_cfg.get('text_color', '#ffffff')
+
+            special_tasks.append({
+                'name': name,
+                'label': label,
+                'slug': slug,
+                'skill_mod_combos': skill_mod_combos,
+                'mod_to_skill': mod_to_skill,
+                'modalities_dashboard': modalities_dashboard,
+                'skill_dashboards': skill_dashboards,
+                'work_amount': coerce_float(task.get('work_amount', 1.0)),
+                'allow_overflow': bool(task.get('allow_overflow', False)),
+                'display_order': coerce_int(task.get('display_order', 999)),
+                'button_color': button_color,
+                'text_color': text_color,
+                'special': bool(task.get('special', True)),
+            })
+
+    config['special_tasks'] = special_tasks
+
     balancer_settings: Dict[str, Any] = copy.deepcopy(DEFAULT_BALANCER)
     user_balancer = raw_config.get('balancer')
     if isinstance(user_balancer, dict):
@@ -240,6 +349,7 @@ def _build_skill_metadata(skills_config: Dict[str, Dict[str, Any]]) -> Tuple[Lis
 APP_CONFIG = _build_app_config()
 MODALITY_SETTINGS = APP_CONFIG['modalities']
 SKILL_SETTINGS = APP_CONFIG['skills']
+SPECIAL_TASKS = APP_CONFIG.get('special_tasks', [])
 SKILL_ROSTER_AUTO_IMPORT = APP_CONFIG.get('skill_roster_auto_import', True)
 TIMEZONE = APP_CONFIG.get('timezone', DEFAULT_TIMEZONE)
 
@@ -273,6 +383,22 @@ SKILL_LABEL_MAP = {
 # - skill_columns_map: name.lower() -> canonical name (for case-insensitive name lookups)
 ROLE_MAP = {slug.lower(): name for name, slug in SKILL_SLUG_MAP.items()}
 skill_columns_map = {s.lower(): s for s in SKILL_COLUMNS}
+
+SPECIAL_TASKS_BY_SLUG: Dict[str, Dict[str, Any]] = {
+    task['slug'].lower(): task for task in SPECIAL_TASKS
+}
+SPECIAL_TASKS_BY_NAME: Dict[str, Dict[str, Any]] = {
+    task['name'].lower(): task for task in SPECIAL_TASKS
+}
+
+
+def resolve_special_task(key: str) -> Optional[Dict[str, Any]]:
+    """Resolve a special task by slug or name (case-insensitive)."""
+    if not key:
+        return None
+    key_lower = key.lower().strip()
+    return SPECIAL_TASKS_BY_SLUG.get(key_lower) or SPECIAL_TASKS_BY_NAME.get(key_lower)
+
 
 def _resolve_skill(key_lower: str) -> Optional[str]:
     """Resolve a lowercase skill key to its canonical name via slug or direct match."""

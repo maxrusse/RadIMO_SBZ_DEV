@@ -373,6 +373,20 @@
         </button>
       </div>
       {% endfor %}
+      {% for task in special_tasks %}
+      <div class="skill-button-wrapper" data-skill-slug="{{ task.slug }}" data-skill-name="{{ task.name }}">
+        <button id="skill-btn-{{ task.slug }}" data-skill-name="{{ task.name }}"
+          onclick="getNextAssignment('{{ task.slug }}', '{{ task.label }}')"
+          class="btn assignment-btn skill-main-btn {% if task.special %}special-btn{% endif %}">
+          {{ task.label }}
+        </button>
+        <button type="button" class="btn assignment-btn skill-strict-btn"
+          onclick="getNextAssignment('{{ task.slug }}', '{{ task.label }}', true)" aria-label="Nur diese Gruppe (kein Fallback)"
+          title="Nur diese Gruppe">
+          *
+        </button>
+      </div>
+      {% endfor %}
     </div>
     <div id="result"></div>
     <div class="clipboard-note">
@@ -423,6 +437,8 @@
       const modality = "{{ modality }}";
       const modalities = JSON.parse('{{ modalities|tojson|safe }}');
       const skillDefinitions = JSON.parse('{{ skill_definitions|tojson|safe }}');
+      const specialTaskDefinitions = JSON.parse('{{ special_tasks|tojson|safe }}');
+      const buttonDefinitions = skillDefinitions.concat(specialTaskDefinitions);
       const settings = modalities[modality];
 
       if (settings) {
@@ -439,8 +455,8 @@
         }
       });
 
-      // Colors for skill buttons
-      skillDefinitions.forEach(skill => {
+      // Colors for skill + special-task buttons
+      buttonDefinitions.forEach(skill => {
         const wrapper = document.querySelector(`.skill-button-wrapper[data-skill-name="${skill.name}"]`);
         if (wrapper) {
           wrapper.style.setProperty('--btn-bg', skill.button_color);
