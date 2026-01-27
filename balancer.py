@@ -83,7 +83,13 @@ def _get_or_create_assignments(modality: str, canonical_id: str) -> dict:
         assignments[canonical_id]['total'] = 0
     return assignments[canonical_id]
 
-def update_global_assignment(person: str, role: str, modality: str, is_weighted: bool = False) -> str:
+def update_global_assignment(
+    person: str,
+    role: str,
+    modality: str,
+    is_weighted: bool = False,
+    weight_multiplier: float = 1.0,
+) -> str:
     """
     Record a worker assignment and update global weighted counts.
 
@@ -97,6 +103,7 @@ def update_global_assignment(person: str, role: str, modality: str, is_weighted:
         modality: Modality assigned (e.g., 'ct', 'mr')
         is_weighted: If True (skill='w'), also apply worker's 'w' modifier.
                      If False (skill=1 or 0), only apply global_modifier.
+        weight_multiplier: Extra multiplier for special tasks (default 1.0).
 
     Returns:
         Canonical worker ID
@@ -129,7 +136,7 @@ def update_global_assignment(person: str, role: str, modality: str, is_weighted:
 
     # Combined modifier: global_modifier applies to all, w_modifier only for 'w'
     combined_modifier = global_modifier * w_modifier
-    weight = get_skill_modality_weight(role, modality) * (1.0 / combined_modifier)
+    weight = get_skill_modality_weight(role, modality) * (1.0 / combined_modifier) * weight_multiplier
 
     # Update single global weighted count (consolidated across all modalities)
     global_worker_data['weighted_counts'][canonical_id] = \

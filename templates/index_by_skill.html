@@ -67,6 +67,22 @@
       margin-bottom: 1rem;
     }
 
+    .special-task-section {
+      margin-top: 1.5rem;
+    }
+
+    .special-task-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+
+    .special-task-label {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0.5rem 0;
+    }
+
     .modality-button-wrapper {
       display: flex;
       width: 100%;
@@ -256,6 +272,30 @@
       </div>
       {% endfor %}
     </div>
+    {% if special_tasks %}
+    <div class="special-task-section">
+      <div class="special-task-title">Special Tasks</div>
+      {% for task in special_tasks %}
+      <div class="special-task-label">{{ task.label }}</div>
+      <div class="button-grid">
+        {% for mod_key in task.visible_modalities %}
+        <div class="modality-button-wrapper" data-modality="{{ mod_key }}">
+          <button id="mod-btn-{{ mod_key }}-{{ task.slug }}" data-modality="{{ mod_key }}"
+            onclick="getNextAssignment('{{ mod_key }}', false, '{{ task.slug }}', '{{ task.label }}')"
+            class="btn assignment-btn modality-main-btn">
+            {{ modalities[mod_key].label }}
+          </button>
+          <button type="button" class="btn assignment-btn modality-strict-btn"
+            onclick="getNextAssignment('{{ mod_key }}', true, '{{ task.slug }}', '{{ task.label }}')"
+            aria-label="Nur diese Modalität (kein Fallback)" title="Nur diese Modalität">
+            *
+          </button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
     <div id="result"></div>
     <div class="clipboard-note">
       <span>Kürzel wird automatisch kopiert, Einfügen mit STRG+V im RadCenter</span>
@@ -332,11 +372,12 @@
     // Button visibility is now controlled by config only
     // All modality buttons are always visible
 
-    function getNextAssignment(modality, forcePrimary = false) {
+    function getNextAssignment(modality, forcePrimary = false, roleOverride = null, labelOverride = null) {
       if (requestInProgress) return;
       lastModalityUsed = modality;
       setButtonsDisabled(true);
-      const encodedSkill = encodeURIComponent(currentSkillSlug);
+      const targetRole = roleOverride || currentSkillSlug;
+      const encodedSkill = encodeURIComponent(targetRole);
       const endpoint = forcePrimary
         ? `/api/${modality}/${encodedSkill}/strict`
         : `/api/${modality}/${encodedSkill}`;
@@ -351,25 +392,26 @@
           if (data.error) {
             throw new Error(data.error);
           }
-          showResult(data.selected_person || '', modality);
+          showResult(data.selected_person || '', modality, labelOverride);
         })
         .catch(e => {
           console.error("API error:", e);
-          showResult('', modality);
+          showResult('', modality, labelOverride);
           setButtonsDisabled(false);
         });
     }
 
-    function showResult(person, modality) {
+    function showResult(person, modality, labelOverride = null) {
       const resultDiv = document.getElementById('result');
       const displayPerson = person || "Niemand verfügbar";
       const escapedPerson = escapeHtml(displayPerson);
 
       const modalityLabel = modalities[modality]?.label || modality || lastModalityUsed;
+      const contextLabel = labelOverride ? `${modalityLabel} · ${labelOverride}` : modalityLabel;
       resultDiv.innerHTML = `
         <div class="result-panel">
           <div class="assigned-person">${escapedPerson}</div>
-          <div class="assigned-context">${escapeHtml(modalityLabel)}</div>
+          <div class="assigned-context">${escapeHtml(contextLabel)}</div>
           <div class="timer" id="timer"></div>
         </div>
       `;
@@ -384,7 +426,8 @@
       const timeStr = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
       const lastEl = document.getElementById('lastAssignment');
       const mod = (modality || lastModalityUsed || '').toUpperCase();
-      lastEl.textContent = `Letzte Zuweisung: ${timeStr} · ${displayPerson} · ${mod}/${currentSkillLabel}`;
+      const footerLabel = labelOverride || currentSkillLabel;
+      lastEl.textContent = `Letzte Zuweisung: ${timeStr} · ${displayPerson} · ${mod}/${footerLabel}`;
       lastEl.classList.add('visible');
     }
 

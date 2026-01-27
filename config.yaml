@@ -171,6 +171,60 @@ skills:
     slug: kopf-hals
 
 # =============================================================================
+# SPECIAL TASKS
+# =============================================================================
+# Special tasks are manual buttons that map to skill×modality combos.
+# They appear on explicit dashboards and route to the underlying skill at
+# assignment time.
+#
+# Fields:
+#   name:                 Unique identifier (internal mapping key)
+#   label:                Button label shown in UI
+#   needed_skill_mod:     List of skill_modality combos (e.g., gyn_mammo, uro_ct).
+#                         Defines which skill is used for each modality at
+#                         assignment time.
+#   modalities_dashboard: (optional) Modality dashboards where the button appears.
+#                         Defaults to unique modalities from needed_skill_mod.
+#   skill_dashboards:     (optional) Skill dashboards where the task appears.
+#                         Defaults to unique skills from needed_skill_mod.
+#   work_amount:          Workload multiplier (1.0 = same as base skill, default 1.0)
+#   allow_overflow:       Allow overflow to generalists (default false)
+#   display_order:        Sort order (lower first, default 999 – keeps special tasks
+#                         after standard skills unless explicitly ordered)
+# =============================================================================
+
+special_tasks:
+  - name: gyn_mammo_sono
+    label: Gyn Mammo Sono
+    needed_skill_mod:
+      - gyn_mammo
+    skill_dashboards: []           # don't show on skill dashboards
+    work_amount: 1.0
+    allow_overflow: false
+    display_order: 0
+  - name: uro_seg
+    label: Uro Seg
+    needed_skill_mod:
+      - uro_ct
+      - uro_mr
+      - uro_xray
+      - uro_mammo
+    skill_dashboards: [uro]
+    work_amount: 1.0
+    allow_overflow: false
+    display_order: 1
+  - name: abd-onco_seg
+    label: Abd/Onco Seg
+    needed_skill_mod:
+      - abd-onco_ct
+      - abd-onco_mr
+      - abd-onco_xray
+    skill_dashboards: [abd-onco]
+    work_amount: 1.0
+    allow_overflow: false
+    display_order: 2
+
+# =============================================================================
 # SKILL×MODALITY WEIGHT OVERRIDES
 # =============================================================================
 # Override the default weight calculation (skill.weight × modality.factor)

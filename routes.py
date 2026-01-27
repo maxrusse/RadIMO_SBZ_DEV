@@ -23,6 +23,7 @@ from config import (
     APP_CONFIG,
     MODALITY_SETTINGS,
     SKILL_SETTINGS,
+    SPECIAL_TASKS,
     allowed_modalities,
     allowed_modalities_map,
     SKILL_COLUMNS,
@@ -33,7 +34,8 @@ from config import (
     SKILL_ROSTER_AUTO_IMPORT,
     normalize_modality,
     normalize_skill,
-    is_no_overflow
+    is_no_overflow,
+    resolve_special_task,
 )
 from lib import usage_logger
 from lib.utils import (
@@ -101,6 +103,53 @@ def _validate_modality(modality: str, data_store: dict) -> Optional[Any]:
     if modality not in data_store:
         return jsonify({'error': 'Invalid modality'}), 400
     return None
+
+
+def _get_special_tasks_for_modality(modality: str) -> list[dict]:
+    """Return special tasks visible on a modality dashboard, sorted by display_order."""
+    visible = []
+    for task in SPECIAL_TASKS:
+        if modality in task.get('modalities_dashboard', []):
+            visible.append(task)
+    return sorted(visible, key=lambda t: (t.get('display_order', 999), t.get('label', '')))
+
+
+def _get_special_tasks_for_skill(skill: str, visible_modalities: list[str]) -> list[dict]:
+    """Return special tasks visible on a skill dashboard with their allowed modalities."""
+    visible = []
+    for task in SPECIAL_TASKS:
+        if skill not in task.get('skill_dashboards', []):
+            continue
+        allowed_mods = [
+            mod for mod in visible_modalities
+            if mod in task.get('modalities_dashboard', [])
+        ]
+        if not allowed_mods:
+            continue
+        task_copy = dict(task)
+        task_copy['visible_modalities'] = allowed_mods
+        visible.append(task_copy)
+    return sorted(visible, key=lambda t: (t.get('display_order', 999), t.get('label', '')))
+
+
+def _resolve_assignment_role(role: str, modality: str) -> tuple[str, Optional[dict]]:
+    """Resolve a role slug to an effective skill name, handling special tasks.
+
+    Returns (effective_skill, special_task_dict_or_None).
+    """
+    special_task = resolve_special_task(role)
+    if special_task:
+        mod_to_skill = special_task.get('mod_to_skill', {})
+        effective_skill = mod_to_skill.get(modality)
+        if not effective_skill:
+            combos = special_task.get('skill_mod_combos', [])
+            effective_skill = combos[0][0] if combos else normalize_skill(role)
+            selection_logger.warning(
+                "Special task '%s' has no combo for modality '%s', falling back to '%s'",
+                special_task.get('name'), modality, effective_skill,
+            )
+        return effective_skill, special_task
+    return normalize_skill(role), None
 
 
 def _build_rows_from_plan(worker: str, shifts: list, modality: str) -> list:
@@ -427,11 +476,14 @@ def index() -> Any:
             continue
         visible_skills.append(skill_name)
 
+    visible_special_tasks = _get_special_tasks_for_modality(modality)
+
     return render_template(
         'index.html',
         info_texts=d.get('info_texts', []),
         modality=modality,
         visible_skills=visible_skills,
+        special_tasks=visible_special_tasks,
         is_admin=has_admin_access()
     )
 
@@ -460,6 +512,8 @@ def index_by_skill() -> Any:
             continue
         visible_modalities.append(mod)
 
+    special_tasks = _get_special_tasks_for_skill(skill, visible_modalities)
+
     info_texts = []
     if allowed_modalities:
         first_modality = allowed_modalities[0]
@@ -469,6 +523,7 @@ def index_by_skill() -> Any:
         'index_by_skill.html',
         skill=skill,
         visible_modalities=visible_modalities,
+        special_tasks=special_tasks,
         info_texts=info_texts,
         is_admin=has_admin_access()
     )
@@ -1366,8 +1421,13 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any
     try:
         now = get_local_now()
 
+        effective_role, special_task = _resolve_assignment_role(role, modality)
+
+        if special_task and not special_task.get('allow_overflow', False):
+            allow_overflow = False
+
         # Check if this skill×modality combo has overflow disabled
-        canonical_skill = normalize_skill(role)
+        canonical_skill = normalize_skill(effective_role)
         if allow_overflow and is_no_overflow(canonical_skill, modality):
             allow_overflow = False
             selection_logger.info(
@@ -1391,7 +1451,7 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any
         with lock:
             result = get_next_available_worker(
                 now,
-                role=role,
+                role=effective_role,
                 modality=modality,
                 allow_overflow=allow_overflow,
             )
@@ -1409,7 +1469,7 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any
                 if not actual_skill and isinstance(used_column, str):
                     actual_skill = used_column
                 if not actual_skill:
-                    actual_skill = role
+                    actual_skill = effective_role
 
                 selection_logger.info(
                     "Selected worker: %s using column %s (modality %s)",
@@ -1427,7 +1487,16 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any
 
                 # Check if this is a weighted ('w') assignment - only 'w' uses modifier
                 is_weighted = candidate.get('__is_weighted', False)
-                canonical_id = update_global_assignment(person, actual_skill, actual_modality, is_weighted)
+                weight_multiplier = 1.0
+                if special_task:
+                    weight_multiplier = special_task.get('work_amount', 1.0)
+                canonical_id = update_global_assignment(
+                    person,
+                    actual_skill,
+                    actual_modality,
+                    is_weighted,
+                    weight_multiplier=weight_multiplier,
+                )
                 state_modified = True
 
                 # Record skill-modality usage for analytics
