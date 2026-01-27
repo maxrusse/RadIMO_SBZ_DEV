@@ -32,6 +32,15 @@ from data_manager.schedule_crud import build_day_plan_rows
 
 
 DEFAULT_SHIFT_RANGE = (time(7, 0), time(15, 0))
+GERMAN_TO_ENGLISH_WEEKDAYS = {
+    "Montag": "monday",
+    "Dienstag": "tuesday",
+    "Mittwoch": "wednesday",
+    "Donnerstag": "thursday",
+    "Freitag": "friday",
+    "Samstag": "saturday",
+    "Sonntag": "sunday",
+}
 
 
 def _default_shift_ranges() -> List[Tuple[time, time]]:
@@ -41,13 +50,12 @@ def _default_shift_ranges() -> List[Tuple[time, time]]:
 def _select_day_times(
     times_config: Dict[str, Any],
     weekday_name: str,
-    *,
-    friday_alias: bool = False,
 ) -> Optional[Any]:
     if weekday_name in times_config:
         return times_config[weekday_name]
-    if friday_alias and weekday_name == 'Freitag' and 'friday' in times_config:
-        return times_config['friday']
+    english_day = GERMAN_TO_ENGLISH_WEEKDAYS.get(weekday_name)
+    if english_day and english_day in times_config:
+        return times_config[english_day]
     if 'default' in times_config:
         return times_config['default']
     return None
@@ -125,8 +133,8 @@ def compute_time_ranges(
     # Get German weekday name for day-specific lookup
     weekday_name = get_weekday_name_german(target_date)
 
-    # Check for day-specific time first, then 'friday' alias, then default
-    day_times = _select_day_times(times_config, weekday_name, friday_alias=True)
+    # Check for day-specific time first, then default
+    day_times = _select_day_times(times_config, weekday_name)
     if day_times is None:
         return _default_shift_ranges()
 

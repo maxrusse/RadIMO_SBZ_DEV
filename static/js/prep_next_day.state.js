@@ -26,6 +26,15 @@ const ENGLISH_TO_GERMAN_WEEKDAYS = {
   friday: 'Freitag',
   saturday: 'Samstag'
 };
+const GERMAN_TO_ENGLISH_WEEKDAYS = {
+  Sonntag: 'sunday',
+  Montag: 'monday',
+  Dienstag: 'tuesday',
+  Mittwoch: 'wednesday',
+  Donnerstag: 'thursday',
+  Freitag: 'friday',
+  Samstag: 'saturday'
+};
 let prepTargetDate = CONFIG.prep_target_date || null;
 let prepTargetWeekday = CONFIG.prep_target_weekday_name || null;
 let prepTargetDateGerman = CONFIG.prep_target_date_german || null;
@@ -102,7 +111,8 @@ function resolveDayTimes(timesConfig, targetDay) {
   if (Object.keys(times).length === 0) return null;
   const normalizedDay = normalizeWeekdayName(targetDay);
   if (normalizedDay && times[normalizedDay]) return times[normalizedDay];
-  if (normalizedDay === 'Freitag' && times.friday && !times.Freitag) return times.friday;
+  const englishDay = GERMAN_TO_ENGLISH_WEEKDAYS[normalizedDay];
+  if (englishDay && times[englishDay]) return times[englishDay];
   return times.default || null;
 }
 
