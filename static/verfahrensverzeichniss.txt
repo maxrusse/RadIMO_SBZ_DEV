@@ -56,7 +56,7 @@ Datenquelle:
 
 Verarbeitung (config-gesteuert):
   - Parsing der CSV inkl. Mapping-Regeln (medweb_mapping).
-  - Schichtzeiten aus config.yaml (inkl. Freitag-Ausnahmen).
+  - Schichtzeiten aus config.yaml.
   - GAP-Handling: Meetings/Boards erzeugen Shift-Splitting.
   - Skill-Matrix (worker_skill_roster.json) überschreibt
     Standardzuordnungen; skill_overrides aus CSV möglich.
@@ -106,7 +106,7 @@ Besondere Kategorien:
   - Es handelt sich um dienstbezogene Planungsdaten.
 
 Empfänger:
-  - Autorisierte Nutzer (Chefärzte, Oberärzte, Koordinatoren).
+  - Autorisierte Nutzer (Chefärzte, Oberärzte, Koordinatoren, MTRA, Ärzte).
   - Zugriff beschränkt auf internes Kliniknetz/VPN.
 
 6. Sicherheitsmaßnahmen und Zugriff
@@ -150,14 +150,14 @@ Ansprechpartner:
 
 9. Versionshistorie
 ------------------------------------------------------------
-V20 (2025-12):
+V20 (2026-01):
   - Umbenennung in RadIMO Cortex (Intelligent Orchestration).
   - Modularisierung Backend (routes, balancer, data_manager).
   - Einführung der worker_skill_roster.json.
   - Erweiterte Load-Balancing-Logik und GAP-Handling.
   - Admin-UI für Skill Matrix und Schedule Edit.
 
-V18 (2025-01):
+V19 (2025-11):
   - Migration zur Medweb-CSV-Integration.
   - Basis-Mappingregeln in config.yaml.
 
@@ -172,8 +172,7 @@ Risikobewertung:
 ------------------------------------------------------------
 Betroffene Mitarbeitende haben das Recht auf Auskunft,
 Berichtigung, Löschung und Einschränkung der Verarbeitung
-nach Art. 15–21 DSGVO. Anfragen werden über Personalabteilung
-und Datenschutzstelle koordiniert.
+nach Art. 15–21 DSGVO. 
 
 Kontakt für Datenschutzanfragen:
   Dr. M. Russe / Systemverantwortlicher.
@@ -181,5 +180,5 @@ Kontakt für Datenschutzanfragen:
 ============================================================
 Stand: 2026-01-27
 Version: V20
-Nächste Überprüfung: 2026-06-01
+Nächste Überprüfung: 2027-01-27
 ============================================================
