@@ -585,6 +585,7 @@ Use `skill_overrides: {Skill_mod: w}` plus a `modifier` (0.5–1.5):
 Times support day-specific overrides:
 - `default`: Monday-Thursday (or all days if no day-specific override)
 - `Montag`, `Dienstag`, `Mittwoch`, `Donnerstag`, `Freitag`: Day overrides
+- English weekday keys (`monday` ... `friday`) are also accepted for legacy configs
 
 Gaps support multiple time blocks per day (arrays):
 ```yaml
