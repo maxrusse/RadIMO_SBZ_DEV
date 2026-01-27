@@ -51,8 +51,8 @@ Scenario: MR assignment, code 0601 (value 2.1), trainee (w=0.5), worker global=1
 ### Comparison to Current Formula
 
 ```
-CURRENT:   skill_weight * modality_factor / w_modifier / global_modifier
-NEW:       1.0          * modality_factor * code_value / w_modifier / global_modifier
+CURRENT:   skill_weight * modality_factor                / w_modifier / global_modifier
+NEW:       1.0          * modality_factor * code_value   / w_modifier / global_modifier
             ^-- forced 1                   ^-- NEW
 ```
 
@@ -141,22 +141,447 @@ mammo:
 
 ---
 
-## UI Changes
+## Current Assignment Flow (before change)
 
-### Popup (Code Selection)
+Understanding the exact flow that needs to be modified:
 
-- **Trigger:** User clicks a skill button on a modality page (e.g. CT > abd-onco).
-- **Content:** Scrollable list of codes **for the current modality only** (from `config_code.yaml`).
-- **Display format per row:** `0601 -- Abdomen Spezial (x2.1)`
-- **Selection:** Clicking a code applies it and proceeds with the assignment.
-- **Default:** If popup is dismissed without selection, use `code_value = 1.0`.
-- **Search/filter:** With ~100 codes, a search/filter input at the top of the popup is useful.
+```
+User clicks skill button (e.g. "abd-onco" on CT page)
+  │
+  ▼
+index.html: onclick="getNextAssignment('abd-onco', 'Abd-Onco')"
+  │
+  ▼
+JS: fetch(`/api/${currentModality}/${encodedSkill}`)        ← GET /api/ct/abd-onco
+  │
+  ▼
+routes.py: assign_worker_api(modality, role)                ← line 1462
+  │
+  ▼
+routes.py: _assign_worker(modality, role)                   ← line 1376
+  │
+  ├─ get_next_available_worker(now, role, modality, ...)    ← balancer.py:607
+  │    └─ _get_worker_exclusion_based(...)                  ← balancer.py:350
+  │         └─ weighted_ratio() uses get_global_weighted_count()
+  │
+  ├─ update_global_assignment(person, skill, modality, is_weighted)  ← balancer.py:86
+  │    └─ weight = get_skill_modality_weight(role, modality) * (1.0 / combined_modifier)
+  │                └─ config.py:397  →  skill_weight * modality_factor
+  │
+  └─ Response JSON: { selected_person, canonical_id, skill_used, is_weighted }
+```
 
-### Where to Show the Active Code
+### New Flow (with code popup)
 
-- After selection, the code should be visible on the assignment card / worker row.
-- Show: `0601 (x2.1)` next to the assignment.
-- Optionally show the final computed weight.
+```
+User clicks skill button (e.g. "abd-onco" on CT page)
+  │
+  ▼
+JS: getNextAssignment('abd-onco', 'Abd-Onco')
+  │
+  ▼                                                          ← NEW
+JS: if weight_mode == "modality_code":
+  │   show popup with codes for current modality
+  │   user selects code (e.g. "0601")
+  │   OR user dismisses → code = null (value 1.0)
+  │
+  ▼
+JS: fetch(`/api/${currentModality}/${encodedSkill}?code=0601`)   ← code as query param
+  │
+  ▼
+routes.py: _assign_worker(modality, role)
+  │   code = request.args.get('code')                        ← NEW: read code param
+  │
+  ├─ get_next_available_worker(now, role, modality, ...)     ← unchanged
+  │
+  ├─ update_global_assignment(person, skill, modality, is_weighted, code=code)  ← NEW param
+  │    └─ weight = get_skill_modality_weight(role, modality, code) * (1.0 / combined_modifier)
+  │                └─ config.py:  1.0 * modality_factor * code_value
+  │
+  └─ Response JSON: { ..., code: "0601", code_value: 2.1 }  ← NEW fields
+```
+
+---
+
+## Detailed Code Changes
+
+### 1. `config.py` -- Weight Calculation
+
+**File:** `config.py`
+**Current function:** `get_skill_modality_weight()` at line 397
+
+```python
+# --- CURRENT ---
+def get_skill_modality_weight(skill: str, modality: str) -> float:
+    modality_overrides = skill_modality_overrides.get(modality, {})
+    if skill in modality_overrides:
+        return coerce_float(modality_overrides[skill], 1.0)
+    return skill_weights.get(skill, 1.0) * modality_factors.get(modality, 1.0)
+```
+
+```python
+# --- NEW ---
+# Add at module level (after APP_CONFIG):
+WEIGHT_MODE = APP_CONFIG.get('weight_mode', 'default')  # from raw_config
+
+def _load_code_config() -> dict:
+    """Load config_code.yaml if weight_mode is 'modality_code'."""
+    if WEIGHT_MODE != 'modality_code':
+        return {}
+    try:
+        with open('config_code.yaml', 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        selection_logger.warning("weight_mode='modality_code' but config_code.yaml not found")
+        return {}
+    except Exception as exc:
+        selection_logger.warning("Failed to load config_code.yaml: %s", exc)
+        return {}
+
+CODE_CONFIG = _load_code_config()
+
+def get_code_value(modality: str, code: str) -> float:
+    """Get multiplier for a 4-digit code within a modality. Returns 1.0 if not found."""
+    entry = CODE_CONFIG.get(modality, {}).get(code, {})
+    return coerce_float(entry.get('value', 1.0), 1.0)
+
+def get_codes_for_modality(modality: str) -> dict:
+    """Get all available codes for a modality (for popup UI)."""
+    return CODE_CONFIG.get(modality, {})
+
+def get_skill_modality_weight(skill: str, modality: str, code: str = None) -> float:
+    """
+    Get the weight for a skill x modality combination.
+
+    In 'modality_code' mode:
+      - All skill weights are 1.0
+      - skill_modality_overrides are ignored
+      - code_value from config_code.yaml is applied
+
+    In 'default' mode:
+      - Existing behavior unchanged
+    """
+    if WEIGHT_MODE == 'modality_code':
+        base = 1.0  # all skills = 1
+        modality_factor = modality_factors.get(modality, 1.0)
+        code_multiplier = get_code_value(modality, code) if code else 1.0
+        return base * modality_factor * code_multiplier
+
+    # Default mode: existing logic
+    modality_overrides = skill_modality_overrides.get(modality, {})
+    if skill in modality_overrides:
+        return coerce_float(modality_overrides[skill], 1.0)
+    return skill_weights.get(skill, 1.0) * modality_factors.get(modality, 1.0)
+```
+
+**Also need:** Add `weight_mode` to `_build_app_config()` so it's available:
+```python
+# In _build_app_config(), add:
+config['weight_mode'] = raw_config.get('weight_mode', 'default')
+```
+
+### 2. `balancer.py` -- Pass Code Through
+
+**File:** `balancer.py`
+**Function:** `update_global_assignment()` at line 86
+
+```python
+# --- CURRENT (line 132) ---
+weight = get_skill_modality_weight(role, modality) * (1.0 / combined_modifier)
+```
+
+```python
+# --- NEW ---
+def update_global_assignment(person, role, modality, is_weighted=False, code=None):
+    # ... existing modifier logic stays the same ...
+    weight = get_skill_modality_weight(role, modality, code=code) * (1.0 / combined_modifier)
+    #                                                  ^-- new param
+    # ... rest unchanged ...
+```
+
+**Also:** `get_modality_weighted_count()` at line 43 -- this recalculates from raw counts and does NOT have access to the code that was used. For the load monitor display, we need to either:
+- (a) Store the code per assignment so we can recalculate, OR
+- (b) Store the already-computed weighted count directly (simpler)
+
+**Recommendation:** Store the weighted count directly (option b). The current system already stores `weighted_counts` in `global_worker_data` -- this is already updated in `update_global_assignment()` at line 135. The `get_modality_weighted_count()` function at line 43 recalculates from skill counts, which would lose the code multiplier. We need to also store per-modality weighted counts directly.
+
+```python
+# NEW: In update_global_assignment(), after line 136, also store per-modality weight:
+if 'weighted_counts_per_mod' not in global_worker_data:
+    global_worker_data['weighted_counts_per_mod'] = {}
+mod_counts = global_worker_data['weighted_counts_per_mod'].setdefault(modality, {})
+mod_counts[canonical_id] = mod_counts.get(canonical_id, 0.0) + weight
+```
+
+Then `get_modality_weighted_count()` can use this when in code mode:
+```python
+def get_modality_weighted_count(canonical_id: str, modality: str) -> float:
+    # In modality_code mode, use stored weighted counts (code info baked in)
+    if WEIGHT_MODE == 'modality_code':
+        return global_worker_data.get('weighted_counts_per_mod', {}).get(modality, {}).get(canonical_id, 0.0)
+
+    # Default mode: recalculate from raw skill counts (existing logic)
+    assignments = global_worker_data['assignments_per_mod'].get(modality, {}).get(canonical_id, {})
+    if not assignments:
+        return 0.0
+    total_weight = 0.0
+    for skill in SKILL_COLUMNS:
+        count = assignments.get(skill, 0)
+        if count > 0:
+            weight = get_skill_modality_weight(skill, modality)
+            total_weight += count * weight
+    return total_weight
+```
+
+### 3. `routes.py` -- Accept Code Parameter + New API Endpoint
+
+**File:** `routes.py`
+
+#### 3a. Modify `_assign_worker()` (~line 1376)
+
+```python
+# Read code from query params
+code = request.args.get('code')  # e.g. "0601" or None
+
+# Pass to update_global_assignment:
+canonical_id = update_global_assignment(person, actual_skill, actual_modality, is_weighted, code=code)
+
+# Include in response:
+response_data = {
+    "selected_person": person,
+    "canonical_id": canonical_id,
+    "source_modality": actual_modality,
+    "skill_used": actual_skill,
+    "is_weighted": is_weighted,
+    "code": code,                                      # NEW
+    "code_value": get_code_value(actual_modality, code) if code else None,  # NEW
+}
+```
+
+#### 3b. New API endpoint for code list
+
+```python
+from config import get_codes_for_modality, WEIGHT_MODE
+
+@routes.route('/api/codes/<modality>', methods=['GET'])
+@access_required
+def get_modality_codes(modality: str):
+    """Return all available codes for a modality (for popup UI)."""
+    modality = normalize_modality(modality)
+    codes = get_codes_for_modality(modality)
+    return jsonify({
+        "modality": modality,
+        "codes": {
+            code: {"label": data.get("label", ""), "value": data.get("value", 1.0)}
+            for code, data in codes.items()
+        }
+    })
+```
+
+#### 3c. Expose weight_mode to templates
+
+In the route that renders `index.html` (~line 1066), add `weight_mode` to template context:
+```python
+return render_template('index.html', ..., weight_mode=WEIGHT_MODE)
+```
+
+### 4. `templates/index.html` -- Popup UI
+
+**File:** `templates/index.html`
+
+#### 4a. Add popup HTML (after the button grid, ~line 375)
+
+```html
+<!-- Code selection popup (only rendered when weight_mode = modality_code) -->
+{% if weight_mode == 'modality_code' %}
+<div id="codePopup" class="code-popup-overlay" style="display:none;">
+  <div class="code-popup">
+    <div class="code-popup-header">
+      <h3>Code waehlen</h3>
+      <input type="text" id="codeSearchInput" placeholder="Code oder Bezeichnung suchen..."
+             class="code-search-input" oninput="filterCodes(this.value)">
+    </div>
+    <div class="code-popup-list" id="codeList">
+      <!-- populated by JS -->
+    </div>
+    <div class="code-popup-footer">
+      <button class="btn-cancel" onclick="dismissCodePopup()">Abbrechen (x1.0)</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+```
+
+#### 4b. Add CSS for popup
+
+```css
+.code-popup-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5); z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+}
+.code-popup {
+  background: #fff; border-radius: 12px; width: 90%; max-width: 500px;
+  max-height: 80vh; display: flex; flex-direction: column;
+}
+.code-popup-header { padding: 1rem; border-bottom: 1px solid #eee; }
+.code-popup-header h3 { margin-bottom: 0.5rem; }
+.code-search-input {
+  width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px;
+  font-size: 1rem;
+}
+.code-popup-list {
+  overflow-y: auto; flex: 1; padding: 0.5rem;
+}
+.code-item {
+  padding: 0.75rem 1rem; cursor: pointer; border-radius: 6px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.code-item:hover { background: #f0f4ff; }
+.code-item-id { font-weight: 700; font-family: monospace; }
+.code-item-label { flex: 1; margin-left: 1rem; }
+.code-item-value { font-weight: 600; color: #2f5d8a; }
+.code-popup-footer { padding: 1rem; border-top: 1px solid #eee; text-align: center; }
+```
+
+#### 4c. Modify JS assignment function
+
+```javascript
+// Current:
+function getNextAssignment(skillSlug, skillLabel, forcePrimary = false) {
+  if (requestInProgress) return;
+  lastSkillUsed = skillLabel || skillSlug;
+  setButtonsDisabled(true);
+  const encodedSkill = encodeURIComponent(skillSlug);
+  const endpoint = forcePrimary
+    ? `/api/${currentModality}/${encodedSkill}/strict`
+    : `/api/${currentModality}/${encodedSkill}`;
+  fetch(endpoint) ...
+}
+
+// NEW:
+const weightMode = '{{ weight_mode | default("default") }}';
+let pendingAssignment = null;  // { skillSlug, skillLabel, forcePrimary }
+
+function getNextAssignment(skillSlug, skillLabel, forcePrimary = false) {
+  if (requestInProgress) return;
+
+  if (weightMode === 'modality_code') {
+    // Show code popup instead of immediate assignment
+    pendingAssignment = { skillSlug, skillLabel, forcePrimary };
+    showCodePopup();
+    return;
+  }
+
+  // Default mode: direct assignment (unchanged)
+  executeAssignment(skillSlug, skillLabel, forcePrimary, null);
+}
+
+function executeAssignment(skillSlug, skillLabel, forcePrimary, code) {
+  lastSkillUsed = skillLabel || skillSlug;
+  setButtonsDisabled(true);
+  const encodedSkill = encodeURIComponent(skillSlug);
+  let endpoint = forcePrimary
+    ? `/api/${currentModality}/${encodedSkill}/strict`
+    : `/api/${currentModality}/${encodedSkill}`;
+  if (code) {
+    endpoint += `${endpoint.includes('?') ? '&' : '?'}code=${encodeURIComponent(code)}`;
+  }
+  fetch(endpoint) ...   // rest unchanged
+}
+
+// Popup management
+let modalityCodes = null;  // cached after first fetch
+
+async function showCodePopup() {
+  if (!modalityCodes) {
+    const resp = await fetch(`/api/codes/${currentModality}`);
+    const data = await resp.json();
+    modalityCodes = data.codes;
+  }
+  renderCodeList(modalityCodes);
+  document.getElementById('codePopup').style.display = 'flex';
+  document.getElementById('codeSearchInput').value = '';
+  document.getElementById('codeSearchInput').focus();
+}
+
+function renderCodeList(codes) {
+  const list = document.getElementById('codeList');
+  list.innerHTML = '';
+  for (const [code, info] of Object.entries(codes)) {
+    const item = document.createElement('div');
+    item.className = 'code-item';
+    item.innerHTML = `
+      <span class="code-item-id">${code}</span>
+      <span class="code-item-label">${info.label}</span>
+      <span class="code-item-value">x${info.value}</span>
+    `;
+    item.onclick = () => selectCode(code);
+    list.appendChild(item);
+  }
+}
+
+function filterCodes(query) {
+  const q = query.toLowerCase();
+  const filtered = {};
+  for (const [code, info] of Object.entries(modalityCodes)) {
+    if (code.includes(q) || info.label.toLowerCase().includes(q)) {
+      filtered[code] = info;
+    }
+  }
+  renderCodeList(filtered);
+}
+
+function selectCode(code) {
+  document.getElementById('codePopup').style.display = 'none';
+  if (pendingAssignment) {
+    const { skillSlug, skillLabel, forcePrimary } = pendingAssignment;
+    pendingAssignment = null;
+    executeAssignment(skillSlug, skillLabel, forcePrimary, code);
+  }
+}
+
+function dismissCodePopup() {
+  document.getElementById('codePopup').style.display = 'none';
+  if (pendingAssignment) {
+    const { skillSlug, skillLabel, forcePrimary } = pendingAssignment;
+    pendingAssignment = null;
+    executeAssignment(skillSlug, skillLabel, forcePrimary, null);  // code=null → value 1.0
+  }
+}
+```
+
+### 5. Result Display -- Show Code on Assignment Card
+
+In the result panel section of `index.html`, where the assignment result is shown:
+
+```javascript
+// In the fetch().then() handler that displays results:
+if (data.code) {
+  // Show code badge next to selected person
+  resultEl.innerHTML += ` <span class="code-badge">${data.code} (x${data.code_value})</span>`;
+}
+```
+
+```css
+.code-badge {
+  display: inline-block; background: #2f5d8a; color: #fff;
+  padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.85rem;
+  font-family: monospace; margin-left: 0.5rem;
+}
+```
+
+### 6. Worker Load Monitor -- Show Code Impact
+
+**File:** `routes.py` (worker-load endpoint, ~line 1620)
+
+The `/api/worker-load` endpoint already returns `global_weight` and per-modality weights. With the `weighted_counts_per_mod` stored in `global_worker_data`, the modality-level weights will automatically include the code multiplier impact. No change needed to the endpoint, but the monitor will reflect accurate weights.
+
+### 7. State Persistence
+
+**File:** `state_manager.py`
+
+Ensure `weighted_counts_per_mod` is included in `save_state()` / `load_state()` so code-weighted counts survive restarts.
 
 ---
 
@@ -183,82 +608,68 @@ When `weight_mode: "default"` (or not set):
 
 - Lives next to `config.yaml` in the project root.
 - Loaded only when `weight_mode: "modality_code"`.
-- Structure as shown above.
+- Structure as shown in the `config_code.yaml` section above.
 
 ---
 
-## Impact on Code
+## File Change Summary
 
-### `config.py`
+| File | Change | Lines Affected |
+|---|---|---|
+| `config.yaml` | Add `weight_mode` key | +1 line |
+| `config_code.yaml` | **NEW FILE** -- code definitions per modality | ~400+ lines (100 codes x 4 mods) |
+| `config.py` | Add `WEIGHT_MODE`, `CODE_CONFIG`, `get_code_value()`, `get_codes_for_modality()`; modify `get_skill_modality_weight()` and `_build_app_config()` | ~40 new lines, ~10 modified |
+| `balancer.py` | Add `code` param to `update_global_assignment()`; store `weighted_counts_per_mod`; update `get_modality_weighted_count()` | ~15 modified lines |
+| `routes.py` | Read `code` query param in `_assign_worker()`; pass to balancer; add `/api/codes/<modality>` endpoint; pass `weight_mode` to template | ~25 new lines, ~5 modified |
+| `templates/index.html` | Add popup HTML/CSS; modify JS `getNextAssignment()` to show popup; add `executeAssignment()`, `showCodePopup()`, `selectCode()`, `dismissCodePopup()`, `filterCodes()` | ~120 new lines |
+| `state_manager.py` | Include `weighted_counts_per_mod` in save/load | ~5 lines |
 
-```python
-# Load code config when mode is active
-def load_code_config():
-    if config.get('weight_mode') == 'modality_code':
-        with open('config_code.yaml') as f:
-            return yaml.safe_load(f)
-    return {}
-
-code_config = load_code_config()
-
-def get_code_value(modality: str, code: str) -> float:
-    """Get multiplier for a 4-digit code within a modality."""
-    return code_config.get(modality, {}).get(code, {}).get('value', 1.0)
-
-def get_codes_for_modality(modality: str) -> dict:
-    """Get all available codes for a modality (for popup)."""
-    return code_config.get(modality, {})
-
-def get_skill_modality_weight(skill: str, modality: str, code: str = None) -> float:
-    if config.get('weight_mode') == 'modality_code':
-        base = 1.0  # all skills = 1
-        modality_factor = modality_factors.get(modality, 1.0)
-        code_value = get_code_value(modality, code) if code else 1.0
-        return base * modality_factor * code_value
-    else:
-        # existing default logic unchanged
-        modality_overrides = skill_modality_overrides.get(modality, {})
-        if skill in modality_overrides:
-            return modality_overrides[skill]
-        return skill_weights.get(skill, 1.0) * modality_factors.get(modality, 1.0)
-```
-
-### `balancer.py`
-
-Existing formula already does `/ global_modifier` and `/ w_modifier`. The only change is passing the selected `code` into `get_skill_modality_weight()`:
-
-```python
-# In update_global_assignment():
-weight = get_skill_modality_weight(role, modality, code=selected_code) * (1.0 / combined_modifier)
-#                                                  ^-- NEW parameter
-```
-
-### `routes.py`
-
-- Add API endpoint to serve codes for a modality: `GET /api/codes/<modality>`
-- Accept `code` parameter when creating assignments.
-
-### Templates / JS
-
-- Add popup component triggered on skill-button click.
-- Fetch codes from `/api/codes/<modality>`, render list with search.
-- Pass selected code back with the assignment request.
+**Total: ~200 new lines, ~30 modified lines. 1 new file.**
 
 ---
 
 ## Implementation Steps
 
-- [ ] Add `weight_mode: "modality_code"` flag to `config.yaml`
-- [ ] Create `config_code.yaml` with placeholder/example codes per modality
-- [ ] Add `load_code_config()`, `get_code_value()`, `get_codes_for_modality()` to `config.py`
-- [ ] Modify `get_skill_modality_weight()` to support `modality_code` mode
-- [ ] Add `/api/codes/<modality>` endpoint in `routes.py`
-- [ ] Add popup UI component (template + JS) for code selection on skill-button click
-- [ ] Pass selected code through assignment flow into `balancer.py`
-- [ ] Store selected code on the assignment record for audit/display
-- [ ] Display active code + weight on assignment cards and worker load monitor
-- [ ] Add tests for new weight formula and code loading
-- [ ] Get final code lists (~100 per modality) from customer and populate `config_code.yaml`
+### Phase 1: Backend (config + weight logic)
+- [ ] Add `weight_mode` to `_build_app_config()` in `config.py`
+- [ ] Add `_load_code_config()`, `CODE_CONFIG`, `WEIGHT_MODE` to `config.py`
+- [ ] Add `get_code_value()` and `get_codes_for_modality()` to `config.py`
+- [ ] Modify `get_skill_modality_weight()` to branch on `WEIGHT_MODE`
+- [ ] Create `config_code.yaml` with example/placeholder codes per modality
+
+### Phase 2: Balancer (pass code through)
+- [ ] Add `code` param to `update_global_assignment()` in `balancer.py`
+- [ ] Pass `code` into `get_skill_modality_weight()` call at line 132
+- [ ] Add `weighted_counts_per_mod` storage in `update_global_assignment()`
+- [ ] Update `get_modality_weighted_count()` to use stored counts in code mode
+- [ ] Include `weighted_counts_per_mod` in state persistence (`state_manager.py`)
+
+### Phase 3: Routes (API changes)
+- [ ] Read `code` query param in `_assign_worker()` in `routes.py`
+- [ ] Pass `code` to `update_global_assignment()`
+- [ ] Include `code` and `code_value` in assignment response JSON
+- [ ] Add `/api/codes/<modality>` endpoint
+- [ ] Pass `weight_mode` to `index.html` template context
+
+### Phase 4: Frontend (popup UI)
+- [ ] Add popup overlay HTML to `index.html` (conditional on `weight_mode`)
+- [ ] Add popup CSS styles
+- [ ] Modify `getNextAssignment()` to intercept and show popup in code mode
+- [ ] Add `executeAssignment()` function (extracted from current logic)
+- [ ] Add `showCodePopup()` -- fetch + render codes
+- [ ] Add `selectCode()` / `dismissCodePopup()` handlers
+- [ ] Add `filterCodes()` search/filter
+- [ ] Show code badge on assignment result card
+
+### Phase 5: Testing + Data
+- [ ] Add unit tests for `get_skill_modality_weight()` in both modes
+- [ ] Add unit tests for `get_code_value()` with valid/missing/unknown codes
+- [ ] Add integration test for assignment flow with code param
+- [ ] Test popup UI with ~100 codes (scrolling, search, selection)
+- [ ] Test dismiss popup → code_value = 1.0
+- [ ] Test state persistence across restart (weighted_counts_per_mod)
+- [ ] Get final code lists (~100 per modality) from customer
+- [ ] Populate `config_code.yaml` with customer data
 
 ---
 
@@ -269,4 +680,5 @@ weight = get_skill_modality_weight(role, modality, code=selected_code) * (1.0 / 
 3. **Persistence:** Should the last-used code be remembered per skill-modality combo, or selected fresh each assignment?
 4. **Reporting:** Does the customer need weight reports broken down by code?
 5. **Code management UI:** Should there be an admin page to edit `config_code.yaml` codes, or is file editing sufficient?
-6. **Fallback behavior:** If `config_code.yaml` is missing but `weight_mode` is set, should we error or fall back to default mode?
+6. **Fallback behavior:** If `config_code.yaml` is missing but `weight_mode` is set, should we warn and fall back to default mode, or error?
+7. **Usage stats:** Should the `usage_logger` also record which code was selected per assignment?
