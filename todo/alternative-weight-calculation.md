@@ -2,7 +2,7 @@
 
 ## Overview
 
-New customer requires a simplified weight model where **all skill weights are 1** (flat), but a **modality-specific 4-digit numeric code** applies an additional multiplier. The code is selected via a popup after a user clicks on a skill-modality combination (e.g. CT > abd-onco).
+New customer requires a simplified weight model where **all skill weights are 1** (flat), but a **4-digit code per modality** applies an additional multiplier. Codes are stored in a **separate `config_code.yaml`** file. The code is selected via a popup after a user clicks on a skill-modality combination (e.g. CT > abd-onco).
 
 ---
 
@@ -11,90 +11,133 @@ New customer requires a simplified weight model where **all skill weights are 1*
 | Aspect | Current System | New Customer Model |
 |---|---|---|
 | Skill weights | Per-skill (e.g. notfall=1.1, card-thor=1.2) | **All skills = 1.0** |
-| Modality factors | Per-modality (ct=1.0, mr=1.2, xray=0.33, mammo=0.5) | Per-modality factor stays as-is |
+| Modality factors | Per-modality (ct=1.0, mr=1.2, xray=0.33, mammo=0.5) | **Stays as-is** |
 | Skill x Modality overrides | Explicit overrides (e.g. mr+card-thor=1.8) | **Removed / not used** |
-| Modality code multiplier | Does not exist | **NEW -- 4-digit code popup, multiplier per modality** |
-| Worker modifiers (global, w) | Per-worker in roster | Stays the same |
+| Worker modifiers (global, w) | Per-worker in roster (inverse: divide) | **Stays as-is** |
+| Modality code multiplier | Does not exist | **NEW -- per-modality code list in `config_code.yaml`** |
+| `config.yaml` | Full config | **Unchanged** (only add `weight_mode` flag) |
 | Balancer logic | Unchanged | Unchanged (consumes final weight) |
 
-**Everything else (assignment logic, worker modifiers, UI flow) stays the same.**
+**Existing `config.yaml` stays fully intact. One flag is added. All code data lives in `config_code.yaml`.**
 
 ---
 
-## New Concept: Modality Code Multiplier
+## Weight Formula
 
-### How It Works
-
-1. User navigates to a modality page (e.g. CT) and clicks a skill button (e.g. abd-onco).
-2. **A popup appears** showing a list of 4-digit modality codes (e.g. `0601`).
-3. The user selects a code. Each code carries a **per-modality weight multiplier**.
-4. The selected code's multiplier is applied to the assignment weight.
-
-### Weight Formula (New Customer)
+### Full Chain (New Customer)
 
 ```
-final_weight = 1.0                          (skill weight, always 1)
-             * modality_factor              (from config, e.g. ct=1.0, mr=1.2)
-             * modality_code_multiplier     (from code lookup, e.g. 2.0)
-             * (1 / combined_modifier)      (worker modifier, unchanged)
+final_weight = skill_weight            = 1.0    (always 1, from config)
+             * modality_factor         = 1.1    (from config.yaml, e.g. mr=1.2, ct=1.0)
+             * code_value              = 2.1    (from config_code.yaml, e.g. CT code 0601)
+             / w_modifier              / 0.5    (inverse -- trainee modifier, from roster)
+             / global_modifier         / 1.2    (inverse -- per-worker global, from roster)
 ```
 
-Compare to current formula:
+### Walkthrough Example
+
 ```
-final_weight = skill_weight * modality_factor * (1 / combined_modifier)
+Scenario: MR assignment, code 0601 (value 2.1), trainee (w=0.5), worker global=1.2
+
+  skill       = 1.0                         (flat, always 1)
+  * modality  = 1.0 * 1.2       = 1.2       (MR factor from config.yaml)
+  * code      = 1.2 * 2.1       = 2.52      (code 0601 has value 2.1 for MR)
+  / w_mod     = 2.52 / 0.5      = 5.04      (trainee gets double effective weight)
+  / global    = 5.04 / 1.2      = 4.2       (worker reduced capacity)
+                                  ===
+  final_weight = 4.2
 ```
 
-The only differences:
-- `skill_weight` is hardcoded to **1.0** for all skills.
-- A new `modality_code_multiplier` factor is introduced.
+### Comparison to Current Formula
+
+```
+CURRENT:   skill_weight * modality_factor / w_modifier / global_modifier
+NEW:       1.0          * modality_factor * code_value / w_modifier / global_modifier
+            ^-- forced 1                   ^-- NEW
+```
+
+Only two differences:
+1. `skill_weight` is always **1.0** (no per-skill weighting).
+2. `code_value` is a **new multiplier** from the selected 4-digit code.
+
+### Modifier Direction Summary
+
+| Factor | Direction | Example | Effect |
+|---|---|---|---|
+| `skill_weight` | multiply | 1.0 | always 1, no effect |
+| `modality_factor` | multiply | 1.2 | MR counts 20% more |
+| `code_value` | multiply | 2.1 | code makes it heavier |
+| `w_modifier` | **divide** (inverse) | 0.5 | trainee: dividing by 0.5 = x2 effective weight |
+| `global_modifier` | **divide** (inverse) | 1.2 | reduced capacity: dividing by 1.2 = less throughput |
 
 ---
 
-## Modality Code Lookup Table
+## `config_code.yaml` -- Separate Code File
 
-Each 4-digit code defines a multiplier **per modality**. If a modality is not listed for a code, the multiplier defaults to **1** (no change).
+### Structure
 
-### Example Structure
+Codes are grouped **per modality**. Each modality has its own list of ~100 codes. Codes **can overlap** between modalities (same code number, different multiplier).
 
 ```yaml
-modality_codes:
+# config_code.yaml
+# 4-digit modality codes with weight multipliers
+# Organized per modality -- codes can appear in multiple modalities with different values
+
+ct:
   "0601":
-    label: "Abdomen CT/MR Spezial"
-    multipliers:
-      ct: 2.0
-      mr: 2.0
-      # xray: not listed -> defaults to 1.0
-      # mammo: not listed -> defaults to 1.0
-
-  "0701":
-    label: "Neuro MR Komplex"
-    multipliers:
-      mr: 2.5
-      # ct, xray, mammo -> 1.0
-
+    label: "Abdomen Spezial"
+    value: 2.1
+  "0602":
+    label: "Abdomen Standard"
+    value: 1.0
   "0301":
+    label: "Thorax Komplex"
+    value: 1.8
+  "0302":
     label: "Thorax Standard"
-    multipliers:
-      ct: 1.5
-      # rest -> 1.0
+    value: 1.0
+  "0701":
+    label: "Neuro Komplex"
+    value: 1.5
+  # ... ~100 codes total for CT
 
-  "0100":
-    label: "Standard (alle Modalitaeten)"
-    multipliers: {}
-    # all default to 1.0 -> effectively no multiplier
+mr:
+  "0601":
+    label: "Abdomen Spezial"
+    value: 2.0          # same code, different value than CT
+  "0602":
+    label: "Abdomen Standard"
+    value: 1.2
+  "0701":
+    label: "Neuro Komplex"
+    value: 2.5           # MR neuro weighted higher than CT neuro
+  # ... ~100 codes total for MR
+
+xray:
+  "1001":
+    label: "Thorax ap/lat"
+    value: 1.0
+  "1002":
+    label: "Abdomen leer"
+    value: 1.0
+  # ... ~100 codes total for X-ray
+
+mammo:
+  "2001":
+    label: "Screening beidseits"
+    value: 1.0
+  "2002":
+    label: "Diagnostisch"
+    value: 1.5
+  # ... ~100 codes total for Mammo
 ```
 
-### Full Code List (TO BE FILLED IN)
+### Key Design Decisions
 
-| Code | Label | CT | MR | X-ray | Mammo |
-|------|-------|----|----|-------|-------|
-| `0601` | _TBD_ | 2.0 | 2.0 | 1.0 | 1.0 |
-| `0701` | _TBD_ | 1.0 | 2.5 | 1.0 | 1.0 |
-| `0301` | _TBD_ | 1.5 | 1.0 | 1.0 | 1.0 |
-| `0100` | Standard | 1.0 | 1.0 | 1.0 | 1.0 |
-| ... | ... | ... | ... | ... | ... |
-
-> **Action required:** Customer must provide the complete list of 4-digit codes with their per-modality multipliers.
+- **Per-modality grouping:** Codes are scoped to a modality. The popup only shows codes for the current modality.
+- **Overlap allowed:** Code `0601` can exist in both CT and MR with different values.
+- **Simple value:** Each code has one `value` (float multiplier), not a nested per-modality map.
+- **Default:** If no code is selected, `code_value = 1.0`.
 
 ---
 
@@ -103,84 +146,127 @@ modality_codes:
 ### Popup (Code Selection)
 
 - **Trigger:** User clicks a skill button on a modality page (e.g. CT > abd-onco).
-- **Content:** List/dropdown of available 4-digit codes with their label and the multiplier value for the **current modality**.
-- **Display format per row:** `0601 -- Abdomen CT/MR Spezial (x2.0)`
-- **Selection:** Clicking a code applies it and proceeds with the assignment as usual.
-- **Default:** If no code is selected (or popup is dismissed), use multiplier **1.0**.
+- **Content:** Scrollable list of codes **for the current modality only** (from `config_code.yaml`).
+- **Display format per row:** `0601 -- Abdomen Spezial (x2.1)`
+- **Selection:** Clicking a code applies it and proceeds with the assignment.
+- **Default:** If popup is dismissed without selection, use `code_value = 1.0`.
+- **Search/filter:** With ~100 codes, a search/filter input at the top of the popup is useful.
 
 ### Where to Show the Active Code
 
-- After selection, the code should be visible on the assignment card / worker row so it is clear which multiplier was applied.
-- Optionally show the resulting weight next to it.
+- After selection, the code should be visible on the assignment card / worker row.
+- Show: `0601 (x2.1)` next to the assignment.
+- Optionally show the final computed weight.
 
 ---
 
 ## Config Changes
 
-### New Section in `config.yaml`
+### `config.yaml` (minimal addition)
 
 ```yaml
-# Alternative weight mode for customers using modality code multipliers
+# Add ONE flag to existing config.yaml -- everything else stays untouched
 weight_mode: "modality_code"   # Options: "default" | "modality_code"
-
-# When weight_mode = "modality_code", all skill weights are forced to 1.0
-# and the following codes are available:
-modality_codes:
-  "0601":
-    label: "Abdomen CT/MR Spezial"
-    multipliers:
-      ct: 2.0
-      mr: 2.0
-  "0701":
-    label: "Neuro MR Komplex"
-    multipliers:
-      mr: 2.5
-  "0301":
-    label: "Thorax Standard"
-    multipliers:
-      ct: 1.5
-  "0100":
-    label: "Standard"
-    multipliers: {}
 ```
 
-### Impact on `config.py`
+When `weight_mode: "modality_code"`:
+- All skill weights from `skills:` section are ignored (treated as 1.0).
+- `skill_modality_overrides:` are ignored.
+- `config_code.yaml` is loaded and codes become available in the UI.
+- Modality `factor:` values are still used.
+- Worker modifiers (`global_modifier`, `modifier`) are still used.
+
+When `weight_mode: "default"` (or not set):
+- Everything works exactly as today. `config_code.yaml` is not loaded.
+
+### New File: `config_code.yaml`
+
+- Lives next to `config.yaml` in the project root.
+- Loaded only when `weight_mode: "modality_code"`.
+- Structure as shown above.
+
+---
+
+## Impact on Code
+
+### `config.py`
 
 ```python
+# Load code config when mode is active
+def load_code_config():
+    if config.get('weight_mode') == 'modality_code':
+        with open('config_code.yaml') as f:
+            return yaml.safe_load(f)
+    return {}
+
+code_config = load_code_config()
+
+def get_code_value(modality: str, code: str) -> float:
+    """Get multiplier for a 4-digit code within a modality."""
+    return code_config.get(modality, {}).get(code, {}).get('value', 1.0)
+
+def get_codes_for_modality(modality: str) -> dict:
+    """Get all available codes for a modality (for popup)."""
+    return code_config.get(modality, {})
+
 def get_skill_modality_weight(skill: str, modality: str, code: str = None) -> float:
     if config.get('weight_mode') == 'modality_code':
         base = 1.0  # all skills = 1
         modality_factor = modality_factors.get(modality, 1.0)
-        code_multiplier = 1.0
-        if code:
-            code_entry = modality_codes.get(code, {})
-            code_multiplier = code_entry.get('multipliers', {}).get(modality, 1.0)
-        return base * modality_factor * code_multiplier
+        code_value = get_code_value(modality, code) if code else 1.0
+        return base * modality_factor * code_value
     else:
-        # existing default logic
-        ...
+        # existing default logic unchanged
+        modality_overrides = skill_modality_overrides.get(modality, {})
+        if skill in modality_overrides:
+            return modality_overrides[skill]
+        return skill_weights.get(skill, 1.0) * modality_factors.get(modality, 1.0)
 ```
+
+### `balancer.py`
+
+Existing formula already does `/ global_modifier` and `/ w_modifier`. The only change is passing the selected `code` into `get_skill_modality_weight()`:
+
+```python
+# In update_global_assignment():
+weight = get_skill_modality_weight(role, modality, code=selected_code) * (1.0 / combined_modifier)
+#                                                  ^-- NEW parameter
+```
+
+### `routes.py`
+
+- Add API endpoint to serve codes for a modality: `GET /api/codes/<modality>`
+- Accept `code` parameter when creating assignments.
+
+### Templates / JS
+
+- Add popup component triggered on skill-button click.
+- Fetch codes from `/api/codes/<modality>`, render list with search.
+- Pass selected code back with the assignment request.
 
 ---
 
 ## Implementation Steps
 
-- [ ] Add `weight_mode` and `modality_codes` section to `config.yaml`
-- [ ] Parse new config in `config.py`, expose `get_modality_code_multiplier(code, modality)`
-- [ ] Modify `get_skill_modality_weight()` to support `modality_code` mode (all skills=1, apply code multiplier)
+- [ ] Add `weight_mode: "modality_code"` flag to `config.yaml`
+- [ ] Create `config_code.yaml` with placeholder/example codes per modality
+- [ ] Add `load_code_config()`, `get_code_value()`, `get_codes_for_modality()` to `config.py`
+- [ ] Modify `get_skill_modality_weight()` to support `modality_code` mode
+- [ ] Add `/api/codes/<modality>` endpoint in `routes.py`
 - [ ] Add popup UI component (template + JS) for code selection on skill-button click
 - [ ] Pass selected code through assignment flow into `balancer.py`
 - [ ] Store selected code on the assignment record for audit/display
-- [ ] Display active code + resulting weight on worker load monitor
-- [ ] Add tests for new weight formula
-- [ ] Get final code list from customer and populate config
+- [ ] Display active code + weight on assignment cards and worker load monitor
+- [ ] Add tests for new weight formula and code loading
+- [ ] Get final code lists (~100 per modality) from customer and populate `config_code.yaml`
 
 ---
 
 ## Open Questions
 
-1. **Complete code list:** Customer needs to provide all 4-digit codes with their per-modality multipliers.
-2. **Code filtering by modality:** Should the popup only show codes that have a multiplier > 1 for the current modality, or always show all codes?
-3. **Code filtering by skill:** Should certain codes only be available for certain skills, or are all codes available everywhere?
-4. **Persistence:** Should the selected code be saved as a preference per skill-modality, or selected fresh each time?
-5. **Reporting:** Does the customer need weight reports broken down by code?
+1. **Complete code lists:** Customer needs to provide all 4-digit codes per modality with their multiplier values.
+2. **Code filtering by skill:** Should certain codes only appear for certain skills, or are all codes available for every skill within a modality?
+3. **Persistence:** Should the last-used code be remembered per skill-modality combo, or selected fresh each assignment?
+4. **Reporting:** Does the customer need weight reports broken down by code?
+5. **Code management UI:** Should there be an admin page to edit `config_code.yaml` codes, or is file editing sufficient?
+6. **Fallback behavior:** If `config_code.yaml` is missing but `weight_mode` is set, should we error or fall back to default mode?
