@@ -2,48 +2,82 @@
 
 {% block title %}RadIMO Cortex | Button Weights{% endblock %}
 
-{% block content %}
-  {% set header_title = 'RadIMO Cortex | Button Weights' %}
-  {% set header_subtitle = 'Configure normal and strict weighting per skill × modality' %}
-  {% set header_mode = 'global' %}
-  {% set active_page = 'button_weights' %}
-  {% set header_nav = namespace(links=[]) %}
-  {% include 'partials/header_links.html' %}
-  {% set header_links = header_nav.links %}
-  {% include 'partials/header.html' %}
+{% block styles %}
+    {% include 'partials/admin_theme.html' %}
 
-  <section class="card" style="margin-bottom: 1.5rem;">
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
-      <div>
-        <strong>Defaults:</strong>
-        <span>Normal defaults to 1.0 when blank.</span>
-        <span>Strict defaults to Normal when blank.</span>
-      </div>
-      <div style="display:flex; gap:0.5rem;">
-        <button class="btn btn-secondary" onclick="loadWeights()">Reload</button>
-        <button class="btn btn-success" onclick="saveWeights()">Save</button>
-      </div>
-    </div>
-    <div style="margin-top:1rem; display:flex; gap:0.5rem;">
-      <button id="mode-normal" class="btn btn-mode-normal" onclick="setMode('normal')">Normal</button>
-      <button id="mode-strict" class="btn btn-mode-inactive" onclick="setMode('strict')">Strict</button>
-    </div>
-  </section>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-  <section class="card">
-    <div style="overflow-x:auto;">
-      <table class="matrix-table">
-        <thead>
-          <tr id="weightMatrixHeader"></tr>
-        </thead>
-        <tbody id="weightMatrixBody"></tbody>
-      </table>
-    </div>
-  </section>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f0f0;
+      padding: 1rem;
+      max-width: 1800px;
+      margin: 0 auto;
+    }
 
-  <div id="statusMessage" class="status-message"></div>
+    .card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      margin-bottom: 1rem;
+    }
 
-  <style>
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #5a6268;
+    }
+
+    .btn-success {
+      background: #28a745;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #218838;
+    }
+
+    /* Mode toggle button colors */
+    .btn-mode-normal {
+      background: #2f8c7a;
+      color: #ffffff;
+    }
+    .btn-mode-normal:hover {
+      background: #247060;
+    }
+    .btn-mode-strict {
+      background: #c75a2a;
+      color: #ffffff;
+    }
+    .btn-mode-strict:hover {
+      background: #a34820;
+    }
+    .btn-mode-inactive {
+      background: #e0e0e0;
+      color: #666666;
+    }
+    .btn-mode-inactive:hover {
+      background: #d0d0d0;
+    }
+
     .matrix-table {
       width: 100%;
       border-collapse: collapse;
@@ -92,6 +126,7 @@
       outline: 2px solid #004892;
       border-color: transparent;
     }
+
     .status-message {
       position: fixed;
       bottom: 1rem;
@@ -112,33 +147,48 @@
       color: #721c24;
       display: block;
     }
+{% endblock %}
 
-    /* Mode toggle button colors */
-    .btn-mode-normal {
-      background: #2f8c7a;
-      color: #ffffff;
-      border: none;
-    }
-    .btn-mode-normal:hover {
-      background: #247060;
-    }
-    .btn-mode-strict {
-      background: #c75a2a;
-      color: #ffffff;
-      border: none;
-    }
-    .btn-mode-strict:hover {
-      background: #a34820;
-    }
-    .btn-mode-inactive {
-      background: #e0e0e0;
-      color: #666666;
-      border: none;
-    }
-    .btn-mode-inactive:hover {
-      background: #d0d0d0;
-    }
-  </style>
+{% block content %}
+  {% set header_title = 'RadIMO Cortex | Button Weights' %}
+  {% set header_subtitle = 'Configure normal and strict weighting per skill x modality' %}
+  {% set header_mode = 'global' %}
+  {% set active_page = 'button_weights' %}
+  {% set header_nav = namespace(links=[]) %}
+  {% include 'partials/header_links.html' %}
+  {% set header_links = header_nav.links %}
+  {% include 'partials/header.html' %}
+
+  <section class="card" style="margin-bottom: 1.5rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+      <div>
+        <strong>Defaults:</strong>
+        <span>Normal defaults to 1.0 when blank.</span>
+        <span>Strict defaults to Normal when blank.</span>
+      </div>
+      <div style="display:flex; gap:0.5rem;">
+        <button class="btn btn-secondary" onclick="loadWeights()">Reload</button>
+        <button class="btn btn-success" onclick="saveWeights()">Save</button>
+      </div>
+    </div>
+    <div style="margin-top:1rem; display:flex; gap:0.5rem;">
+      <button id="mode-normal" class="btn btn-mode-normal" onclick="setMode('normal')">Normal</button>
+      <button id="mode-strict" class="btn btn-mode-inactive" onclick="setMode('strict')">Strict</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div style="overflow-x:auto;">
+      <table class="matrix-table">
+        <thead>
+          <tr id="weightMatrixHeader"></tr>
+        </thead>
+        <tbody id="weightMatrixBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div id="statusMessage" class="status-message"></div>
 
   <script>
     let currentMode = 'normal';
