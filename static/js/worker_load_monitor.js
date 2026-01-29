@@ -140,7 +140,7 @@ function getSortValue(worker, column, tableType) {
   if (column === 'total') {
     if (tableType === 'modality') {
       return MODALITIES.reduce(function(total, mod) {
-        return total + (worker.modalities[mod]?.weighted_count || 0);
+        return total + (worker.modalities[mod]?.assignment_total || 0);
       }, 0);
     }
     if (tableType === 'skill') {
@@ -150,7 +150,7 @@ function getSortValue(worker, column, tableType) {
     }
     return worker.global_weight || 0;
   }
-  if (MODALITIES.includes(column)) return worker.modalities[column]?.weighted_count || 0;
+  if (MODALITIES.includes(column)) return worker.modalities[column]?.assignment_total || 0;
   if (SKILLS.includes(column)) return worker.skills[column] || 0;
   return 0;
 }
@@ -273,12 +273,12 @@ function renderModalityTable() {
 
     MODALITIES.forEach(function(mod) {
       const modData = worker.modalities[mod];
-      const weight = modData?.weighted_count || 0;
-      total += weight;
-      modalityTotals[mod] += weight;
-      const color = getLoadColor(weight);
+      const count = modData?.assignment_total || 0;
+      total += count;
+      modalityTotals[mod] += count;
+      const color = getLoadColor(count);
 
-      modCells += `<td class="${color.text}" style="text-align: center;">${weight > 0 ? weight.toFixed(1) : '-'}</td>`;
+      modCells += `<td class="${color.text}" style="text-align: center;">${count > 0 ? count : '-'}</td>`;
     });
 
     grandTotal += total;
@@ -287,20 +287,20 @@ function renderModalityTable() {
     html += `<tr>
       <td class="worker-col">${escapeHtml(worker.name)}</td>
       ${modCells}
-      <td class="${totalColor.text}" style="text-align: center; font-weight: 600;">${total.toFixed(1)}</td>
+      <td class="${totalColor.text}" style="text-align: center; font-weight: 600;">${total}</td>
     </tr>`;
   });
 
   // Add totals row
   let totalModCells = '';
   MODALITIES.forEach(function(mod) {
-    const weight = modalityTotals[mod];
-    totalModCells += `<td style="text-align: center; font-weight: 700;">${weight > 0 ? weight.toFixed(1) : '-'}</td>`;
+    const count = modalityTotals[mod];
+    totalModCells += `<td style="text-align: center; font-weight: 700;">${count > 0 ? count : '-'}</td>`;
   });
   html += `<tr class="totals-row">
     <td class="worker-col" style="font-weight: 700;">Total</td>
     ${totalModCells}
-    <td style="text-align: center; font-weight: 700;">${grandTotal.toFixed(1)}</td>
+    <td style="text-align: center; font-weight: 700;">${grandTotal}</td>
   </tr>`;
 
   tbody.innerHTML = html;

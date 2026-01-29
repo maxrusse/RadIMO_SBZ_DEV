@@ -453,7 +453,7 @@
 
     <!-- Per Modality View -->
     <div class="section-divider">
-      <h3>Per Modality</h3>
+      <h3>Per Modality (Counts)</h3>
     </div>
     <div class="table-container">
       <table class="load-table" id="table-modality">
@@ -463,7 +463,7 @@
             {% for mod in modalities %}
             <th class="sortable" data-sort="{{ mod }}" onclick="sortTable('modality', '{{ mod }}')">{{ modality_settings[mod].label }}</th>
             {% endfor %}
-            <th class="sortable" data-sort="total" onclick="sortTable('modality', 'total')">Total</th>
+            <th class="sortable" data-sort="total" onclick="sortTable('modality', 'total')">Total Count</th>
           </tr>
         </thead>
         <tbody id="tbody-modality"></tbody>
