@@ -23,6 +23,7 @@ if not os.path.exists(UPLOAD_FOLDER):
 MASTER_CSV_PATH = os.path.join(UPLOAD_FOLDER, 'master_medweb.csv')
 STATE_FILE_PATH = os.path.join(UPLOAD_FOLDER, 'fairness_state.json')
 BUTTON_WEIGHTS_PATH = os.path.join(UPLOAD_FOLDER, 'button_weights.json')
+DEMO_WEIGHTS_PATH = os.path.join('demo_data', 'button_weights_demo.json')
 
 os.makedirs('logs', exist_ok=True)
 selection_logger.setLevel(logging.INFO)
@@ -410,15 +411,19 @@ def _normalize_button_weights(raw_map: Dict[str, Any]) -> Dict[str, Dict[str, fl
 NO_OVERFLOW = _normalize_no_overflow(_raw_no_overflow)
 
 def load_button_weights() -> Dict[str, Dict[str, float]]:
-    try:
-        with open(BUTTON_WEIGHTS_PATH, 'r', encoding='utf-8') as weight_file:
-            data = json.load(weight_file)
-    except FileNotFoundError:
-        return _normalize_button_weights({})
-    except Exception as exc:
-        selection_logger.warning("Failed to load button weights: %s", exc)
-        return _normalize_button_weights({})
-    return _normalize_button_weights(data)
+    # Try loading from uploads first, then fallback to demo data
+    for path in (BUTTON_WEIGHTS_PATH, DEMO_WEIGHTS_PATH):
+        try:
+            with open(path, 'r', encoding='utf-8') as weight_file:
+                data = json.load(weight_file)
+                selection_logger.info("Loaded button weights from %s", path)
+                return _normalize_button_weights(data)
+        except FileNotFoundError:
+            continue
+        except Exception as exc:
+            selection_logger.warning("Failed to load button weights from %s: %s", path, exc)
+            continue
+    return _normalize_button_weights({})
 
 def save_button_weights(raw_weights: Dict[str, Any]) -> bool:
     normalized = _normalize_button_weights(raw_weights or {})
