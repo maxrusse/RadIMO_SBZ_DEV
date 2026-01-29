@@ -25,8 +25,8 @@
       </div>
     </div>
     <div style="margin-top:1rem; display:flex; gap:0.5rem;">
-      <button id="mode-normal" class="btn btn-primary" onclick="setMode('normal')">Normal</button>
-      <button id="mode-strict" class="btn btn-secondary" onclick="setMode('strict')">Strict</button>
+      <button id="mode-normal" class="btn btn-mode-normal" onclick="setMode('normal')">Normal</button>
+      <button id="mode-strict" class="btn btn-mode-inactive" onclick="setMode('strict')">Strict</button>
     </div>
   </section>
 
@@ -112,6 +112,32 @@
       color: #721c24;
       display: block;
     }
+
+    /* Mode toggle button colors */
+    .btn-mode-normal {
+      background: #2f8c7a;
+      color: #ffffff;
+      border: none;
+    }
+    .btn-mode-normal:hover {
+      background: #247060;
+    }
+    .btn-mode-strict {
+      background: #c75a2a;
+      color: #ffffff;
+      border: none;
+    }
+    .btn-mode-strict:hover {
+      background: #a34820;
+    }
+    .btn-mode-inactive {
+      background: #e0e0e0;
+      color: #666666;
+      border: none;
+    }
+    .btn-mode-inactive:hover {
+      background: #d0d0d0;
+    }
   </style>
 
   <script>
@@ -127,8 +153,8 @@
 
     function setMode(mode) {
       currentMode = mode;
-      document.getElementById('mode-normal').className = mode === 'normal' ? 'btn btn-primary' : 'btn btn-secondary';
-      document.getElementById('mode-strict').className = mode === 'strict' ? 'btn btn-primary' : 'btn btn-secondary';
+      document.getElementById('mode-normal').className = mode === 'normal' ? 'btn btn-mode-normal' : 'btn btn-mode-inactive';
+      document.getElementById('mode-strict').className = mode === 'strict' ? 'btn btn-mode-strict' : 'btn btn-mode-inactive';
       renderMatrix();
     }
 
