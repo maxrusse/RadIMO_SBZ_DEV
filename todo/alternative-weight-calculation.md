@@ -2,23 +2,23 @@
 
 ## Overview
 
-New customer requires a simplified weight model where **all skill weights are 1** (flat), but a **4-digit code per modality** applies an additional multiplier. Codes are stored in a **separate `config_code.yaml`** file. The code is selected via a popup after a user clicks on a skill-modality combination (e.g. CT > abd-onco).
+New customer requires a simplified weight model where the **base weight comes from the existing button-weight matrix** (admin UI), and a **4-digit code per modality** applies an additional multiplier. This matters especially for **special tasks (skills with `special: true`)**, whose weights are already configured via the **Weight Matrix web page** and must be respected. Codes are stored in a **separate `config_code.yaml`** file. The code is selected via a popup after a user clicks on a skill‑modality combination (e.g. CT > abd-onco).
 
 ---
 
 ## What Changes
 
-| Aspect | Current System | New Customer Model |
+| Aspect | Current System (today) | New Customer Model |
 |---|---|---|
-| Skill weights | Per-skill (e.g. notfall=1.1, card-thor=1.2) | **All skills = 1.0** |
-| Modality factors | Per-modality (ct=1.0, mr=1.2, xray=0.33, mammo=0.5) | **Stays as-is** |
-| Skill x Modality overrides | Explicit overrides (e.g. mr+card-thor=1.8) | **Removed / not used** |
+| Base weights | **Button-weight matrix** (normal/strict) stored in `uploads/button_weights.json` and managed via `/button-weights` UI | **Still used** (this is where special‑task weights live) |
+| Modality factors | **Not present** in current code | N/A |
+| Skill x Modality overrides | **Not present** (weights only via matrix) | N/A |
 | Worker modifiers (global, w) | Per-worker in roster (inverse: divide) | **Stays as-is** |
 | Modality code multiplier | Does not exist | **NEW -- per-modality code list in `config_code.yaml`** |
 | `config.yaml` | Full config | **Unchanged** (only add `weight_mode` flag) |
 | Balancer logic | Unchanged | Unchanged (consumes final weight) |
 
-**Existing `config.yaml` stays fully intact. One flag is added. All code data lives in `config_code.yaml`.**
+**Existing `config.yaml` stays fully intact. One flag is added. All code data lives in `config_code.yaml`. The base weight still comes from the button‑weight matrix (including special tasks).**
 
 ---
 
@@ -27,8 +27,7 @@ New customer requires a simplified weight model where **all skill weights are 1*
 ### Full Chain (New Customer)
 
 ```
-final_weight = skill_weight            = 1.0    (always 1, from config)
-             * modality_factor         = 1.1    (from config.yaml, e.g. mr=1.2, ct=1.0)
+final_weight = base_button_weight      = 1.3    (from button weight matrix; includes special tasks)
              * code_value              = 2.1    (from config_code.yaml, e.g. CT code 0601)
              / w_modifier              / 0.5    (inverse -- trainee modifier, from roster)
              / global_modifier         / 1.2    (inverse -- per-worker global, from roster)
@@ -37,35 +36,33 @@ final_weight = skill_weight            = 1.0    (always 1, from config)
 ### Walkthrough Example
 
 ```
-Scenario: MR assignment, code 0601 (value 2.1), trainee (w=0.5), worker global=1.2
+Scenario: MR assignment, base weight 1.3 (from weight matrix), code 0601 (value 2.1),
+trainee (w=0.5), worker global=1.2
 
-  skill       = 1.0                         (flat, always 1)
-  * modality  = 1.0 * 1.2       = 1.2       (MR factor from config.yaml)
-  * code      = 1.2 * 2.1       = 2.52      (code 0601 has value 2.1 for MR)
-  / w_mod     = 2.52 / 0.5      = 5.04      (trainee gets double effective weight)
-  / global    = 5.04 / 1.2      = 4.2       (worker reduced capacity)
+  base_weight = 1.3                         (from /button-weights matrix)
+  * code      = 1.3 * 2.1       = 2.73      (code 0601 has value 2.1 for MR)
+  / w_mod     = 2.73 / 0.5      = 5.46      (trainee gets double effective weight)
+  / global    = 5.46 / 1.2      = 4.55      (worker reduced capacity)
                                   ===
-  final_weight = 4.2
+  final_weight = 4.55
 ```
 
 ### Comparison to Current Formula
 
 ```
-CURRENT:   skill_weight * modality_factor                / w_modifier / global_modifier
-NEW:       1.0          * modality_factor * code_value   / w_modifier / global_modifier
-            ^-- forced 1                   ^-- NEW
+CURRENT:   base_button_weight                      / w_modifier / global_modifier
+NEW:       base_button_weight * code_value         / w_modifier / global_modifier
+            ^-- from weight matrix (special tasks)  ^-- NEW
 ```
 
-Only two differences:
-1. `skill_weight` is always **1.0** (no per-skill weighting).
-2. `code_value` is a **new multiplier** from the selected 4-digit code.
+Only one difference:
+1. `code_value` is a **new multiplier** from the selected 4-digit code.
 
 ### Modifier Direction Summary
 
 | Factor | Direction | Example | Effect |
 |---|---|---|---|
-| `skill_weight` | multiply | 1.0 | always 1, no effect |
-| `modality_factor` | multiply | 1.2 | MR counts 20% more |
+| `base_button_weight` | multiply | 1.3 | from weight matrix (includes special tasks) |
 | `code_value` | multiply | 2.1 | code makes it heavier |
 | `w_modifier` | **divide** (inverse) | 0.5 | trainee: dividing by 0.5 = x2 effective weight |
 | `global_modifier` | **divide** (inverse) | 1.2 | reduced capacity: dividing by 1.2 = less throughput |
@@ -165,8 +162,8 @@ routes.py: _assign_worker(modality, role)                   ← line 1376
   │         └─ weighted_ratio() uses get_global_weighted_count()
   │
   ├─ update_global_assignment(person, skill, modality, is_weighted)  ← balancer.py:86
-  │    └─ weight = get_skill_modality_weight(role, modality) * (1.0 / combined_modifier)
-  │                └─ config.py:397  →  skill_weight * modality_factor
+  │    └─ weight = get_skill_modality_weight(role, modality, strict=...) * (1.0 / combined_modifier)
+  │                └─ config.py:436  →  base_button_weight (normal/strict)
   │
   └─ Response JSON: { selected_person, canonical_id, skill_used, is_weighted }
 ```
@@ -195,8 +192,8 @@ routes.py: _assign_worker(modality, role)
   ├─ get_next_available_worker(now, role, modality, ...)     ← unchanged
   │
   ├─ update_global_assignment(person, skill, modality, is_weighted, code=code)  ← NEW param
-  │    └─ weight = get_skill_modality_weight(role, modality, code) * (1.0 / combined_modifier)
-  │                └─ config.py:  1.0 * modality_factor * code_value
+  │    └─ weight = get_skill_modality_weight(role, modality, strict=..., code=code)
+  │                └─ config.py:  base_button_weight * code_value
   │
   └─ Response JSON: { ..., code: "0601", code_value: 2.1 }  ← NEW fields
 ```
@@ -208,15 +205,18 @@ routes.py: _assign_worker(modality, role)
 ### 1. `config.py` -- Weight Calculation
 
 **File:** `config.py`
-**Current function:** `get_skill_modality_weight()` at line 397
+**Current function:** `get_skill_modality_weight()` at line 436 (uses button-weight matrix)
 
 ```python
 # --- CURRENT ---
-def get_skill_modality_weight(skill: str, modality: str) -> float:
-    modality_overrides = skill_modality_overrides.get(modality, {})
-    if skill in modality_overrides:
-        return coerce_float(modality_overrides[skill], 1.0)
-    return skill_weights.get(skill, 1.0) * modality_factors.get(modality, 1.0)
+def get_skill_modality_weight(skill: str, modality: str, strict: bool = False) -> float:
+    key = f"{skill}_{modality}"
+    base_weight = BUTTON_WEIGHTS.get('normal', {}).get(key, 1.0)
+    if strict:
+        strict_weight = BUTTON_WEIGHTS.get('strict', {}).get(key)
+        if strict_weight is not None:
+            return strict_weight
+    return base_weight
 ```
 
 ```python
@@ -249,29 +249,32 @@ def get_codes_for_modality(modality: str) -> dict:
     """Get all available codes for a modality (for popup UI)."""
     return CODE_CONFIG.get(modality, {})
 
-def get_skill_modality_weight(skill: str, modality: str, code: str = None) -> float:
+def get_skill_modality_weight(
+    skill: str,
+    modality: str,
+    strict: bool = False,
+    code: str | None = None,
+) -> float:
     """
     Get the weight for a skill x modality combination.
 
     In 'modality_code' mode:
-      - All skill weights are 1.0
-      - skill_modality_overrides are ignored
-      - code_value from config_code.yaml is applied
+      - Base weight comes from the button-weight matrix (normal/strict)
+      - code_value from config_code.yaml is applied on top
 
     In 'default' mode:
-      - Existing behavior unchanged
+      - Existing button-weight behavior unchanged
     """
-    if WEIGHT_MODE == 'modality_code':
-        base = 1.0  # all skills = 1
-        modality_factor = modality_factors.get(modality, 1.0)
-        code_multiplier = get_code_value(modality, code) if code else 1.0
-        return base * modality_factor * code_multiplier
-
-    # Default mode: existing logic
-    modality_overrides = skill_modality_overrides.get(modality, {})
-    if skill in modality_overrides:
-        return coerce_float(modality_overrides[skill], 1.0)
-    return skill_weights.get(skill, 1.0) * modality_factors.get(modality, 1.0)
+    key = f"{skill}_{modality}"
+    base_weight = BUTTON_WEIGHTS.get('normal', {}).get(key, 1.0)
+    if strict:
+        strict_weight = BUTTON_WEIGHTS.get('strict', {}).get(key)
+        if strict_weight is not None:
+            base_weight = strict_weight
+    if WEIGHT_MODE != 'modality_code':
+        return base_weight
+    code_multiplier = get_code_value(modality, code) if code else 1.0
+    return base_weight * code_multiplier
 ```
 
 **Also need:** Add `weight_mode` to `_build_app_config()` so it's available:
@@ -286,15 +289,15 @@ config['weight_mode'] = raw_config.get('weight_mode', 'default')
 **Function:** `update_global_assignment()` at line 86
 
 ```python
-# --- CURRENT (line 132) ---
-weight = get_skill_modality_weight(role, modality) * (1.0 / combined_modifier)
+# --- CURRENT (line 139) ---
+weight = get_skill_modality_weight(role, modality, strict=strict_mode) * (1.0 / combined_modifier)
 ```
 
 ```python
 # --- NEW ---
-def update_global_assignment(person, role, modality, is_weighted=False, code=None):
+def update_global_assignment(person, role, modality, is_weighted=False, strict_mode=False, code=None):
     # ... existing modifier logic stays the same ...
-    weight = get_skill_modality_weight(role, modality, code=code) * (1.0 / combined_modifier)
+weight = get_skill_modality_weight(role, modality, strict=strict_mode, code=code) * (1.0 / combined_modifier)
     #                                                  ^-- new param
     # ... rest unchanged ...
 ```
@@ -344,7 +347,14 @@ def get_modality_weighted_count(canonical_id: str, modality: str) -> float:
 code = request.args.get('code')  # e.g. "0601" or None
 
 # Pass to update_global_assignment:
-canonical_id = update_global_assignment(person, actual_skill, actual_modality, is_weighted, code=code)
+canonical_id = update_global_assignment(
+    person,
+    actual_skill,
+    actual_modality,
+    is_weighted,
+    strict_mode=strict_mode,
+    code=code,
+)
 
 # Include in response:
 response_data = {
@@ -595,10 +605,8 @@ weight_mode: "modality_code"   # Options: "default" | "modality_code"
 ```
 
 When `weight_mode: "modality_code"`:
-- All skill weights from `skills:` section are ignored (treated as 1.0).
-- `skill_modality_overrides:` are ignored.
+- Base weights still come from the **button-weight matrix** (normal/strict).
 - `config_code.yaml` is loaded and codes become available in the UI.
-- Modality `factor:` values are still used.
 - Worker modifiers (`global_modifier`, `modifier`) are still used.
 
 When `weight_mode: "default"` (or not set):
@@ -618,7 +626,7 @@ When `weight_mode: "default"` (or not set):
 |---|---|---|
 | `config.yaml` | Add `weight_mode` key | +1 line |
 | `config_code.yaml` | **NEW FILE** -- code definitions per modality | ~400+ lines (100 codes x 4 mods) |
-| `config.py` | Add `WEIGHT_MODE`, `CODE_CONFIG`, `get_code_value()`, `get_codes_for_modality()`; modify `get_skill_modality_weight()` and `_build_app_config()` | ~40 new lines, ~10 modified |
+| `config.py` | Add `WEIGHT_MODE`, `CODE_CONFIG`, `get_code_value()`, `get_codes_for_modality()`; modify `get_skill_modality_weight()` and `_build_app_config()` to layer code on top of button weights | ~40 new lines, ~10 modified |
 | `balancer.py` | Add `code` param to `update_global_assignment()`; store `weighted_counts_per_mod`; update `get_modality_weighted_count()` | ~15 modified lines |
 | `routes.py` | Read `code` query param in `_assign_worker()`; pass to balancer; add `/api/codes/<modality>` endpoint; pass `weight_mode` to template | ~25 new lines, ~5 modified |
 | `templates/index.html` | Add popup HTML/CSS; modify JS `getNextAssignment()` to show popup; add `executeAssignment()`, `showCodePopup()`, `selectCode()`, `dismissCodePopup()`, `filterCodes()` | ~120 new lines |
@@ -630,11 +638,17 @@ When `weight_mode: "default"` (or not set):
 
 ## Implementation Steps
 
+### Phase 0: Reality check (current code baseline)
+- [x] **Button weight matrix exists** (`/button-weights` UI + `uploads/button_weights.json`).
+- [x] `get_skill_modality_weight()` already reads from the button matrix (normal/strict).
+- [x] Strict mode is enforced via `/strict` endpoints or `no_overflow` combos.
+- [x] There is no modality factor or per-skill weight in config.yaml today.
+
 ### Phase 1: Backend (config + weight logic)
 - [ ] Add `weight_mode` to `_build_app_config()` in `config.py`
 - [ ] Add `_load_code_config()`, `CODE_CONFIG`, `WEIGHT_MODE` to `config.py`
 - [ ] Add `get_code_value()` and `get_codes_for_modality()` to `config.py`
-- [ ] Modify `get_skill_modality_weight()` to branch on `WEIGHT_MODE`
+- [ ] Modify `get_skill_modality_weight()` to multiply **base button weight** by `code_value` when `weight_mode=modality_code`
 - [ ] Create `config_code.yaml` with example/placeholder codes per modality
 
 ### Phase 2: Balancer (pass code through)
@@ -662,7 +676,7 @@ When `weight_mode: "default"` (or not set):
 - [ ] Show code badge on assignment result card
 
 ### Phase 5: Testing + Data
-- [ ] Add unit tests for `get_skill_modality_weight()` in both modes
+- [ ] Add unit tests for `get_skill_modality_weight()` in both modes (including strict + code)
 - [ ] Add unit tests for `get_code_value()` with valid/missing/unknown codes
 - [ ] Add integration test for assignment flow with code param
 - [ ] Test popup UI with ~100 codes (scrolling, search, selection)
