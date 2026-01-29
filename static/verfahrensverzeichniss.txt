@@ -80,7 +80,7 @@ Grundprinzip:
   - Exclusions (config.yaml) verhindern unpassende Kombinationen.
 
 Lastberechnung:
-  - Gewichtung über Skill-Weights, Modality-Faktoren und
+  - Gewichtung über Button-Weights (Normal/Strict) und
     Worker-Modifier (global + ggf. w-spezifisch).
   - Vergleich basiert auf gewichteten Zuweisungen pro geleistete
     Arbeitsstunde (global über alle Modalitäten).

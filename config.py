@@ -1,5 +1,6 @@
 # Standard library imports
 import os
+import json
 import re
 import yaml
 import copy
@@ -21,6 +22,7 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 MASTER_CSV_PATH = os.path.join(UPLOAD_FOLDER, 'master_medweb.csv')
 STATE_FILE_PATH = os.path.join(UPLOAD_FOLDER, 'fairness_state.json')
+BUTTON_WEIGHTS_PATH = os.path.join(UPLOAD_FOLDER, 'button_weights.json')
 
 os.makedirs('logs', exist_ok=True)
 selection_logger.setLevel(logging.INFO)
@@ -118,7 +120,6 @@ def _build_app_config() -> Dict[str, Any]:
         values.setdefault('nav_color', '#004892')
         values.setdefault('hover_color', values['nav_color'])
         values.setdefault('background_color', '#f0f0f0')
-        values['factor'] = coerce_float(values.get('factor', 1.0))
 
     config['modalities'] = merged_modalities
 
@@ -136,7 +137,6 @@ def _build_app_config() -> Dict[str, Any]:
         values.setdefault('label', key)
         values.setdefault('button_color', '#004892')
         values.setdefault('text_color', '#ffffff')
-        values['weight'] = coerce_float(values.get('weight', 1.0))
         values.setdefault('special', False)
         values['display_order'] = coerce_int(values.get('display_order', 0))
         slug = values.get('slug') or _slugify(key)
@@ -160,9 +160,6 @@ def _build_app_config() -> Dict[str, Any]:
 
     # Include worker_roster
     config['worker_roster'] = raw_config.get('worker_roster', {})
-
-    # Include skill_modality_overrides
-    config['skill_modality_overrides'] = raw_config.get('skill_modality_overrides', {})
 
     # Include UI colors (needed for prep page)
     config['ui_colors'] = raw_config.get('ui_colors', {})
@@ -205,7 +202,7 @@ def _build_app_config() -> Dict[str, Any]:
 
     return config
 
-def _build_skill_metadata(skills_config: Dict[str, Dict[str, Any]]) -> Tuple[List[str], Dict[str, str], List[Dict[str, Any]], Dict[str, float]]:
+def _build_skill_metadata(skills_config: Dict[str, Dict[str, Any]]) -> Tuple[List[str], Dict[str, str], List[Dict[str, Any]]]:
     ordered_skills = sorted(
         skills_config.items(),
         key=lambda item: (coerce_int(item[1].get('display_order', 0)), item[0])
@@ -214,14 +211,11 @@ def _build_skill_metadata(skills_config: Dict[str, Dict[str, Any]]) -> Tuple[Lis
     columns: List[str] = []
     slug_map: Dict[str, str] = {}
     templates: List[Dict[str, Any]] = []
-    weights: Dict[str, float] = {}
-
     for name, data in ordered_skills:
         slug = data.get('slug') or _slugify(name)
 
         columns.append(name)
         slug_map[name] = slug
-        weights[name] = coerce_float(data.get('weight', 1.0))
 
         templates.append({
             'name': name,
@@ -232,7 +226,7 @@ def _build_skill_metadata(skills_config: Dict[str, Dict[str, Any]]) -> Tuple[Lis
             'special': bool(data.get('special', False)),
         })
 
-    return columns, slug_map, templates, weights
+    return columns, slug_map, templates
 
 # -----------------------------------------------------------
 # Global Configuration Objects
@@ -250,19 +244,11 @@ modality_labels = {
     mod: settings.get('label', mod.upper())
     for mod, settings in MODALITY_SETTINGS.items()
 }
-modality_factors = {
-    mod: settings.get('factor', 1.0)
-    for mod, settings in MODALITY_SETTINGS.items()
-}
-
-# Load skillxmodality weight overrides
-skill_modality_overrides = APP_CONFIG.get('skill_modality_overrides', {})
-
 # Load no_overflow combinations (strict mode - no overflow to generalists)
 _raw_no_overflow = APP_CONFIG.get('no_overflow', [])
 
 # Build skill metadata
-SKILL_COLUMNS, SKILL_SLUG_MAP, SKILL_TEMPLATES, skill_weights = _build_skill_metadata(SKILL_SETTINGS)
+SKILL_COLUMNS, SKILL_SLUG_MAP, SKILL_TEMPLATES = _build_skill_metadata(SKILL_SETTINGS)
 SKILL_LABEL_MAP = {
     data.get('label', name).lower(): name
     for name, data in SKILL_SETTINGS.items()
@@ -388,23 +374,81 @@ def _normalize_no_overflow(raw_list: list) -> set:
     return result
 
 
+# Normalize per-button weights
+def _normalize_button_weights(raw_map: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
+    """
+    Normalize per-button weights to canonical Skill_Modality keys.
+
+    Supports:
+    - Skill_Modality: card-thor_ct → card-thor_ct
+    - Modality_Skill: ct_card-thor → card-thor_ct
+
+    Returns: dict with "normal" and "strict" maps of canonical keys to weights
+    """
+    result: Dict[str, Dict[str, float]] = {'normal': {}, 'strict': {}}
+
+    if not isinstance(raw_map, dict):
+        return result
+
+    for mode in ('normal', 'strict'):
+        mode_map = raw_map.get(mode, {})
+        if not isinstance(mode_map, dict):
+            continue
+        for key, value in mode_map.items():
+            if not isinstance(key, str):
+                continue
+            pair = _resolve_skill_modality_pair(key)
+            if not pair:
+                continue
+            weight = coerce_float(value, 1.0)
+            result[mode][f"{pair[0]}_{pair[1]}"] = weight
+
+    return result
+
+
 # Normalize no_overflow list
 NO_OVERFLOW = _normalize_no_overflow(_raw_no_overflow)
+
+def load_button_weights() -> Dict[str, Dict[str, float]]:
+    try:
+        with open(BUTTON_WEIGHTS_PATH, 'r', encoding='utf-8') as weight_file:
+            data = json.load(weight_file)
+    except FileNotFoundError:
+        return _normalize_button_weights({})
+    except Exception as exc:
+        selection_logger.warning("Failed to load button weights: %s", exc)
+        return _normalize_button_weights({})
+    return _normalize_button_weights(data)
+
+def save_button_weights(raw_weights: Dict[str, Any]) -> bool:
+    normalized = _normalize_button_weights(raw_weights or {})
+    try:
+        with open(BUTTON_WEIGHTS_PATH, 'w', encoding='utf-8') as weight_file:
+            json.dump(normalized, weight_file, indent=2, ensure_ascii=False)
+        selection_logger.info("Saved button weights")
+        global BUTTON_WEIGHTS
+        BUTTON_WEIGHTS = normalized
+        return True
+    except Exception as exc:
+        selection_logger.warning("Failed to save button weights: %s", exc)
+        return False
+
+BUTTON_WEIGHTS = load_button_weights()
 
 # -----------------------------------------------------------
 # Helper functions
 # -----------------------------------------------------------
-def get_skill_modality_weight(skill: str, modality: str) -> float:
+def get_skill_modality_weight(skill: str, modality: str, strict: bool = False) -> float:
     """
     Get the weight for a skillxmodality combination.
     """
-    # Check for explicit override first
-    modality_overrides = skill_modality_overrides.get(modality, {})
-    if skill in modality_overrides:
-        return coerce_float(modality_overrides[skill], 1.0)
-
-    # Fall back to default calculation: skill_weight x modality_factor
-    return skill_weights.get(skill, 1.0) * modality_factors.get(modality, 1.0)
+    key = f"{skill}_{modality}"
+    base_weight = BUTTON_WEIGHTS.get('normal', {}).get(key, 1.0)
+    if strict:
+        strict_weight = BUTTON_WEIGHTS.get('strict', {}).get(key)
+        if strict_weight is not None:
+            return strict_weight
+    return base_weight
 
 
 def normalize_modality(modality_value: Optional[str]) -> str:

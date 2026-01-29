@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}RadIMO Cortex | Button Weights{% endblock %}
+
+{% block content %}
+  {% set header_title = 'RadIMO Cortex | Button Weights' %}
+  {% set header_subtitle = 'Configure normal and strict weighting per skill × modality' %}
+  {% set header_mode = 'global' %}
+  {% set active_page = 'button_weights' %}
+  {% set header_nav = namespace(links=[]) %}
+  {% include 'partials/header_links.html' %}
+  {% set header_links = header_nav.links %}
+  {% include 'partials/header.html' %}
+
+  <section class="card" style="margin-bottom: 1.5rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+      <div>
+        <strong>Defaults:</strong>
+        <span>Normal defaults to 1.0 when blank.</span>
+        <span>Strict defaults to Normal when blank.</span>
+      </div>
+      <div style="display:flex; gap:0.5rem;">
+        <button class="btn btn-secondary" onclick="loadWeights()">Reload</button>
+        <button class="btn btn-success" onclick="saveWeights()">Save</button>
+      </div>
+    </div>
+    <div style="margin-top:1rem; display:flex; gap:0.5rem;">
+      <button id="mode-normal" class="btn btn-primary" onclick="setMode('normal')">Normal</button>
+      <button id="mode-strict" class="btn btn-secondary" onclick="setMode('strict')">Strict</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div style="overflow-x:auto;">
+      <table class="matrix-table">
+        <thead>
+          <tr id="weightMatrixHeader"></tr>
+        </thead>
+        <tbody id="weightMatrixBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div id="statusMessage" class="status-message"></div>
+
+  <style>
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .matrix-table th,
+    .matrix-table td {
+      padding: 0.5rem;
+      text-align: center;
+      border: 1px solid #e0e0e0;
+    }
+
+    .matrix-table th {
+      background: #f8f9fa;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+
+    .matrix-table th.skill-col {
+      text-align: left;
+      min-width: 100px;
+    }
+
+    .matrix-table td.skill-name {
+      text-align: left;
+      font-weight: 500;
+      background: #fafafa;
+    }
+
+    .matrix-table td.invalid {
+      background: #f5f5f5;
+      color: #bbb;
+    }
+
+    .weight-input {
+      width: 50px;
+      padding: 0.3rem;
+      text-align: center;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+
+    .weight-input:focus {
+      outline: 2px solid #004892;
+      border-color: transparent;
+    }
+    .status-message {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      display: none;
+      z-index: 1000;
+    }
+    .status-message.success {
+      background: #d4edda;
+      color: #155724;
+      display: block;
+    }
+    .status-message.error {
+      background: #f8d7da;
+      color: #721c24;
+      display: block;
+    }
+  </style>
+
+  <script>
+    let currentMode = 'normal';
+    let weights = { normal: {}, strict: {} };
+    let skills = [];
+    let modalities = [];
+    const validSkillsMap = JSON.parse('{{ valid_skills_map|tojson|safe }}');
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadWeights();
+    });
+
+    function setMode(mode) {
+      currentMode = mode;
+      document.getElementById('mode-normal').className = mode === 'normal' ? 'btn btn-primary' : 'btn btn-secondary';
+      document.getElementById('mode-strict').className = mode === 'strict' ? 'btn btn-primary' : 'btn btn-secondary';
+      renderMatrix();
+    }
+
+    async function loadWeights() {
+      try {
+        const response = await fetch('/api/admin/button_weights');
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Load failed');
+        weights = data.weights || { normal: {}, strict: {} };
+        skills = data.skills || [];
+        modalities = data.modalities || [];
+        renderMatrix();
+        showStatus('Loaded', 'success');
+      } catch (err) {
+        showStatus(err.message, 'error');
+      }
+    }
+
+    function isValidCombination(modality, skill) {
+      if (!validSkillsMap[modality]) return true;
+      return validSkillsMap[modality].includes(skill);
+    }
+
+    function renderMatrix() {
+      const header = document.getElementById('weightMatrixHeader');
+      header.innerHTML = '<th class="skill-col">Skill</th>';
+      modalities.forEach(mod => {
+        const th = document.createElement('th');
+        th.textContent = mod.toUpperCase();
+        header.appendChild(th);
+      });
+
+      const tbody = document.getElementById('weightMatrixBody');
+      tbody.innerHTML = '';
+      skills.forEach(skill => {
+        const row = document.createElement('tr');
+        const skillCell = document.createElement('td');
+        skillCell.className = 'skill-name';
+        skillCell.textContent = skill;
+        row.appendChild(skillCell);
+
+        modalities.forEach(mod => {
+          const key = `${skill}_${mod}`;
+          const cell = document.createElement('td');
+          if (!isValidCombination(mod, skill)) {
+            cell.className = 'invalid';
+            cell.textContent = '—';
+            row.appendChild(cell);
+            return;
+          }
+          const input = document.createElement('input');
+          input.type = 'number';
+          input.step = '0.05';
+          input.min = '0.1';
+          input.placeholder = '1.0';
+          input.className = 'weight-input';
+          input.dataset.skill = skill;
+          input.dataset.modality = mod;
+          const value = weights[currentMode]?.[key];
+          input.value = value !== undefined ? value : '';
+          cell.appendChild(input);
+          row.appendChild(cell);
+        });
+        tbody.appendChild(row);
+      });
+    }
+
+    async function saveWeights() {
+      const payload = { normal: {}, strict: {} };
+      document.querySelectorAll('.weight-input').forEach(input => {
+        const skill = input.dataset.skill;
+        const mod = input.dataset.modality;
+        const key = `${skill}_${mod}`;
+        const raw = input.value.trim();
+        if (raw === '') return;
+        const value = parseFloat(raw);
+        if (Number.isNaN(value)) return;
+        payload[currentMode][key] = value;
+      });
+
+      if (currentMode === 'normal') {
+        payload.strict = weights.strict || {};
+      } else {
+        payload.normal = weights.normal || {};
+      }
+
+      try {
+        const response = await fetch('/api/admin/button_weights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ weights: payload })
+        });
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Save failed');
+        weights = payload;
+        showStatus('Saved', 'success');
+      } catch (err) {
+        showStatus(err.message, 'error');
+      }
+    }
+
+    function showStatus(message, type) {
+      const status = document.getElementById('statusMessage');
+      status.textContent = message;
+      status.className = `status-message ${type}`;
+      setTimeout(() => { status.className = 'status-message'; }, 2500);
+    }
+  </script>
+{% endblock %}
