@@ -78,7 +78,6 @@ from balancer import (
     update_global_assignment,
     get_global_assignments,
     get_global_weighted_count,
-    get_modality_weighted_count,
     BALANCER_SETTINGS
 )
 
@@ -1676,8 +1675,7 @@ def get_worker_load_data() -> Any:
                 'modifier': float(row.get('Modifier', 1.0)) if pd.notnull(row.get('Modifier')) else 1.0,
                 'skills': {},
                 'skill_counts': {},
-                # Compute per-modality weight from assignments_per_mod using skill×modality weights
-                'weighted_count': get_modality_weighted_count(canonical_id, modality)
+                'assignment_total': 0
             }
 
             # Collect skill values and counts for this modality
@@ -1685,7 +1683,9 @@ def get_worker_load_data() -> Any:
                 skill_val = row.get(skill, None)
                 mod_data['skills'][skill] = skill_value_to_display(skill_val)
                 # Get skill count for this worker in this modality
-                mod_data['skill_counts'][skill] = d['skill_counts'].get(skill, {}).get(worker_name, 0)
+                count = d['skill_counts'].get(skill, {}).get(worker_name, 0)
+                mod_data['skill_counts'][skill] = count
+                mod_data['assignment_total'] += count
 
             all_workers[canonical_id]['modalities'][modality] = mod_data
 
@@ -1701,13 +1701,13 @@ def get_worker_load_data() -> Any:
                 total_count += mod_data['skill_counts'].get(skill, 0)
             worker_data['skills'][skill] = total_count
 
-    # Calculate per-modality weight totals
+    # Calculate per-modality assignment totals
     modality_weights = {}
     for modality in allowed_modalities:
         modality_weights[modality] = {}
         for canonical_id, worker_data in all_workers.items():
             if modality in worker_data['modalities']:
-                modality_weights[modality][canonical_id] = worker_data['modalities'][modality]['weighted_count']
+                modality_weights[modality][canonical_id] = worker_data['modalities'][modality]['assignment_total']
 
     # Calculate per-skill weight totals (using global weighted assignment data)
     skill_weights = {skill: {} for skill in SKILL_COLUMNS}
