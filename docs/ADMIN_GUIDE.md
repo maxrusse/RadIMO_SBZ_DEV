@@ -239,6 +239,6 @@ Central hub for Master CSV management and system health.
 ### Assignment not balanced
 
 1. Check worker modifiers
-2. Review `skill_modality_overrides` for weight tweaks
+2. Review the Weight Matrix (`/button-weights`) for button weight tweaks
 3. Verify `min_assignments_per_skill` setting
 4. Check imbalance threshold (default 30%)

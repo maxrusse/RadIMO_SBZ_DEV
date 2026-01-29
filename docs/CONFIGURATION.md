@@ -13,7 +13,7 @@ RadIMO uses a single `config.yaml` file for all configuration. Changes require a
 admin_password: "..."           # Admin login
 skill_roster_auto_import: true # Auto-add new workers to roster JSON
 modalities: {...}               # CT, MR, XRAY, Mammo definitions
-skills: {...}                   # Skill definitions, weights, UI ordering
+skills: {...}                   # Skill definitions, UI ordering
 ...
 ```
 
@@ -47,7 +47,7 @@ scheduler:
 
 ## Modalities
 
-Define available modalities with display, weighting, and optional visibility filters.
+Define available modalities with display and optional visibility filters.
 
 ```yaml
 modalities:
@@ -56,30 +56,24 @@ modalities:
     nav_color: '#1a5276'   # Navigation button color
     hover_color: '#153f5b' # Button hover color
     background_color: '#e6f2fa'  # Page background
-    factor: 1.0            # Workload weight multiplier
   mr:
     label: MR
     nav_color: '#777777'
     hover_color: '#555555'
     background_color: '#f9f9f9'
-    factor: 1.2            # MR work counts 20% more
   xray:
     label: XRAY
     nav_color: '#239b56'
     hover_color: '#1d7a48'
     background_color: '#e0f2e9'
-    factor: 0.33           # XRAY work counts 1/3
   mammo:
     label: Mammo
     nav_color: '#e91e63'
     hover_color: '#c2185b'
     background_color: '#fce4ec'
-    factor: 0.5            # Mammography counts half
     valid_skills: [notfall, privat, gyn]  # Optional whitelist
     # hidden_skills: [msk-haut, card-thor] # Optional blacklist
 ```
-
-**Factor**: Higher factor = work counts more toward weighted total. Use to balance effort across modalities.
 
 **Visibility filters (optional):**
 - `valid_skills`: only show these skills for the modality
@@ -89,7 +83,7 @@ modalities:
 
 ## Skills
 
-Define skills with weights, UI styling, and ordering.
+Define skills with UI styling and ordering.
 
 ```yaml
 skills:
@@ -97,7 +91,6 @@ skills:
     label: Notfall
     button_color: '#dc3545'
     text_color: '#ffffff'
-    weight: 1.1
     special: false
     display_order: 0
     slug: notfall
@@ -106,7 +99,6 @@ skills:
     label: Privat
     button_color: '#ffc107'
     text_color: '#333333'
-    weight: 1.2
     special: false
     display_order: 1
     slug: privat
@@ -115,7 +107,6 @@ skills:
     label: Gyn
     button_color: '#e91e63'
     text_color: '#ffffff'
-    weight: 1.0
     special: true
     # valid_modalities: [mammo, mr]  # Optional: only show on these modalities
     # hidden_modalities: [xray]      # Optional: hide on these modalities
@@ -126,7 +117,6 @@ skills:
     label: Päd
     button_color: '#4caf50'
     text_color: '#ffffff'
-    weight: 1.0
     special: true
     display_order: 3
     slug: paed
@@ -135,7 +125,6 @@ skills:
     label: MSK/Haut
     button_color: '#9c27b0'
     text_color: '#ffffff'
-    weight: 0.8
     special: true
     display_order: 4
     slug: msk-haut
@@ -144,7 +133,6 @@ skills:
     label: Abd/Onco
     button_color: '#00bcd4'
     text_color: '#ffffff'
-    weight: 1.0
     special: true
     display_order: 5
     slug: abd-onco
@@ -153,7 +141,6 @@ skills:
     label: Card/Thor
     button_color: '#28a745'
     text_color: '#ffffff'
-    weight: 1.2
     special: true
     display_order: 6
     slug: card-thor
@@ -162,7 +149,6 @@ skills:
     label: Uro
     button_color: '#795548'
     text_color: '#ffffff'
-    weight: 1.0
     special: true
     display_order: 7
     slug: uro
@@ -171,7 +157,6 @@ skills:
     label: Kopf/Hals
     button_color: '#607d8b'
     text_color: '#ffffff'
-    weight: 1.0
     special: true
     display_order: 8
     slug: kopf-hals
@@ -185,26 +170,14 @@ skills:
 
 ---
 
-## Skill×Modality Weight Overrides
+## Button Weight Matrix (Normal + Strict)
 
-Override the default `skill_weight × modality_factor` calculation for specific combinations.
+Manage per-button weights in the **Weight Matrix** admin page (`/button-weights`).
+Weights are stored in `uploads/button_weights.json` instead of `config.yaml`.
 
-```yaml
-skill_modality_overrides:
-  mr:
-    card-thor: 1.8    # MR×Card/Thor override
-  # ct:
-  #   kopf-hals: 1.0  # Example override
-```
-
-**How it works:**
-1. Check `skill_modality_overrides[modality][skill]` for explicit value
-2. If not found, calculate: `skill_weight × modality_factor`
-
-**Use cases:**
-- Cardiac MR is more demanding → increase MR×Card/Thor weight
-- XRAY MSK/Haut is simpler → decrease XRAY×MSK/Haut weight
-- Fine-tune fairness for specialty combinations
+**Defaults:**
+- Normal weights default to `1.0` when blank
+- Strict weights fall back to the normal value when blank
 
 ---
 
@@ -673,39 +646,30 @@ modalities:
   ct:
     label: CT
     nav_color: '#1a5276'
-    factor: 1.0
   mr:
     label: MR
     nav_color: '#777777'
-    factor: 1.2
   xray:
     label: X-ray
     nav_color: '#239b56'
-    factor: 0.33
   mammo:
     label: Mammo
     nav_color: '#e91e63'
-    factor: 0.5
     valid_skills: [notfall, privat, gyn]
 
 skills:
   notfall:
     label: Notfall
-    weight: 1.1
     display_order: 0
   privat:
     label: Privat
-    weight: 1.2
     display_order: 1
   card-thor:
     label: Card/Thor
-    weight: 1.2
     special: true
     display_order: 7
 
-skill_modality_overrides:
-  mr:
-    card-thor: 1.8  # MR cardiac work weighted higher
+button_weights: (managed in uploads/button_weights.json)
 
 balancer:
   enabled: true
@@ -754,6 +718,6 @@ vendor_mappings:
 
 1. **Adding new activity**: Add rule to `vendor_mappings.medweb.rules`, restart app
 2. **Adjusting worker skills**: Use the Skill Matrix admin page (`/skill-roster`) or edit `worker_skill_roster.json` directly
-3. **Fine-tuning balance**: Adjust `skill_modality_overrides` for specific combinations
+3. **Fine-tuning balance**: Adjust the Weight Matrix (button weights)
 4. **Testing config**: Run `python scripts/ops_check.py` to validate
 5. **Generating rules from CSV**: Use `python scripts/prepare_config.py --input <csv>` to bootstrap vendor mapping rules

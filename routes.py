@@ -33,7 +33,9 @@ from config import (
     SKILL_ROSTER_AUTO_IMPORT,
     normalize_modality,
     normalize_skill,
-    is_no_overflow
+    is_no_overflow,
+    load_button_weights,
+    save_button_weights
 )
 from lib import usage_logger
 from lib.utils import (
@@ -519,6 +521,30 @@ def skill_roster_page() -> Any:
         default_w_modifier=default_w_modifier,
         is_admin=True
     )
+
+@routes.route('/button-weights')
+@admin_required
+def button_weights_page() -> Any:
+    valid_skills_map = build_valid_skills_map()
+    return render_template('button_weights.html', valid_skills_map=valid_skills_map, is_admin=True)
+
+@routes.route('/api/admin/button_weights', methods=['GET', 'POST'])
+@admin_required
+def button_weights_api() -> Any:
+    if request.method == 'POST':
+        data = request.json or {}
+        weights = data.get('weights', {})
+        if save_button_weights(weights):
+            return jsonify({'success': True})
+        return jsonify({'error': 'Failed to save button weights'}), 400
+
+    weights = load_button_weights()
+    return jsonify({
+        'success': True,
+        'weights': weights,
+        'skills': SKILL_COLUMNS,
+        'modalities': allowed_modalities
+    })
 
 @routes.route('/api/admin/skill_roster', methods=['GET', 'POST'])
 @admin_required
@@ -1376,11 +1402,12 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any
                 modality,
             )
 
+        strict_mode = not allow_overflow
         selection_logger.info(
             "Assignment request: modality=%s, role=%s, strict=%s, time=%s",
             modality,
             role,
-            not allow_overflow,
+            strict_mode,
             now.strftime('%H:%M:%S'),
         )
 
@@ -1427,7 +1454,13 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any
 
                 # Check if this is a weighted ('w') assignment - only 'w' uses modifier
                 is_weighted = candidate.get('__is_weighted', False)
-                canonical_id = update_global_assignment(person, actual_skill, actual_modality, is_weighted)
+                canonical_id = update_global_assignment(
+                    person,
+                    actual_skill,
+                    actual_modality,
+                    is_weighted,
+                    strict_mode=strict_mode,
+                )
                 state_modified = True
 
                 # Record skill-modality usage for analytics

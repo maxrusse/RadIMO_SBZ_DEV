@@ -43,7 +43,6 @@ timezone: Europe/Berlin
 #   nav_color: Navigation bar color (hex)
 #   hover_color: Navigation hover state (hex)
 #   background_color: Page background tint (hex)
-#   factor: Workload multiplier (1.0 = baseline, higher = more weighted)
 #   valid_skills: (optional) Whitelist - only show these skills for this modality
 #   hidden_skills: (optional) Blacklist - hide these skills for this modality
 # =============================================================================
@@ -54,25 +53,21 @@ modalities:
     nav_color: '#2f5d8a'
     hover_color: '#24496b'
     background_color: '#e7f0f7'
-    factor: 1.0
   mr:
     label: MR
     nav_color: '#5b4a7a'
     hover_color: '#47395f'
     background_color: '#f0eef6'
-    factor: 1.2
   xray:
     label: X-ray
     nav_color: '#2f8c7a'
     hover_color: '#247060'
     background_color: '#e3f3ef'
-    factor: 0.33
   mammo:
     label: Mammo
     nav_color: '#b45a7a'
     hover_color: '#8f4761'
     background_color: '#f7ecf1'
-    factor: 0.5
     # Visibility filters (both optional, can combine):
     # - valid_skills: positive filter - only show these skills
     # - hidden_skills: negative filter - hide these skills
@@ -88,7 +83,6 @@ modalities:
 #   label: Display name in UI
 #   button_color: Button background color (hex)
 #   text_color: Button text color (hex)
-#   weight: Workload weight multiplier (affects load balancing)
 #   special: If true, skill requires special handling (subspecialty teams, styling)
 #   display_order: Order in UI (lower = appears first)
 #   slug: URL-safe identifier (lowercase, no special chars)
@@ -101,7 +95,6 @@ skills:
     label: Notfall
     button_color: '#dc3545'
     text_color: '#ffffff'
-    weight: 1.1
     special: false
     display_order: 0
     slug: notfall
@@ -109,7 +102,6 @@ skills:
     label: Privat
     button_color: '#ffc107'
     text_color: '#333333'
-    weight: 1.2
     special: false
     display_order: 1
     slug: privat
@@ -117,7 +109,6 @@ skills:
     label: Gyn
     button_color: '#b65c9a'
     text_color: '#ffffff'
-    weight: 1.0
     special: true             # Subspecialty team
     display_order: 2
     slug: gyn
@@ -125,7 +116,6 @@ skills:
     label: Päd
     button_color: '#5aa56a'
     text_color: '#ffffff'
-    weight: 1.0
     special: true             # Subspecialty team
     display_order: 3
     slug: paed
@@ -133,7 +123,6 @@ skills:
     label: MSK/Haut
     button_color: '#7a6bb0'
     text_color: '#ffffff'
-    weight: 0.8
     special: true             # Musculoskeletal & skin subspecialty
     display_order: 4
     slug: msk-haut
@@ -141,7 +130,6 @@ skills:
     label: Abd/Onco
     button_color: '#2b8fa1'
     text_color: '#ffffff'
-    weight: 1.0
     special: true             # Abdominal imaging subspecialty
     display_order: 5
     slug: abd-onco
@@ -149,7 +137,6 @@ skills:
     label: Card/Thor
     button_color: '#3d6aa8'
     text_color: '#ffffff'
-    weight: 1.2
     special: true             # Cardio-thoracic subspecialty
     display_order: 6
     slug: card-thor
@@ -157,7 +144,6 @@ skills:
     label: Uro
     button_color: '#7a5a4a'
     text_color: '#ffffff'
-    weight: 1.0
     special: true             # urology subspecialty
     display_order: 7
     slug: uro
@@ -165,22 +151,9 @@ skills:
     label: Kopf/Hals
     button_color: '#6b7a8c'
     text_color: '#ffffff'
-    weight: 1.0
     special: true             # Head & neck subspecialty
     display_order: 8
     slug: kopf-hals
-
-# =============================================================================
-# SKILL×MODALITY WEIGHT OVERRIDES
-# =============================================================================
-# Override the default weight calculation (skill.weight × modality.factor)
-# for specific skill×modality combinations.
-# If not specified, falls back to: skill.weight × modality.factor
-# =============================================================================
-
-skill_modality_overrides:
-  mr:
-    card-thor: 1.8    # Cardiac MR weighted higher due to complexity
 
 # =============================================================================
 # NO OVERFLOW (STRICT MODE) COMBINATIONS
@@ -361,6 +334,15 @@ vendor_mappings:
     # All skills are active (=1) to provide full coverage during late hours.
     # =========================================================================
 
+    - match: "SBZ: SBZ Privatpatienten"
+      type: "shift"
+      times:
+        default: "07:30-15:45"
+      skill_overrides:
+        all: -1
+        privat_mr: 1
+        privat_ct: 1
+
     - match: "OA CT"
       type: "shift"
       times:
@@ -377,7 +359,7 @@ vendor_mappings:
         all: -1
         privat_mr: 1
 
-    - match: "OA Röntgen"
+    - match: "OA / FA Chir"
       type: "shift"
       times:
         default: "07:30-15:45"
@@ -385,7 +367,7 @@ vendor_mappings:
         all: -1
         privat_xray: 1
 
-    - match: "OA Mammo"
+    - match: "OA / FA Gyn"
       type: "shift"
       times:
         default: "07:30-15:45"
@@ -564,12 +546,9 @@ vendor_mappings:
       times:
         default: "11:30-19:45"
       skill_overrides:
-        all: 1
+        all: 0
         notfall_ct: -1
         notfall_xray: -1
-        paed_ct: -1
-        paed_mr: -1
-        paed_xray: -1
 
     - match: "3. Dienst"
       label: "Röntgendienst"
