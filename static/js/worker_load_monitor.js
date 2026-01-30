@@ -392,7 +392,7 @@ function renderAdvancedTable() {
       const skillSettings = SKILL_SETTINGS[skill] || {};
       const skillLabel = skillSettings.label || skill;
       const skillClass = `skill-header-${skill.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-      headerSub += `<th class="${skillClass}" title="${skillLabel}">${skillLabel.substring(0, 4)}</th>`;
+      headerSub += `<th class="${skillClass}" title="${skillLabel}">${skillLabel}</th>`;
     });
   });
 
