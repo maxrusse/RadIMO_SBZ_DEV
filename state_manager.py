@@ -217,8 +217,8 @@ class StateManager:
         else:
             self.work_hours_cache.invalidate()
 
-    def save_state(self, state_file_path: str, allowed_modalities: list, logger) -> None:
-        """Persist state to disk."""
+    def save_state(self, state_file_path: str, allowed_modalities: list, logger, *, create_backup: bool = True) -> None:
+        """Persist state to disk with optional backup."""
         try:
             state = {
                 'global_worker_data': {
@@ -238,6 +238,17 @@ class StateManager:
                     'last_reset_date': d['last_reset_date'].isoformat() if d['last_reset_date'] else None
                 }
 
+            # Create backup before saving
+            if create_backup and os.path.exists(state_file_path):
+                import shutil
+                backup_dir = os.path.join(os.path.dirname(state_file_path), 'backups')
+                os.makedirs(backup_dir, exist_ok=True)
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                backup_path = os.path.join(backup_dir, f'fairness_state_{timestamp}.json')
+                shutil.copy2(state_file_path, backup_path)
+                # Rotate old backups (keep last 5)
+                self._rotate_state_backups(backup_dir, max_backups=5)
+
             with open(state_file_path, 'w') as f:
                 json.dump(state, f, indent=2)
 
@@ -245,8 +256,31 @@ class StateManager:
         except Exception as e:
             logger.error(f"Failed to save state: {str(e)}", exc_info=True)
 
+    def _rotate_state_backups(self, backup_dir: str, max_backups: int = 5) -> None:
+        """Remove old state backups, keeping only the most recent max_backups."""
+        import glob as glob_module
+        pattern = os.path.join(backup_dir, 'fairness_state_*.json')
+        backups = sorted(glob_module.glob(pattern), reverse=True)
+        for backup in backups[max_backups:]:
+            try:
+                os.remove(backup)
+            except OSError:
+                pass
+
     def load_state(self, state_file_path: str, allowed_modalities: list, skill_columns: list, logger) -> None:
-        """Load state from disk."""
+        """Load state from disk with migration from old location if needed."""
+        # Migrate from old location (uploads/fairness_state.json) if needed
+        old_path = os.path.join('uploads', 'fairness_state.json')
+        if os.path.exists(old_path) and not os.path.exists(state_file_path):
+            import shutil
+            try:
+                os.makedirs(os.path.dirname(state_file_path), exist_ok=True)
+                shutil.copy2(old_path, state_file_path)
+                os.remove(old_path)
+                logger.info("Migrated fairness_state.json to data/ folder")
+            except OSError as exc:
+                logger.warning(f"Failed to migrate fairness_state.json: {exc}")
+
         try:
             with open(state_file_path, 'r') as f:
                 state = json.load(f)

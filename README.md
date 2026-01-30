@@ -128,15 +128,23 @@ RadIMO_Cortex/
 ├── balancer.py                 # Load balancing logic
 ├── config.py                   # Config loader and normalization
 ├── config.yaml                 # Configuration (mapping, skills, special tasks)
-├── worker_skill_roster.json    # Worker skill roster (persistent)
 ├── requirements.txt            # Python dependencies
 ├── gunicorn_config.py          # Gunicorn server configuration
-├── uploads/                    # Runtime data files
-│   └── button_weights.json     # Button weights for skills and special tasks
+├── data/                       # Persistent data files (auto-created)
+│   ├── worker_skill_roster.json  # Worker skill roster
+│   ├── button_weights.json       # Button weights for skills/special tasks
+│   ├── fairness_state.json       # Application state persistence
+│   └── backups/                  # Automatic backups (rotated, n=5)
+│       ├── worker_skill_roster_*.json
+│       ├── button_weights_*.json
+│       └── fairness_state_*.json
+├── uploads/                    # Runtime schedule data
+│   └── backups/                # Schedule backups (staged/live/scheduled)
 ├── data_manager/               # Data handling and state management
 │   ├── __init__.py              # Package exports
 │   ├── csv_parser.py            # CSV parsing utilities
 │   ├── file_ops.py              # File handling helpers
+│   ├── json_manager.py          # Centralized JSON file management
 │   ├── schedule_crud.py         # Schedule create/update/delete
 │   ├── scheduled_tasks.py       # Scheduled jobs and timers
 │   ├── state_persistence.py     # Save/load system state

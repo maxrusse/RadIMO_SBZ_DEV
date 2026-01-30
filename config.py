@@ -20,9 +20,18 @@ UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
+# Data directory for JSON files (centralized location)
+DATA_FOLDER = 'data'
+if not os.path.exists(DATA_FOLDER):
+    os.makedirs(DATA_FOLDER)
+DATA_BACKUPS_FOLDER = os.path.join(DATA_FOLDER, 'backups')
+if not os.path.exists(DATA_BACKUPS_FOLDER):
+    os.makedirs(DATA_BACKUPS_FOLDER)
+
 MASTER_CSV_PATH = os.path.join(UPLOAD_FOLDER, 'master_medweb.csv')
-STATE_FILE_PATH = os.path.join(UPLOAD_FOLDER, 'fairness_state.json')
-BUTTON_WEIGHTS_PATH = os.path.join(UPLOAD_FOLDER, 'button_weights.json')
+STATE_FILE_PATH = os.path.join(DATA_FOLDER, 'fairness_state.json')
+BUTTON_WEIGHTS_PATH = os.path.join(DATA_FOLDER, 'button_weights.json')
+WORKER_SKILL_ROSTER_PATH = os.path.join(DATA_FOLDER, 'worker_skill_roster.json')
 
 os.makedirs('logs', exist_ok=True)
 selection_logger.setLevel(logging.INFO)
@@ -555,7 +564,23 @@ def _normalize_button_weights(raw_map: Dict[str, Any]) -> Dict[str, Any]:
 # Normalize no_overflow list
 NO_OVERFLOW = _normalize_no_overflow(_raw_no_overflow)
 
+def _migrate_button_weights() -> None:
+    """Migrate button_weights.json from uploads/ to data/ if needed."""
+    old_path = os.path.join(UPLOAD_FOLDER, 'button_weights.json')
+    if os.path.exists(old_path) and not os.path.exists(BUTTON_WEIGHTS_PATH):
+        try:
+            import shutil
+            shutil.copy2(old_path, BUTTON_WEIGHTS_PATH)
+            os.remove(old_path)
+            selection_logger.info("Migrated button_weights.json to data/ folder")
+        except OSError as exc:
+            selection_logger.warning("Failed to migrate button_weights.json: %s", exc)
+
+
 def load_button_weights() -> Dict[str, Any]:
+    # Migrate from old location if needed
+    _migrate_button_weights()
+
     try:
         with open(BUTTON_WEIGHTS_PATH, 'r', encoding='utf-8') as weight_file:
             data = json.load(weight_file)
@@ -566,9 +591,20 @@ def load_button_weights() -> Dict[str, Any]:
         return _normalize_button_weights({})
     return _normalize_button_weights(data)
 
-def save_button_weights(raw_weights: Dict[str, Any]) -> bool:
+
+def save_button_weights(raw_weights: Dict[str, Any], *, create_backup: bool = True) -> bool:
     normalized = _normalize_button_weights(raw_weights or {})
     try:
+        # Create backup before saving
+        if create_backup and os.path.exists(BUTTON_WEIGHTS_PATH):
+            import shutil
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_path = os.path.join(DATA_BACKUPS_FOLDER, f'button_weights_{timestamp}.json')
+            shutil.copy2(BUTTON_WEIGHTS_PATH, backup_path)
+            # Rotate old backups (keep last 5)
+            _rotate_json_backups('button_weights', max_backups=5)
+
         with open(BUTTON_WEIGHTS_PATH, 'w', encoding='utf-8') as weight_file:
             json.dump(normalized, weight_file, indent=2, ensure_ascii=False)
         selection_logger.info("Saved button weights")
@@ -578,6 +614,18 @@ def save_button_weights(raw_weights: Dict[str, Any]) -> bool:
     except Exception as exc:
         selection_logger.warning("Failed to save button weights: %s", exc)
         return False
+
+
+def _rotate_json_backups(base_name: str, max_backups: int = 5) -> None:
+    """Remove old backups, keeping only the most recent max_backups."""
+    import glob as glob_module
+    pattern = os.path.join(DATA_BACKUPS_FOLDER, f"{base_name}_*.json")
+    backups = sorted(glob_module.glob(pattern), reverse=True)
+    for backup in backups[max_backups:]:
+        try:
+            os.remove(backup)
+        except OSError:
+            pass
 
 BUTTON_WEIGHTS = load_button_weights()
 
@@ -631,3 +679,114 @@ def is_no_overflow(skill: str, modality: str) -> bool:
     """
     key = f"{skill}_{modality}"
     return key in NO_OVERFLOW
+
+
+# -----------------------------------------------------------
+# Cleanup and Backup Functions
+# -----------------------------------------------------------
+
+def get_valid_skill_modality_keys() -> set:
+    """Get set of all valid skill_modality keys based on current config."""
+    return {f"{skill}_{mod}" for skill in SKILL_COLUMNS for mod in allowed_modalities}
+
+
+def get_valid_special_task_keys() -> set:
+    """Get set of all valid special_task_modality keys based on current config."""
+    keys = set()
+    for task in SPECIAL_TASKS:
+        for mod in task.get('modalities_dashboards', []):
+            keys.add(f"{task['slug']}_{mod}")
+    return keys
+
+
+def cleanup_button_weights_data(weights_data: Dict[str, Any]) -> tuple:
+    """
+    Clean up legacy entries from button weights.
+
+    Returns:
+        Tuple of (cleaned_data, removed_count)
+    """
+    valid_skill_keys = get_valid_skill_modality_keys()
+    valid_special_keys = get_valid_special_task_keys()
+
+    cleaned = {
+        'normal': {},
+        'strict': {},
+        'special': {'normal': {}, 'strict': {}},
+    }
+
+    removed_count = 0
+
+    # Clean normal weights
+    for key, value in weights_data.get('normal', {}).items():
+        if key in valid_skill_keys:
+            cleaned['normal'][key] = value
+        else:
+            removed_count += 1
+
+    # Clean strict weights
+    for key, value in weights_data.get('strict', {}).items():
+        if key in valid_skill_keys:
+            cleaned['strict'][key] = value
+        else:
+            removed_count += 1
+
+    # Clean special task weights
+    special_weights = weights_data.get('special', {})
+    if isinstance(special_weights, dict):
+        for key, value in special_weights.get('normal', {}).items():
+            if key in valid_special_keys:
+                cleaned['special']['normal'][key] = value
+            else:
+                removed_count += 1
+
+        for key, value in special_weights.get('strict', {}).items():
+            if key in valid_special_keys:
+                cleaned['special']['strict'][key] = value
+            else:
+                removed_count += 1
+
+    return cleaned, removed_count
+
+
+def cleanup_and_save_button_weights() -> tuple:
+    """
+    Load, cleanup, and save button weights.
+
+    Returns:
+        Tuple of (success, removed_count)
+    """
+    global BUTTON_WEIGHTS
+    current_weights = load_button_weights()
+    cleaned, removed_count = cleanup_button_weights_data(current_weights)
+
+    if removed_count > 0:
+        success = save_button_weights(cleaned)
+        if success:
+            selection_logger.info("Cleaned button weights: removed %d legacy keys", removed_count)
+        return success, removed_count
+
+    return True, 0
+
+
+def list_button_weights_backups() -> List[Dict[str, Any]]:
+    """List all button weights backups."""
+    import glob as glob_module
+    pattern = os.path.join(DATA_BACKUPS_FOLDER, 'button_weights_*.json')
+    backups = []
+
+    for path in sorted(glob_module.glob(pattern), reverse=True):
+        try:
+            stat = os.stat(path)
+            filename = os.path.basename(path)
+            timestamp_str = filename.replace('button_weights_', '').replace('.json', '')
+            backups.append({
+                'path': path,
+                'filename': filename,
+                'timestamp': timestamp_str,
+                'size': stat.st_size,
+            })
+        except OSError:
+            pass
+
+    return backups

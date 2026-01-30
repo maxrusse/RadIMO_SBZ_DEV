@@ -173,7 +173,7 @@ skills:
 ## Button Weight Matrix (Normal + Strict)
 
 Manage per-button weights in the **Weight Matrix** admin page (`/button-weights`).
-Weights are stored in `uploads/button_weights.json` instead of `config.yaml`.
+Weights are stored in `data/button_weights.json` (with automatic backup rotation) instead of `config.yaml`.
 
 **Defaults:**
 - Normal weights default to `1.0` when blank
@@ -245,7 +245,7 @@ special_tasks:
 
 Special task weights are managed in the **Weight Matrix** admin page (`/button-weights`), not in `config.yaml`.
 
-- Weights are stored in `uploads/button_weights.json` under `special.normal` and `special.strict`
+- Weights are stored in `data/button_weights.json` under `special.normal` and `special.strict`
 - The weight key format is `{task_slug}_{modality}` (e.g., `abdonko_ct-seg_ct`)
 - Default weight is `1.0` - higher values increase workload contribution
 - Strict mode weights fall back to normal weights when not set
@@ -638,13 +638,15 @@ times:
 
 ## Worker Skill Matrix
 
-Defines Skill×Modality combinations for each worker. The worker roster is stored in `worker_skill_roster.json` and can be edited via the Skill Matrix admin page (`/skill-roster`).
+Defines Skill×Modality combinations for each worker. The worker roster is stored in `data/worker_skill_roster.json` and can be edited via the Skill Matrix admin page (`/skill-roster`).
 
 **Format:** `"skill_modality": value` (e.g., `"msk-haut_ct": 1`)
 
 Both `"skill_modality"` and `"modality_skill"` formats are accepted and normalized automatically.
 
-### Example (worker_skill_roster.json)
+**Automatic backups:** Changes are automatically backed up to `data/backups/` with rotation (keeps last 5 backups).
+
+### Example (data/worker_skill_roster.json)
 
 ```json
 {
@@ -735,7 +737,7 @@ skills:
     special: true
     display_order: 7
 
-button_weights: (managed in uploads/button_weights.json)
+button_weights: (managed in data/button_weights.json)
 
 balancer:
   enabled: true

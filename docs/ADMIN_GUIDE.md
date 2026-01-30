@@ -183,7 +183,7 @@ Central hub for Master CSV management and system health.
 
 **Purpose:** Configure per-button weights for load balancing across skill×modality combinations and special tasks.
 
-**Key behavior:** Changes save to `uploads/button_weights.json` and take effect immediately.
+**Key behavior:** Changes save to `data/button_weights.json` (with automatic backup rotation) and take effect immediately.
 
 ### How It Works
 
