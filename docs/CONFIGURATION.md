@@ -206,6 +206,72 @@ no_overflow:
 
 ---
 
+## Special Tasks
+
+Special tasks are custom buttons that appear on dashboards alongside regular skill buttons. They route to an existing base skill but display separately, allowing you to track specific sub-workflows while using the same worker pool.
+
+```yaml
+special_tasks:
+  - name: Abdonko_ct-seg
+    label: CT Segmentation
+    base_skill: abd-onco
+    modalities_dashboards: [ct]
+    skill_dashboards: [abd-onco]
+    allow_overflow: false
+    display_order: 999
+```
+
+### Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Unique identifier (slug-friendly, no spaces) |
+| `label` | string | No | Button display text (defaults to name) |
+| `base_skill` | string | Yes | Which skill to use for worker selection and load balancing |
+| `modalities_dashboards` | list | No | Which modality dashboards show this button (e.g., `[ct, mr]`) |
+| `skill_dashboards` | list | No | Which skill dashboards show this button (e.g., `[abd-onco]`) |
+| `allow_overflow` | boolean | No | Whether generalists (skill=0) can be assigned (default: true) |
+| `display_order` | integer | No | Button ordering (default: 999, appears after regular skills) |
+
+### How It Works
+
+1. **Configuration**: Define special tasks in `config.yaml` under `special_tasks`
+2. **Dashboard rendering**: Buttons appear on specified modality/skill dashboards with the base skill's colors
+3. **Assignment**: Clicking the button calls `/api/{modality}/{task_slug}` which resolves to the base_skill
+4. **Load balancing**: Assignments are balanced using the base skill's worker pool
+5. **Weight configuration**: Configure weights via the Weight Matrix admin page (`/button-weights`)
+
+### Weight Configuration
+
+Special task weights are managed in the **Weight Matrix** admin page (`/button-weights`), not in `config.yaml`.
+
+- Weights are stored in `uploads/button_weights.json` under `special.normal` and `special.strict`
+- The weight key format is `{task_slug}_{modality}` (e.g., `abdonko_ct-seg_ct`)
+- Default weight is `1.0` - higher values increase workload contribution
+- Strict mode weights fall back to normal weights when not set
+
+### Example Use Cases
+
+**CT Segmentation tracking:**
+```yaml
+- name: ct-seg
+  label: CT Segmentation
+  base_skill: abd-onco
+  modalities_dashboards: [ct]
+  allow_overflow: false  # Only specialists
+```
+
+**Multi-modality subspecialty:**
+```yaml
+- name: cardiac-mri
+  label: Cardiac MRI
+  base_skill: card-thor
+  modalities_dashboards: [mr]
+  skill_dashboards: [card-thor]
+```
+
+---
+
 ## Skill Value Colors
 
 How skill values appear in the prep page table.

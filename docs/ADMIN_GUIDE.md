@@ -14,6 +14,7 @@ RadIMO provides admin entry points for different operational needs:
 | **Schedule Edit (Today)** | `/prep-today` | Live | Same-day adjustments (Live Edit) |
 | **Schedule Edit (Tomorrow)** | `/prep-tomorrow` | Staged | Daily schedule preparation |
 | **Worker Load** | `/worker-load` | Monitor | Live load monitoring |
+| **Weight Matrix** | `/button-weights` | Direct | Button weight configuration (incl. special tasks) |
 
 Admin pages require login with the admin password from `config.yaml` when `admin_access_protection_enabled` is true.
 
@@ -33,6 +34,11 @@ Admin pages require login with the admin password from `config.yaml` when `admin
 │  ├─ PREP TOMORROW:        Stage for next workday            │
 │  │  └─ Prepare tomorrow's setup from Master CSV             │
 │  └─ Both modes: Interactive GAP handling (Split Shift)      │
+├─────────────────────────────────────────────────────────────┤
+│  WEIGHT MATRIX (Load Balancing)  /button-weights            │
+│  ├─ Skill×Modality weight grid (normal + strict modes)      │
+│  ├─ Special task weights                                    │
+│  └─ Save directly to button_weights.json                    │
 └─────────────────────────────────────────────────────────────┘
 
 ---
@@ -170,6 +176,46 @@ Central hub for Master CSV management and system health.
 1. **Upload Master CSV**: Once per month or whenever the master schedule changes.
 2. **Daily Reset**: Automated at 07:30 CET, or manual via "Load Today".
 3. **Daily Prep**: Use "Schedule Edit" -> "Prep Tomorrow" in the evening for the next day.
+
+---
+
+## Weight Matrix (`/button-weights`)
+
+**Purpose:** Configure per-button weights for load balancing across skill×modality combinations and special tasks.
+
+**Key behavior:** Changes save to `uploads/button_weights.json` and take effect immediately.
+
+### How It Works
+
+1. Navigate to `/button-weights` (or "Weight Matrix" in admin nav)
+2. Toggle between **Normal** and **Strict** modes using the mode selector
+3. Edit weights in the matrix:
+   - **Blank** = default (1.0)
+   - **Higher values** (e.g., 1.5) = assignment counts more toward workload
+   - **Lower values** (e.g., 0.5) = assignment counts less toward workload
+4. Click **"Save"** to persist changes
+
+### Skill×Modality Weights
+
+The main matrix shows all skill×modality combinations. Invalid combinations (based on modality `valid_skills` config) are grayed out.
+
+### Special Task Weights
+
+Below the main matrix, special tasks are listed with their configuration:
+- **Task**: Display label
+- **Base Skill**: Which skill pool is used for assignments
+- **Visible Modalities**: Which dashboards show this button
+- **Skill Dashboards**: Which skill-view dashboards show this button
+- **Overflow**: Whether generalists can be assigned
+- **Weight**: Editable weight value (applies to all visible modalities)
+
+### Example: Reduce CT Segmentation Workload Impact
+
+To make CT Segmentation assignments count less toward worker load:
+1. Go to `/button-weights`
+2. Find "CT Segmentation" in the Special Tasks section
+3. Set weight to `0.5` (assignments count as half)
+4. Click "Save"
 
 ---
 
