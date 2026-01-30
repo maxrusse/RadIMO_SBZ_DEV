@@ -275,6 +275,35 @@ def _resolve_skill(key_lower: str) -> Optional[str]:
     return ROLE_MAP.get(key_lower) or SKILL_LABEL_MAP.get(key_lower) or skill_columns_map.get(key_lower)
 
 
+def _resolve_skill_modality_pair(key: str) -> Optional[Tuple[str, str]]:
+    """
+    Resolve a skill_modality key to canonical (skill, modality) tuple.
+
+    Tries both orderings: skill_mod and mod_skill.
+    Returns None if the key cannot be resolved.
+    """
+    key_lower = key.lower().strip()
+    if '_' not in key_lower:
+        return None
+
+    parts = key_lower.split('_', 1)
+    if len(parts) != 2:
+        return None
+
+    # Try skill_mod first
+    skill = _resolve_skill(parts[0])
+    mod = allowed_modalities_map.get(parts[1])
+
+    # Try mod_skill if first attempt failed
+    if not (skill and mod):
+        skill = _resolve_skill(parts[1])
+        mod = allowed_modalities_map.get(parts[0])
+
+    if skill and mod:
+        return (skill, mod)
+    return None
+
+
 def _normalize_special_tasks(raw_tasks: Any) -> List[Dict[str, Any]]:
     if not raw_tasks:
         return []
@@ -400,35 +429,6 @@ def _normalize_special_tasks(raw_tasks: Any) -> List[Dict[str, Any]]:
 SPECIAL_TASKS = _normalize_special_tasks(APP_CONFIG.get('special_tasks', []))
 SPECIAL_TASKS_MAP = {task['slug']: task for task in SPECIAL_TASKS}
 APP_CONFIG['special_tasks'] = SPECIAL_TASKS
-
-
-def _resolve_skill_modality_pair(key: str) -> Optional[Tuple[str, str]]:
-    """
-    Resolve a skill_modality key to canonical (skill, modality) tuple.
-
-    Tries both orderings: skill_mod and mod_skill.
-    Returns None if the key cannot be resolved.
-    """
-    key_lower = key.lower().strip()
-    if '_' not in key_lower:
-        return None
-
-    parts = key_lower.split('_', 1)
-    if len(parts) != 2:
-        return None
-
-    # Try skill_mod first
-    skill = _resolve_skill(parts[0])
-    mod = allowed_modalities_map.get(parts[1])
-
-    # Try mod_skill if first attempt failed
-    if not (skill and mod):
-        skill = _resolve_skill(parts[1])
-        mod = allowed_modalities_map.get(parts[0])
-
-    if skill and mod:
-        return (skill, mod)
-    return None
 
 
 def _resolve_special_task_modality_pair(key: str) -> Optional[Tuple[str, str]]:
