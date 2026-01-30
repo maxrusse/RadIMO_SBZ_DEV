@@ -478,13 +478,25 @@ def index_by_skill() -> Any:
             continue
         if skill not in task.get('skill_dashboards', []):
             continue
-        for mod in task.get('modalities_dashboards', []):
-            if mod not in visible_modalities:
-                continue
-            label = f"{modality_labels.get(mod, mod.upper())} · {task.get('label', task['name'])}"
+        # Tasks on skill dashboards just use their label
+        task_mods = task.get('modalities_dashboards', [])
+        if task_mods:
+            # Add button for each visible modality
+            for mod in task_mods:
+                if mod not in visible_modalities:
+                    continue
+                special_task_buttons.append({
+                    'modality': mod,
+                    'label': task.get('label', task['name']),
+                    'slug': task['slug'],
+                    'button_color': task.get('button_color', '#004892'),
+                    'text_color': task.get('text_color', '#ffffff'),
+                })
+        else:
+            # No modality filter - add single button (uses first visible modality for routing)
             special_task_buttons.append({
-                'modality': mod,
-                'label': label,
+                'modality': visible_modalities[0] if visible_modalities else None,
+                'label': task.get('label', task['name']),
                 'slug': task['slug'],
                 'button_color': task.get('button_color', '#004892'),
                 'text_color': task.get('text_color', '#ffffff'),
