@@ -1425,11 +1425,14 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any
         special_task = SPECIAL_TASKS_MAP.get(role.lower())
         task_work_amount = 1.0
         task_label = None
+        target_skill_modalities = None
         if special_task:
             role = special_task['base_skill']
             task_label = special_task.get('label')
             if allow_overflow and not special_task.get('allow_overflow', True):
                 allow_overflow = False
+            # Get explicit routing targets if defined
+            target_skill_modalities = special_task.get('target_skill_modalities') or None
 
         # Check if this skill×modality combo has overflow disabled
         canonical_skill = normalize_skill(role)
@@ -1460,6 +1463,7 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any
                 role=role,
                 modality=modality,
                 allow_overflow=allow_overflow,
+                target_skill_modalities=target_skill_modalities,
             )
             if result is not None:
                 candidate, used_column, source_modality = result

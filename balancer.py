@@ -621,10 +621,133 @@ def _get_worker_exclusion_based(
     )
     return None
 
+
+def _get_worker_multi_target(
+    current_dt: datetime,
+    target_skill_modalities: list,
+    allow_overflow: bool,
+):
+    """
+    Find worker across multiple skill_modality combinations.
+
+    Searches all specified (skill, modality) pairs and picks the worker
+    with the lowest workload ratio from any matching pool. Only considers
+    specialists (skill=1 or 'w'), no generalist overflow.
+
+    Args:
+        current_dt: Current datetime
+        target_skill_modalities: List of (skill, modality) tuples to search
+        allow_overflow: Currently ignored - multi-target only uses specialists
+
+    Returns:
+        Tuple of (candidate_row, skill_used, modality) or None
+    """
+    if not target_skill_modalities:
+        return None
+
+    selection_logger.info(
+        "Multi-target search across: %s",
+        [f"{s}_{m}" for s, m in target_skill_modalities],
+    )
+
+    # Calculate workload ratios using global hours
+    global_hours_map = calculate_global_work_hours_now(current_dt)
+
+    def weighted_ratio(person):
+        canonical_id = get_canonical_worker_id(person)
+        hours_worked = global_hours_map.get(canonical_id, 0.0)
+        weighted_count = get_global_weighted_count(canonical_id)
+        if hours_worked <= 0:
+            return 0.0 if weighted_count <= 0 else float('inf')
+        return weighted_count / hours_worked
+
+    # Collect all candidates across all skill_modality combinations
+    all_candidates = []
+
+    for skill, modality in target_skill_modalities:
+        if modality not in modality_data:
+            continue
+
+        d = modality_data[modality]
+        if d['working_hours_df'] is None:
+            continue
+
+        active_df = _filter_active_rows(d['working_hours_df'], current_dt)
+        if active_df is None or active_df.empty:
+            continue
+
+        if skill not in active_df.columns:
+            continue
+
+        # Only consider specialists (skill=1 or 'w') for multi-target
+        specialists_df = active_df[
+            active_df[skill].apply(lambda v: skill_value_to_numeric(v) == 1)
+        ]
+
+        if specialists_df.empty:
+            continue
+
+        # Add candidates from this skill_modality combination
+        for _, row in specialists_df.iterrows():
+            person = row.get('PPL')
+            if not person:
+                continue
+            ratio = weighted_ratio(person)
+            all_candidates.append({
+                'row': row,
+                'person': person,
+                'skill': skill,
+                'modality': modality,
+                'ratio': ratio,
+                'is_weighted': is_weighted_skill(row.get(skill)),
+            })
+
+    if not all_candidates:
+        selection_logger.info(
+            "No specialists available for multi-target search: %s",
+            [f"{s}_{m}" for s, m in target_skill_modalities],
+        )
+        return None
+
+    # Pick the candidate with the lowest workload ratio
+    best = min(all_candidates, key=lambda c: c['ratio'])
+    candidate = best['row'].copy()
+    candidate['__modality_source'] = best['modality']
+    candidate['__selection_ratio'] = best['ratio']
+    candidate['__is_weighted'] = best['is_weighted']
+    candidate['__skill_source'] = best['skill']
+
+    selection_logger.info(
+        "Multi-target selected: person=%s, skill=%s, modality=%s, weighted=%s, ratio=%.4f",
+        best['person'],
+        best['skill'],
+        best['modality'],
+        best['is_weighted'],
+        best['ratio'],
+    )
+
+    return candidate, best['skill'], best['modality']
+
+
 def get_next_available_worker(
     current_dt: datetime,
     role='normal',
     modality=default_modality,
     allow_overflow: bool = True,
+    target_skill_modalities=None,
 ):
+    """
+    Get the next available worker for a skill assignment.
+
+    Args:
+        current_dt: Current datetime
+        role: Skill name to assign
+        modality: Modality context (used if target_skill_modalities not provided)
+        allow_overflow: Whether to allow overflow to generalists
+        target_skill_modalities: Optional list of (skill, modality) tuples to search across.
+                                If provided, searches all specified combinations and picks
+                                the worker with the lowest workload ratio.
+    """
+    if target_skill_modalities:
+        return _get_worker_multi_target(current_dt, target_skill_modalities, allow_overflow)
     return _get_worker_exclusion_based(current_dt, role, modality, allow_overflow)
