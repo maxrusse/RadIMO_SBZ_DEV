@@ -8,10 +8,6 @@
 # -----------------------------------------------------------------------------
 # AUTHENTICATION
 # -----------------------------------------------------------------------------
-# admin_password: Password for admin pages (config, data management)
-# access_password: Simple password for basic access protection (optional)
-admin_password: change_pw_for_live
-
 # Flask secret key for session management (required for production)
 # Generate a secure random key: python -c "import secrets; print(secrets.token_hex(32))"
 # secret_key: your_secure_random_key_here
@@ -19,11 +15,14 @@ admin_password: change_pw_for_live
 # Basic access protection for non-admin pages (optional)
 # Set to false to disable password protection entirely
 access_protection_enabled: false
+# access_password: Simple password for basic access protection (optional)
 access_password: change_easy_pw
 
 # Basic access protection for admin pages (optional)
 # Set to false to disable password protection entirely
 admin_access_protection_enabled: false
+# admin_password: Password for admin pages (config, data management)
+admin_password: change_pw_for_live
 
 # -----------------------------------------------------------------------------
 # TIMEZONE
@@ -364,15 +363,17 @@ vendor_mappings:
       day_part: "Tageszeit"                   # Optional: VM/NM for time heuristics (TODO: future granular shifts)
 
     # Rules for mapping activities to shifts/gaps
-    # Rules are evaluated in order; first match wins
+    # Rules are evaluated in order; first match wins.
+    # Keep rules grouped by theme for readability (Privat, Notfall, specialty,
+    # late shifts, admin shifts, gaps). If you move rules, preserve the
+    # relative order of overlapping matches to avoid behavior changes.
     rules:
 
     # =========================================================================
-    # DIAGNOSTIC LATE SHIFT - Covers all diagnostic modalities
+    # PRIVAT SHIFTS (private patients by modality)
     # =========================================================================
-    # This shift handles afternoon/evening coverage across CT, MR, and X-ray.
-    # All skills are active (=1) to provide full coverage during late hours.
-    # =========================================================================
+    # These rules keep privat activity scoped to the specific modality.
+    # Set all: -1 to exclude other modalities, then enable the target one(s).
 
     - match: "SBZ: SBZ Privatpatienten"
       type: "shift"
@@ -415,6 +416,11 @@ vendor_mappings:
         all: -1
         privat_mammo: 1
 
+    # =========================================================================
+    # NOTFALL SHIFTS (emergency coverage across modalities)
+    # =========================================================================
+    # Activate Notfall across all modalities for emergency coverage.
+
     - match: "Assistent Notfall"
       type: "shift"
       times:
@@ -434,6 +440,10 @@ vendor_mappings:
         notfall_mr: 1
         notfall_xray: 1
         notfall_mammo: 1
+
+    # =========================================================================
+    # SUBSPECIALTY SHIFTS (assistant level)
+    # =========================================================================
 
     - match: "Assistent Gyn"
       type: "shift"
@@ -502,6 +512,10 @@ vendor_mappings:
       skill_overrides:
         kopf-hals_ct: 1
         kopf-hals_mr: 1
+
+    # =========================================================================
+    # SUBSPECIALTY SHIFTS (FA/Fellow level)
+    # =========================================================================
 
     - match: "FA/Fellow Notfall"
       type: "shift"
@@ -580,6 +594,11 @@ vendor_mappings:
       skill_overrides:
         kopf-hals_ct: 1
         kopf-hals_mr: 1
+
+    # =========================================================================
+    # LATE SHIFTS
+    # =========================================================================
+    # Late-day coverage and limited-capacity assignments.
 
     - match: "SBZ Spät Assistent"
       type: "shift"
