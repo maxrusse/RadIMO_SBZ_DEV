@@ -356,12 +356,34 @@ def _normalize_special_tasks(raw_tasks: Any) -> List[Dict[str, Any]]:
                 "Special task '%s' skill_dashboards must be a list", name
             )
 
+        # Parse target_skill_modalities - explicit routing targets
+        raw_targets = entry.get('target_skill_modalities', [])
+        if isinstance(raw_targets, str):
+            raw_targets = [raw_targets]
+        target_skill_modalities: List[Tuple[str, str]] = []
+        if isinstance(raw_targets, list):
+            for target in raw_targets:
+                if not isinstance(target, str):
+                    continue
+                resolved = _resolve_skill_modality_pair(target.strip())
+                if resolved and resolved not in target_skill_modalities:
+                    target_skill_modalities.append(resolved)
+                elif not resolved:
+                    selection_logger.warning(
+                        "Special task '%s' has invalid target_skill_modality: %s", name, target
+                    )
+        elif raw_targets:
+            selection_logger.warning(
+                "Special task '%s' target_skill_modalities must be a list", name
+            )
+
         skill_config = SKILL_SETTINGS.get(base_skill, {})
         normalized.append({
             'name': name,
             'slug': slug,
             'label': label,
             'base_skill': base_skill,
+            'target_skill_modalities': target_skill_modalities,
             'modalities_dashboards': modalities_dashboards,
             'skill_dashboards': skill_dashboards,
             'work_amount': work_amount,

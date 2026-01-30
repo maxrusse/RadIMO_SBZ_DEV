@@ -164,7 +164,10 @@ skills:
 # Fields:
 #   name: Unique slug-friendly name
 #   label: Button label
-#   base_skill: Which skill to use for staffing + balance checks
+#   base_skill: Which skill to use for button styling and fallback routing
+#   target_skill_modalities: (optional) List of skill_modality pairs to search
+#                           e.g., [abd-onco_ct, abd-onco_mr] - routes to workers
+#                           who have any of these combinations active (skill=1/w)
 #   modalities_dashboards: List of modality dashboards to render on
 #   skill_dashboards: List of skill dashboards to render on
 #   allow_overflow: Whether overflow to generalists is allowed
@@ -172,10 +175,23 @@ skills:
 #
 special_tasks:
   - name: Abdonko_ct-seg
-    label: CT Segmentation
+    label: Organ Seg
     base_skill: abd-onco
-    modalities_dashboards: [ct]
+    target_skill_modalities:
+      - abd-onco_ct
+      - abd-onco_mr
+    modalities_dashboards: []
     skill_dashboards: [abd-onco]
+    allow_overflow: false
+    display_order: 999
+
+  - name: MammoSono
+    label: Gyn Mammo&Sono
+    base_skill: gyn
+    target_skill_modalities:
+      - gyn_mammo
+    modalities_dashboards: [mammo]
+    skill_dashboards: [gyn]
     allow_overflow: false
     display_order: 999
 
