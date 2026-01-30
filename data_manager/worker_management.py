@@ -21,6 +21,7 @@ from config import (
     skill_columns_map,
     SKILL_ROSTER_AUTO_IMPORT,
     BALANCER_SETTINGS,
+    WORKER_SKILL_ROSTER_PATH,
     selection_logger,
 )
 from lib.utils import is_weighted_skill, normalize_skill_value
@@ -108,35 +109,48 @@ def build_worker_name_mapping(roster: Dict[str, Any]) -> Dict[str, str]:
 
 def load_worker_skill_json() -> Dict[str, Any]:
     """Load worker skill roster from JSON file."""
-    filename = 'worker_skill_roster.json'
-    try:
-        with open(filename, 'r', encoding='utf-8') as json_file:
-            data = json.load(json_file)
-            # Update global cache
-            worker_skill_json_roster.clear()
-            worker_skill_json_roster.update(data)
-            selection_logger.info(f"Loaded worker skill roster: {len(data)} workers")
-            return data
-    except FileNotFoundError:
-        selection_logger.info(f"No {filename} found, using empty roster")
-        worker_skill_json_roster.clear()
-        return {}
-    except Exception as exc:
-        selection_logger.warning(f"Failed to load {filename}: {exc}")
-        return {}
+    from data_manager.json_manager import load_json, migrate_file_to_data_dir
+
+    # Migrate from old location if needed (root level worker_skill_roster.json)
+    import os
+    old_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'worker_skill_roster.json')
+    if os.path.exists(old_path) and not os.path.exists(WORKER_SKILL_ROSTER_PATH):
+        migrate_file_to_data_dir(old_path, WORKER_SKILL_ROSTER_PATH)
+        selection_logger.info("Migrated worker_skill_roster.json to data/ folder")
+
+    data = load_json(WORKER_SKILL_ROSTER_PATH, default={})
+
+    # Update global cache
+    worker_skill_json_roster.clear()
+    worker_skill_json_roster.update(data)
+
+    if data:
+        selection_logger.info(f"Loaded worker skill roster: {len(data)} workers")
+    else:
+        selection_logger.info("No worker skill roster found, using empty roster")
+
+    return data
 
 
-def save_worker_skill_json(roster_data: Dict[str, Any]) -> bool:
-    """Save worker skill roster to JSON file."""
-    filename = 'worker_skill_roster.json'
-    try:
-        with open(filename, 'w', encoding='utf-8') as json_file:
-            json.dump(roster_data, json_file, indent=2, ensure_ascii=False)
+def save_worker_skill_json(roster_data: Dict[str, Any], *, create_backup: bool = True) -> bool:
+    """Save worker skill roster to JSON file with optional backup."""
+    from data_manager.json_manager import save_json
+
+    success = save_json(
+        WORKER_SKILL_ROSTER_PATH,
+        roster_data,
+        create_backup=create_backup,
+    )
+
+    if success:
         selection_logger.info(f"Saved worker skill roster: {len(roster_data)} workers")
-        return True
-    except Exception as exc:
-        selection_logger.error(f"Failed to save {filename}: {exc}")
-        return False
+        # Update global cache
+        worker_skill_json_roster.clear()
+        worker_skill_json_roster.update(roster_data)
+    else:
+        selection_logger.error("Failed to save worker skill roster")
+
+    return success
 
 
 def build_valid_skills_map() -> Dict[str, List[str]]:
@@ -539,3 +553,94 @@ def extract_modalities_from_skill_overrides(skill_overrides: dict) -> List[str]:
                     modalities.add(mod)
 
     return list(modalities)
+
+
+# -----------------------------------------------------------
+# Cleanup Functions
+# -----------------------------------------------------------
+
+def get_valid_skill_modality_keys() -> set:
+    """Get set of all valid skill_modality keys based on current config."""
+    return {f"{skill}_{mod}" for skill in SKILL_COLUMNS for mod in allowed_modalities}
+
+
+def cleanup_worker_skill_roster_data(
+    roster_data: Dict[str, Any],
+    *,
+    remove_unknown_workers: bool = False,
+    known_worker_ids: Optional[set] = None,
+) -> tuple:
+    """
+    Clean up legacy entries from worker skill roster.
+
+    Removes skill_modality keys that don't match current config.
+
+    Args:
+        roster_data: Current roster data
+        remove_unknown_workers: If True, remove workers not in known_worker_ids
+        known_worker_ids: Set of valid worker IDs (required if remove_unknown_workers=True)
+
+    Returns:
+        Tuple of (cleaned_data, removed_keys_count, removed_workers_count)
+    """
+    from data_manager.json_manager import cleanup_worker_skill_roster
+
+    valid_keys = get_valid_skill_modality_keys()
+
+    # Count items before cleanup
+    total_keys_before = sum(
+        len([k for k in data.keys() if k not in {'full_name', 'modifier', 'global_modifier'}])
+        for data in roster_data.values()
+        if isinstance(data, dict)
+    )
+    workers_before = len(roster_data)
+
+    cleaned = cleanup_worker_skill_roster(
+        roster_data,
+        valid_keys,
+        remove_unknown_workers=remove_unknown_workers,
+        known_worker_ids=known_worker_ids,
+    )
+
+    # Count items after cleanup
+    total_keys_after = sum(
+        len([k for k in data.keys() if k not in {'full_name', 'modifier', 'global_modifier'}])
+        for data in cleaned.values()
+        if isinstance(data, dict)
+    )
+    workers_after = len(cleaned)
+
+    removed_keys = total_keys_before - total_keys_after
+    removed_workers = workers_before - workers_after
+
+    return cleaned, removed_keys, removed_workers
+
+
+def cleanup_and_save_roster(
+    *,
+    remove_unknown_workers: bool = False,
+    known_worker_ids: Optional[set] = None,
+) -> tuple:
+    """
+    Load, cleanup, and save the worker skill roster.
+
+    Returns:
+        Tuple of (success, removed_keys_count, removed_workers_count)
+    """
+    roster = load_worker_skill_json()
+    cleaned, removed_keys, removed_workers = cleanup_worker_skill_roster_data(
+        roster,
+        remove_unknown_workers=remove_unknown_workers,
+        known_worker_ids=known_worker_ids,
+    )
+
+    if removed_keys > 0 or removed_workers > 0:
+        success = save_worker_skill_json(cleaned)
+        if success:
+            selection_logger.info(
+                "Cleaned worker skill roster: removed %d legacy keys, %d unknown workers",
+                removed_keys, removed_workers
+            )
+        return success, removed_keys, removed_workers
+
+    return True, 0, 0
