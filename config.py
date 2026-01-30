@@ -718,6 +718,9 @@ def get_valid_special_task_keys() -> set:
     for task in SPECIAL_TASKS:
         for mod in task.get('modalities_dashboards', []):
             keys.add(f"{task['slug']}_{mod}")
+        for skill_mod in task.get('target_skill_modalities', []):
+            if isinstance(skill_mod, (list, tuple)) and len(skill_mod) == 2:
+                keys.add(f"{task['slug']}_{skill_mod[1]}")
     return keys
 
 
