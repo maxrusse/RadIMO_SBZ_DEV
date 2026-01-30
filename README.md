@@ -21,6 +21,7 @@ RadIMO Cortex orchestrates workload distribution for radiology teams across mult
 - Worker skill roster admin portal with simplified JSON management
 - GAP handling (split shifts) for meetings and boards
 - Smart skill filtering on Schedule Edit and Timetable views
+- Special tasks for custom sub-workflows with separate tracking
 
 ---
 
@@ -53,6 +54,7 @@ If basic access protection is enabled, users authenticate via `/access-login` be
 | Schedule Edit (Today) | `/prep-today` | Edit today (live) |
 | Schedule Edit (Tomorrow) | `/prep-tomorrow` | Prep tomorrow (staged) |
 | Worker Load | `/worker-load` | Load monitoring dashboard |
+| Weight Matrix | `/button-weights` | Configure button weights and special tasks |
 
 ---
 
@@ -101,6 +103,7 @@ Assignments are weighted by:
 1. **Skill Matrix** (`/skill-roster`) - Edit worker skills across modalities (saves directly)
 2. **Schedule Edit (Today)** (`/prep-today`) - Modify today (live)
 3. **Schedule Edit (Tomorrow)** (`/prep-tomorrow`) - Prepare tomorrow (staged)
+4. **Weight Matrix** (`/button-weights`) - Configure button weights and special task weights
 
 ### Navigation & UI Features
 
@@ -111,6 +114,7 @@ Assignments are weighted by:
 - **Change Today** (`/prep-today`) - Live edits for today
 - **Prep Tomorrow** (`/prep-tomorrow`) - Staged edits for tomorrow
 - **Worker Load** (`/worker-load`) - Load monitoring dashboard
+- **Weight Matrix** (`/button-weights`) - Configure button and special task weights
 - **Admin** (`/upload`) - System configuration and CSV uploads
 
 ---
@@ -123,10 +127,12 @@ RadIMO_Cortex/
 ├── routes.py                   # Route and API definitions
 ├── balancer.py                 # Load balancing logic
 ├── config.py                   # Config loader and normalization
-├── config.yaml                 # Configuration (mapping, skills, weights)
+├── config.yaml                 # Configuration (mapping, skills, special tasks)
 ├── worker_skill_roster.json    # Worker skill roster (persistent)
 ├── requirements.txt            # Python dependencies
 ├── gunicorn_config.py          # Gunicorn server configuration
+├── uploads/                    # Runtime data files
+│   └── button_weights.json     # Button weights for skills and special tasks
 ├── data_manager/               # Data handling and state management
 │   ├── __init__.py              # Package exports
 │   ├── csv_parser.py            # CSV parsing utilities
@@ -151,7 +157,7 @@ RadIMO_Cortex/
 └── docs/                       # Documentation
     ├── ADMIN_GUIDE.md          # Admin pages guide
     ├── API.md                  # API endpoints
-    ├── CONFIGURATION.md        # Config reference
+    ├── CONFIGURATION.md        # Config reference (incl. special tasks)
     ├── USAGE_LOGGING.md        # Usage logging documentation
     └── WORKFLOW.md             # Master CSV workflow guide
 ```
