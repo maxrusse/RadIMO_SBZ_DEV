@@ -89,6 +89,8 @@ def update_global_assignment(
     modality: str,
     is_weighted: bool = False,
     strict_mode: bool = False,
+    work_amount: float = 1.0,
+    weight_override: Optional[float] = None,
 ) -> str:
     """
     Record a worker assignment and update global weighted counts.
@@ -104,6 +106,8 @@ def update_global_assignment(
         is_weighted: If True (skill='w'), also apply worker's 'w' modifier.
                      If False (skill=1 or 0), only apply global_modifier.
         strict_mode: If True, apply strict button weight multiplier.
+        work_amount: Optional multiplier for special-task work balance.
+        weight_override: Optional fixed weight override for special tasks.
 
     Returns:
         Canonical worker ID
@@ -136,7 +140,13 @@ def update_global_assignment(
 
     # Combined modifier: global_modifier applies to all, w_modifier only for 'w'
     combined_modifier = global_modifier * w_modifier
-    weight = get_skill_modality_weight(role, modality, strict=strict_mode) * (1.0 / combined_modifier)
+    base_weight = (
+        weight_override
+        if weight_override is not None
+        else get_skill_modality_weight(role, modality, strict=strict_mode)
+    )
+    weight = base_weight * (1.0 / combined_modifier)
+    weight *= work_amount
 
     # Update single global weighted count (consolidated across all modalities)
     global_worker_data['weighted_counts'][canonical_id] = \

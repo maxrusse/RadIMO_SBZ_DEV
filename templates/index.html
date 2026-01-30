@@ -373,6 +373,24 @@
         </button>
       </div>
       {% endfor %}
+      {% if special_tasks %}
+        {% for task in special_tasks %}
+        <div class="skill-button-wrapper"
+          data-special-slug="{{ task.slug }}"
+          style="--btn-bg: {{ task.button_color }}; --btn-text: {{ task.text_color }};">
+          <button id="special-btn-{{ task.slug }}" data-special-slug="{{ task.slug }}"
+            onclick="getNextAssignment('{{ task.slug }}', '{{ task.label }}')"
+            class="btn assignment-btn skill-main-btn special-btn">
+            {{ task.label }}
+          </button>
+          <button type="button" class="btn assignment-btn skill-strict-btn"
+            onclick="getNextAssignment('{{ task.slug }}', '{{ task.label }}', true)"
+            aria-label="Nur diese Gruppe (kein Fallback)" title="Nur diese Gruppe">
+            *
+          </button>
+        </div>
+        {% endfor %}
+      {% endif %}
     </div>
     <div id="result"></div>
     <div class="clipboard-note">

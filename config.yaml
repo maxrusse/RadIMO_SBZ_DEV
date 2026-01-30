@@ -156,6 +156,30 @@ skills:
     slug: kopf-hals
 
 # =============================================================================
+# SPECIAL TASKS
+# =============================================================================
+# Optional: Add special task buttons that route to a base_skill while showing
+# separately on dashboards. Each entry must be a dict.
+#
+# Fields:
+#   name: Unique slug-friendly name
+#   label: Button label
+#   base_skill: Which skill to use for staffing + balance checks
+#   modalities_dashboards: List of modality dashboards to render on
+#   skill_dashboards: List of skill dashboards to render on
+#   allow_overflow: Whether overflow to generalists is allowed
+#   display_order: Ordering (default 999)
+#
+special_tasks:
+  - name: Abdonko_ct-seg
+    label: CT Segmentation
+    base_skill: abd-onco
+    modalities_dashboards: [ct]
+    skill_dashboards: [abd-onco]
+    allow_overflow: false
+    display_order: 999
+
+# =============================================================================
 # NO OVERFLOW (STRICT MODE) COMBINATIONS
 # =============================================================================
 # List of Skill_Modality combinations where overflow to generalists is disabled.

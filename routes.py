@@ -27,6 +27,9 @@ from config import (
     allowed_modalities_map,
     SKILL_COLUMNS,
     SKILL_TEMPLATES,
+    SPECIAL_TASKS,
+    SPECIAL_TASKS_MAP,
+    get_special_task_weight,
     modality_labels,
     MASTER_CSV_PATH,
     selection_logger,
@@ -398,6 +401,7 @@ def inject_modality_settings() -> dict[str, Any]:
         'skill_definitions': SKILL_TEMPLATES,
         'skill_order': SKILL_COLUMNS,
         'skill_labels': {s['name']: s['label'] for s in SKILL_TEMPLATES},
+        'special_tasks': SPECIAL_TASKS,
         # Auth state for templates
         'is_access_protection_enabled': is_access_protection_enabled(),
         'is_admin_protection_enabled': is_admin_protection_enabled(),
@@ -428,11 +432,18 @@ def index() -> Any:
             continue
         visible_skills.append(skill_name)
 
+    visible_special_tasks = [
+        task for task in SPECIAL_TASKS
+        if modality in task['modalities_dashboards']
+        and task['base_skill'] in visible_skills
+    ]
+
     return render_template(
         'index.html',
         info_texts=d.get('info_texts', []),
         modality=modality,
         visible_skills=visible_skills,
+        special_tasks=visible_special_tasks,
         is_admin=has_admin_access()
     )
 
@@ -461,6 +472,24 @@ def index_by_skill() -> Any:
             continue
         visible_modalities.append(mod)
 
+    special_task_buttons = []
+    for task in SPECIAL_TASKS:
+        if task['base_skill'] != skill:
+            continue
+        if skill not in task.get('skill_dashboards', []):
+            continue
+        for mod in task.get('modalities_dashboards', []):
+            if mod not in visible_modalities:
+                continue
+            label = f"{modality_labels.get(mod, mod.upper())} · {task.get('label', task['name'])}"
+            special_task_buttons.append({
+                'modality': mod,
+                'label': label,
+                'slug': task['slug'],
+                'button_color': task.get('button_color', '#004892'),
+                'text_color': task.get('text_color', '#ffffff'),
+            })
+
     info_texts = []
     if allowed_modalities:
         first_modality = allowed_modalities[0]
@@ -470,6 +499,7 @@ def index_by_skill() -> Any:
         'index_by_skill.html',
         skill=skill,
         visible_modalities=visible_modalities,
+        special_task_buttons=special_task_buttons,
         info_texts=info_texts,
         is_admin=has_admin_access()
     )
@@ -542,7 +572,8 @@ def button_weights_api() -> Any:
         'success': True,
         'weights': weights,
         'skills': SKILL_COLUMNS,
-        'modalities': allowed_modalities
+        'modalities': allowed_modalities,
+        'special_tasks': SPECIAL_TASKS,
     })
 
 @routes.route('/api/admin/skill_roster', methods=['GET', 'POST'])
@@ -1391,6 +1422,15 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any
     try:
         now = get_local_now()
 
+        special_task = SPECIAL_TASKS_MAP.get(role.lower())
+        task_work_amount = 1.0
+        task_label = None
+        if special_task:
+            role = special_task['base_skill']
+            task_label = special_task.get('label')
+            if allow_overflow and not special_task.get('allow_overflow', True):
+                allow_overflow = False
+
         # Check if this skill×modality combo has overflow disabled
         canonical_skill = normalize_skill(role)
         if allow_overflow and is_no_overflow(canonical_skill, modality):
@@ -1436,6 +1476,8 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any
                     actual_skill = used_column
                 if not actual_skill:
                     actual_skill = role
+                if special_task:
+                    actual_skill = canonical_skill
 
                 selection_logger.info(
                     "Selected worker: %s using column %s (modality %s)",
@@ -1453,12 +1495,21 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any
 
                 # Check if this is a weighted ('w') assignment - only 'w' uses modifier
                 is_weighted = candidate.get('__is_weighted', False)
+                weight_override = None
+                if special_task:
+                    weight_override = get_special_task_weight(
+                        special_task['slug'],
+                        actual_modality,
+                        strict=strict_mode,
+                    )
                 canonical_id = update_global_assignment(
                     person,
                     actual_skill,
                     actual_modality,
                     is_weighted,
                     strict_mode=strict_mode,
+                    work_amount=task_work_amount,
+                    weight_override=weight_override,
                 )
                 state_modified = True
 
@@ -1473,7 +1524,8 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any
                     "canonical_id": canonical_id,
                     "source_modality": actual_modality,
                     "skill_used": actual_skill,
-                    "is_weighted": is_weighted
+                    "is_weighted": is_weighted,
+                    "task_label": task_label,
                 }
             else:
                 selection_logger.warning("No available worker found")
