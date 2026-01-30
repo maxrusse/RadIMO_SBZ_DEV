@@ -493,9 +493,15 @@ def index_by_skill() -> Any:
                     'text_color': task.get('text_color', '#ffffff'),
                 })
         else:
-            # No modality filter - add single button (uses first visible modality for routing)
+            # No modality_dashboards - use first target modality or first visible modality
+            target_mods = task.get('target_skill_modalities', [])
+            if target_mods:
+                # Use first modality from target_skill_modalities
+                default_mod = target_mods[0][1] if target_mods[0] else None
+            else:
+                default_mod = visible_modalities[0] if visible_modalities else None
             special_task_buttons.append({
-                'modality': visible_modalities[0] if visible_modalities else None,
+                'modality': default_mod,
                 'label': task.get('label', task['name']),
                 'slug': task['slug'],
                 'button_color': task.get('button_color', '#004892'),
