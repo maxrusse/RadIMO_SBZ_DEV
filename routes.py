@@ -478,13 +478,31 @@ def index_by_skill() -> Any:
             continue
         if skill not in task.get('skill_dashboards', []):
             continue
-        for mod in task.get('modalities_dashboards', []):
-            if mod not in visible_modalities:
-                continue
-            label = f"{modality_labels.get(mod, mod.upper())} · {task.get('label', task['name'])}"
+        # Tasks on skill dashboards just use their label
+        task_mods = task.get('modalities_dashboards', [])
+        if task_mods:
+            # Add button for each visible modality
+            for mod in task_mods:
+                if mod not in visible_modalities:
+                    continue
+                special_task_buttons.append({
+                    'modality': mod,
+                    'label': task.get('label', task['name']),
+                    'slug': task['slug'],
+                    'button_color': task.get('button_color', '#004892'),
+                    'text_color': task.get('text_color', '#ffffff'),
+                })
+        else:
+            # No modality_dashboards - use first target modality or first visible modality
+            target_mods = task.get('target_skill_modalities', [])
+            if target_mods:
+                # Use first modality from target_skill_modalities
+                default_mod = target_mods[0][1] if target_mods[0] else None
+            else:
+                default_mod = visible_modalities[0] if visible_modalities else None
             special_task_buttons.append({
-                'modality': mod,
-                'label': label,
+                'modality': default_mod,
+                'label': task.get('label', task['name']),
                 'slug': task['slug'],
                 'button_color': task.get('button_color', '#004892'),
                 'text_color': task.get('text_color', '#ffffff'),

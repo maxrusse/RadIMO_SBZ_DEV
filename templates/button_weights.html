@@ -309,7 +309,15 @@
         baseSkillCell.textContent = task.base_skill || '—';
         row.appendChild(baseSkillCell);
 
-        const visibleMods = (task.modalities_dashboards || []).map(m => m.toUpperCase());
+        // Use modalities_dashboards if set, otherwise extract from target_skill_modalities
+        let visibleMods = (task.modalities_dashboards || []).map(m => m.toUpperCase());
+        if (!visibleMods.length && task.target_skill_modalities) {
+          // target_skill_modalities is array of [skill, modality] pairs
+          const targetMods = task.target_skill_modalities
+            .map(pair => Array.isArray(pair) ? pair[1] : null)
+            .filter(m => m);
+          visibleMods = [...new Set(targetMods)].map(m => m.toUpperCase());
+        }
         const visibleCell = document.createElement('td');
         visibleCell.textContent = visibleMods.length ? visibleMods.join(', ') : '—';
         row.appendChild(visibleCell);
