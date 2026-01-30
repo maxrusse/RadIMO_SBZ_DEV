@@ -255,6 +255,25 @@
         </button>
       </div>
       {% endfor %}
+      {% if special_task_buttons %}
+      {% for task in special_task_buttons %}
+      <div class="modality-button-wrapper" data-modality="{{ task.modality }}">
+        <button type="button"
+          class="btn assignment-btn modality-main-btn"
+          style="--btn-bg: {{ task.button_color }}; --btn-text: {{ task.text_color }};"
+          onclick="getSpecialAssignment('{{ task.modality }}', '{{ task.slug }}', '{{ task.label }}')">
+          {{ task.label }}
+        </button>
+        <button type="button"
+          class="btn assignment-btn modality-strict-btn"
+          style="--btn-bg: {{ task.button_color }}; --btn-text: {{ task.text_color }};"
+          onclick="getSpecialAssignment('{{ task.modality }}', '{{ task.slug }}', '{{ task.label }}', true)"
+          aria-label="Nur diese Gruppe (kein Fallback)" title="Nur diese Gruppe">
+          *
+        </button>
+      </div>
+      {% endfor %}
+      {% endif %}
     </div>
     <div id="result"></div>
     <div class="clipboard-note">
@@ -360,16 +379,47 @@
         });
     }
 
-    function showResult(person, modality) {
+    function getSpecialAssignment(modality, taskSlug, taskLabel, forcePrimary = false) {
+      if (requestInProgress) return;
+      lastModalityUsed = modality;
+      setButtonsDisabled(true);
+      const encodedTask = encodeURIComponent(taskSlug);
+      const endpoint = forcePrimary
+        ? `/api/${modality}/${encodedTask}/strict`
+        : `/api/${modality}/${encodedTask}`;
+      fetch(endpoint)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          showResult(data.selected_person || '', modality, taskLabel);
+        })
+        .catch(e => {
+          console.error("API error:", e);
+          showResult('', modality, taskLabel);
+          setButtonsDisabled(false);
+        });
+    }
+
+    function showResult(person, modality, contextLabel = null) {
       const resultDiv = document.getElementById('result');
       const displayPerson = person || "Niemand verfügbar";
       const escapedPerson = escapeHtml(displayPerson);
 
       const modalityLabel = modalities[modality]?.label || modality || lastModalityUsed;
+      const displayContext = contextLabel
+        ? `${modalityLabel} · ${contextLabel}`
+        : modalityLabel;
       resultDiv.innerHTML = `
         <div class="result-panel">
           <div class="assigned-person">${escapedPerson}</div>
-          <div class="assigned-context">${escapeHtml(modalityLabel)}</div>
+          <div class="assigned-context">${escapeHtml(displayContext)}</div>
           <div class="timer" id="timer"></div>
         </div>
       `;
@@ -383,8 +433,11 @@
       const now = new Date();
       const timeStr = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
       const lastEl = document.getElementById('lastAssignment');
-      const mod = (modality || lastModalityUsed || '').toUpperCase();
-      lastEl.textContent = `Letzte Zuweisung: ${timeStr} · ${displayPerson} · ${mod}/${currentSkillLabel}`;
+      const mod = modalityLabel || (modality || lastModalityUsed || '').toUpperCase();
+      const footerContext = contextLabel
+        ? `${mod} · ${contextLabel}`
+        : mod;
+      lastEl.textContent = `Letzte Zuweisung: ${timeStr} · ${displayPerson} · ${footerContext}/${currentSkillLabel}`;
       lastEl.classList.add('visible');
     }
 

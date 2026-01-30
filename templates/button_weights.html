@@ -187,14 +187,26 @@
       </table>
     </div>
   </section>
+  <section class="card">
+    <div style="margin-bottom:0.75rem; font-weight:600;">Special Tasks</div>
+    <div style="overflow-x:auto;">
+      <table class="matrix-table">
+        <thead>
+          <tr id="specialWeightMatrixHeader"></tr>
+        </thead>
+        <tbody id="specialWeightMatrixBody"></tbody>
+      </table>
+    </div>
+  </section>
 
   <div id="statusMessage" class="status-message"></div>
 
   <script>
     let currentMode = 'normal';
-    let weights = { normal: {}, strict: {} };
+    let weights = { normal: {}, strict: {}, special: { normal: {}, strict: {} } };
     let skills = [];
     let modalities = [];
+    let specialTasks = [];
     const validSkillsMap = JSON.parse('{{ valid_skills_map|tojson|safe }}');
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -214,9 +226,11 @@
         if (!response.ok) throw new Error(`Server error: ${response.status}`);
         const data = await response.json();
         if (!data.success) throw new Error(data.error || 'Load failed');
-        weights = data.weights || { normal: {}, strict: {} };
+        weights = data.weights || { normal: {}, strict: {}, special: { normal: {}, strict: {} } };
+        weights.special = weights.special || { normal: {}, strict: {} };
         skills = data.skills || [];
         modalities = data.modalities || [];
+        specialTasks = data.special_tasks || [];
         renderMatrix();
         showStatus('Loaded', 'success');
       } catch (err) {
@@ -271,25 +285,101 @@
         });
         tbody.appendChild(row);
       });
+
+      const specialHeader = document.getElementById('specialWeightMatrixHeader');
+      specialHeader.innerHTML = `
+        <th class="skill-col">Task</th>
+        <th>Base Skill</th>
+        <th>Visible Modalities</th>
+        <th>Skill Dashboards</th>
+        <th>Overflow</th>
+        <th>Weight</th>
+      `;
+
+      const specialBody = document.getElementById('specialWeightMatrixBody');
+      specialBody.innerHTML = '';
+      specialTasks.forEach(task => {
+        const row = document.createElement('tr');
+        const taskCell = document.createElement('td');
+        taskCell.className = 'skill-name';
+        taskCell.textContent = task.label || task.name || task.slug;
+        row.appendChild(taskCell);
+
+        const baseSkillCell = document.createElement('td');
+        baseSkillCell.textContent = task.base_skill || '—';
+        row.appendChild(baseSkillCell);
+
+        const visibleMods = (task.modalities_dashboards || []).map(m => m.toUpperCase());
+        const visibleCell = document.createElement('td');
+        visibleCell.textContent = visibleMods.length ? visibleMods.join(', ') : '—';
+        row.appendChild(visibleCell);
+
+        const skillDashboards = (task.skill_dashboards || []).map(s => s);
+        const skillCell = document.createElement('td');
+        skillCell.textContent = skillDashboards.length ? skillDashboards.join(', ') : '—';
+        row.appendChild(skillCell);
+
+        const overflowCell = document.createElement('td');
+        overflowCell.textContent = task.allow_overflow === false ? 'No' : 'Yes';
+        row.appendChild(overflowCell);
+
+        const weightCell = document.createElement('td');
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.step = '0.05';
+        input.min = '0.1';
+        input.placeholder = '1.0';
+        input.className = 'weight-input';
+        input.dataset.task = task.slug;
+        input.dataset.type = 'special';
+        input.dataset.modalities = JSON.stringify(visibleMods.map(mod => mod.toLowerCase()));
+
+        const taskWeights = weights.special?.[currentMode] || {};
+        const taskModalityWeights = visibleMods
+          .map(mod => taskWeights[`${task.slug}_${mod.toLowerCase()}`])
+          .filter(value => value !== undefined);
+        const allSame = taskModalityWeights.length > 0
+          && taskModalityWeights.every(value => value === taskModalityWeights[0]);
+        input.value = allSame ? taskModalityWeights[0] : '';
+
+        if (!visibleMods.length) {
+          input.disabled = true;
+          input.placeholder = '—';
+        }
+
+        weightCell.appendChild(input);
+        row.appendChild(weightCell);
+        specialBody.appendChild(row);
+      });
     }
 
     async function saveWeights() {
-      const payload = { normal: {}, strict: {} };
+      const payload = { normal: {}, strict: {}, special: { normal: {}, strict: {} } };
       document.querySelectorAll('.weight-input').forEach(input => {
-        const skill = input.dataset.skill;
-        const mod = input.dataset.modality;
-        const key = `${skill}_${mod}`;
+        const type = input.dataset.type || 'skill';
         const raw = input.value.trim();
         if (raw === '') return;
         const value = parseFloat(raw);
         if (Number.isNaN(value)) return;
-        payload[currentMode][key] = value;
+        if (type === 'special') {
+          const mods = JSON.parse(input.dataset.modalities || '[]');
+          mods.forEach(modality => {
+            const specialKey = `${input.dataset.task}_${modality}`;
+            payload.special[currentMode][specialKey] = value;
+          });
+        } else {
+          const mod = input.dataset.modality;
+          const key = `${input.dataset.skill}_${mod}`;
+          payload[currentMode][key] = value;
+        }
       });
 
       if (currentMode === 'normal') {
         payload.strict = weights.strict || {};
+        payload.special.strict = weights.special?.strict || {};
       } else {
         payload.normal = weights.normal || {};
+        payload.special.normal = weights.special?.normal || {};
       }
 
       try {

@@ -199,6 +199,7 @@ def _build_app_config() -> Dict[str, Any]:
     else:
         load_monitor_config = default_load_monitor
     config['worker_load_monitor'] = load_monitor_config
+    config['special_tasks'] = raw_config.get('special_tasks', [])
 
     return config
 
@@ -265,6 +266,111 @@ def _resolve_skill(key_lower: str) -> Optional[str]:
     return ROLE_MAP.get(key_lower) or SKILL_LABEL_MAP.get(key_lower) or skill_columns_map.get(key_lower)
 
 
+def _normalize_special_tasks(raw_tasks: Any) -> List[Dict[str, Any]]:
+    if not raw_tasks:
+        return []
+    if not isinstance(raw_tasks, list):
+        selection_logger.warning("special_tasks must be a list of task objects")
+        return []
+
+    normalized: List[Dict[str, Any]] = []
+    seen_slugs = set()
+
+    for entry in raw_tasks:
+        if not isinstance(entry, dict):
+            selection_logger.warning("Skipping special task entry (expected object): %s", entry)
+            continue
+
+        name = str(entry.get('name', '')).strip()
+        if not name:
+            selection_logger.warning("Skipping special task without a name: %s", entry)
+            continue
+
+        slug = _slugify(name)
+        if not slug:
+            selection_logger.warning("Skipping special task with invalid name: %s", name)
+            continue
+        if slug in seen_slugs:
+            selection_logger.warning("Duplicate special task name '%s' (slug '%s')", name, slug)
+            continue
+
+        base_skill_raw = entry.get('base_skill')
+        if not base_skill_raw:
+            selection_logger.warning("Special task '%s' missing base_skill", name)
+            continue
+        base_skill = _resolve_skill(str(base_skill_raw).strip().lower())
+        if not base_skill:
+            selection_logger.warning(
+                "Special task '%s' base_skill '%s' is not a known skill", name, base_skill_raw
+            )
+            continue
+
+        label = str(entry.get('label') or name)
+        display_order = coerce_int(entry.get('display_order', 999))
+        work_amount = coerce_float(entry.get('work_amount', 1.0), 1.0)
+        if work_amount <= 0:
+            selection_logger.warning(
+                "Special task '%s' has invalid work_amount %s; using 1.0", name, work_amount
+            )
+            work_amount = 1.0
+        allow_overflow = bool(entry.get('allow_overflow', True))
+
+        raw_modalities = entry.get('modalities_dashboards', [])
+        if isinstance(raw_modalities, str):
+            raw_modalities = [raw_modalities]
+        modalities_dashboards: List[str] = []
+        if isinstance(raw_modalities, list):
+            for mod in raw_modalities:
+                if not isinstance(mod, str):
+                    continue
+                canonical_mod = allowed_modalities_map.get(mod.strip().lower())
+                if canonical_mod and canonical_mod not in modalities_dashboards:
+                    modalities_dashboards.append(canonical_mod)
+        else:
+            selection_logger.warning(
+                "Special task '%s' modalities_dashboards must be a list", name
+            )
+
+        raw_skill_dashboards = entry.get('skill_dashboards', [])
+        if isinstance(raw_skill_dashboards, str):
+            raw_skill_dashboards = [raw_skill_dashboards]
+        skill_dashboards: List[str] = []
+        if isinstance(raw_skill_dashboards, list):
+            for skill in raw_skill_dashboards:
+                if not isinstance(skill, str):
+                    continue
+                canonical_skill = _resolve_skill(skill.strip().lower())
+                if canonical_skill and canonical_skill not in skill_dashboards:
+                    skill_dashboards.append(canonical_skill)
+        else:
+            selection_logger.warning(
+                "Special task '%s' skill_dashboards must be a list", name
+            )
+
+        skill_config = SKILL_SETTINGS.get(base_skill, {})
+        normalized.append({
+            'name': name,
+            'slug': slug,
+            'label': label,
+            'base_skill': base_skill,
+            'modalities_dashboards': modalities_dashboards,
+            'skill_dashboards': skill_dashboards,
+            'work_amount': work_amount,
+            'allow_overflow': allow_overflow,
+            'display_order': display_order,
+            'button_color': skill_config.get('button_color', '#004892'),
+            'text_color': skill_config.get('text_color', '#ffffff'),
+        })
+        seen_slugs.add(slug)
+
+    return sorted(normalized, key=lambda task: (task['display_order'], task['name']))
+
+
+SPECIAL_TASKS = _normalize_special_tasks(APP_CONFIG.get('special_tasks', []))
+SPECIAL_TASKS_MAP = {task['slug']: task for task in SPECIAL_TASKS}
+APP_CONFIG['special_tasks'] = SPECIAL_TASKS
+
+
 def _resolve_skill_modality_pair(key: str) -> Optional[Tuple[str, str]]:
     """
     Resolve a skill_modality key to canonical (skill, modality) tuple.
@@ -291,6 +397,27 @@ def _resolve_skill_modality_pair(key: str) -> Optional[Tuple[str, str]]:
 
     if skill and mod:
         return (skill, mod)
+    return None
+
+
+def _resolve_special_task_modality_pair(key: str) -> Optional[Tuple[str, str]]:
+    """
+    Resolve a special_task_modality key to canonical (task_slug, modality) tuple.
+
+    Returns None if the key cannot be resolved.
+    """
+    key_lower = key.lower().strip()
+    if '_' not in key_lower:
+        return None
+
+    parts = key_lower.split('_', 1)
+    if len(parts) != 2:
+        return None
+
+    task_slug = parts[0]
+    modality = allowed_modalities_map.get(parts[1])
+    if task_slug in SPECIAL_TASKS_MAP and modality:
+        return (task_slug, modality)
     return None
 
 
@@ -375,7 +502,7 @@ def _normalize_no_overflow(raw_list: list) -> set:
 
 
 # Normalize per-button weights
-def _normalize_button_weights(raw_map: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
+def _normalize_button_weights(raw_map: Dict[str, Any]) -> Dict[str, Any]:
     """
     Normalize per-button weights to canonical Skill_Modality keys.
 
@@ -385,7 +512,11 @@ def _normalize_button_weights(raw_map: Dict[str, Any]) -> Dict[str, Dict[str, fl
 
     Returns: dict with "normal" and "strict" maps of canonical keys to weights
     """
-    result: Dict[str, Dict[str, float]] = {'normal': {}, 'strict': {}}
+    result: Dict[str, Any] = {
+        'normal': {},
+        'strict': {},
+        'special': {'normal': {}, 'strict': {}},
+    }
 
     if not isinstance(raw_map, dict):
         return result
@@ -403,13 +534,28 @@ def _normalize_button_weights(raw_map: Dict[str, Any]) -> Dict[str, Dict[str, fl
             weight = coerce_float(value, 1.0)
             result[mode][f"{pair[0]}_{pair[1]}"] = weight
 
+    special_map = raw_map.get('special', {})
+    if isinstance(special_map, dict):
+        for mode in ('normal', 'strict'):
+            mode_map = special_map.get(mode, {})
+            if not isinstance(mode_map, dict):
+                continue
+            for key, value in mode_map.items():
+                if not isinstance(key, str):
+                    continue
+                pair = _resolve_special_task_modality_pair(key)
+                if not pair:
+                    continue
+                weight = coerce_float(value, 1.0)
+                result['special'][mode][f"{pair[0]}_{pair[1]}"] = weight
+
     return result
 
 
 # Normalize no_overflow list
 NO_OVERFLOW = _normalize_no_overflow(_raw_no_overflow)
 
-def load_button_weights() -> Dict[str, Dict[str, float]]:
+def load_button_weights() -> Dict[str, Any]:
     try:
         with open(BUTTON_WEIGHTS_PATH, 'r', encoding='utf-8') as weight_file:
             data = json.load(weight_file)
@@ -446,6 +592,17 @@ def get_skill_modality_weight(skill: str, modality: str, strict: bool = False) -
     base_weight = BUTTON_WEIGHTS.get('normal', {}).get(key, 1.0)
     if strict:
         strict_weight = BUTTON_WEIGHTS.get('strict', {}).get(key)
+        if strict_weight is not None:
+            return strict_weight
+    return base_weight
+
+
+def get_special_task_weight(task_slug: str, modality: str, strict: bool = False) -> float:
+    key = f"{task_slug}_{modality}"
+    special_weights = BUTTON_WEIGHTS.get('special', {})
+    base_weight = special_weights.get('normal', {}).get(key, 1.0)
+    if strict:
+        strict_weight = special_weights.get('strict', {}).get(key)
         if strict_weight is not None:
             return strict_weight
     return base_weight
