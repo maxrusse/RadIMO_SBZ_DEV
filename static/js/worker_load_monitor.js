@@ -440,9 +440,10 @@ function renderAdvancedTable() {
       });
     });
 
-    grandTotal += worker.global_weight || 0;
-    const totalColor = getLoadColor(worker.global_weight);
-    html += `<td class="${totalColor.text}" style="font-weight: 700;">${worker.global_weight.toFixed(1)}</td>`;
+    const workerWeight = worker.global_weight || 0;
+    grandTotal += workerWeight;
+    const totalColor = getLoadColor(workerWeight);
+    html += `<td class="${totalColor.text}" style="font-weight: 700;">${workerWeight.toFixed(1)}</td>`;
     html += '</tr>';
   });
 
