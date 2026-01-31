@@ -515,8 +515,8 @@ const TimelineChart = (function() {
         const tooltipModLabel = entry._modality || entry.modality
           || (entry.modalities && entry.modalities.size === 1 ? Array.from(entry.modalities)[0] : '');
         const tooltipSkillLabels = tooltipModLabel
-          ? tooltipSkills.map(skill => `${tooltipModLabel.toUpperCase()}_${skill}`)
-          : tooltipSkills;
+          ? displaySkills.map(skill => `${tooltipModLabel.toUpperCase()}_${skill}`)
+          : displaySkills;
 
         const tasks = normalizeTasks(entry.tasks || entry.task);
         const taskTooltip = tasks.length ? `Shifts: ${tasks.join(', ')}\n` : '';
@@ -542,7 +542,7 @@ const TimelineChart = (function() {
 
           // Tooltip
           const timeDisplay = entry.TIME || `${entry.start_time}-${entry.end_time}`;
-          const skillsTooltip = `Skills (1): ${tooltipSkillLabels.join(', ') || 'none'}`;
+          const skillsTooltip = `Skills (${tooltipSkillLabels.length}): ${tooltipSkillLabels.join(', ') || 'none'}`;
           bar.title = `${worker}\n${tooltipMods}${taskTooltip}Zeit: ${timeDisplay}\n${skillsTooltip}`;
 
           timelineCell.appendChild(bar);
