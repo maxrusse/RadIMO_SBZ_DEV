@@ -153,6 +153,13 @@ def update_global_assignment(
         global_worker_data['weighted_counts'].get(canonical_id, 0.0) + weight
 
     assignments = _get_or_create_assignments(modality, canonical_id)
+    if role not in assignments:
+        selection_logger.warning(
+            "Unknown role '%s' for modality '%s' when updating assignments; initializing counter.",
+            role,
+            modality,
+        )
+        assignments[role] = 0
     assignments[role] += 1
     assignments['total'] += 1
 
@@ -304,7 +311,6 @@ def _get_effective_assignment_load(
     worker: str,
     column: str,
     modality: str,
-    skill_counts: Optional[dict] = None,
 ) -> float:
     """
     Get effective assignment load for minimum balancer.
@@ -345,7 +351,7 @@ def _apply_minimum_balancer(filtered_df: pd.DataFrame, column: str, modality: st
         if skill_value < 1:
             continue
 
-        count = _get_effective_assignment_load(worker, column, modality, skill_counts)
+        count = _get_effective_assignment_load(worker, column, modality)
         if count < min_required:
             any_below_minimum = True
             break
@@ -355,7 +361,7 @@ def _apply_minimum_balancer(filtered_df: pd.DataFrame, column: str, modality: st
 
     prioritized = filtered_df[
         filtered_df['PPL'].apply(
-            lambda worker: _get_effective_assignment_load(worker, column, modality, skill_counts)
+            lambda worker: _get_effective_assignment_load(worker, column, modality)
             < min_required
         )
     ]
