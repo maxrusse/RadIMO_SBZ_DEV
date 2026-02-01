@@ -40,11 +40,12 @@ flask --app app run --debug  # Start application
 **Operational pages (access-protected if enabled):**
 | Page | URL | Description |
 |------|-----|-------------|
-| Main Interface | `/` | Assignment by modality (CT/MR/XRAY) |
+| Main Interface | `/` | Assignment by modality (CT/MR/XRAY/Mammo) |
 | Skill View | `/by-skill` | Assignment by skill (Notfall, Card/Thor, MSK/Haut, etc.) |
 | Timetable | `/timetable` | Visualize shifts and schedules |
 
 If basic access protection is enabled, users authenticate via `/access-login` before reaching the operational pages.
+Admin pages require a session via `/login` when `admin_access_protection_enabled` is true.
 
 **Admin pages (password protected when enabled):**
 | Page | URL | Description |
@@ -96,7 +97,8 @@ Real-time assignment with load balancing
 Assignments are weighted by:
 - **Skill weight**: e.g., Notfall=1.1, Privat=1.2
 - **Modality factor**: e.g., MR=1.2, XRAY=0.33
-- **Worker modifier**: Individual multiplier (only applied when skill='w')
+- **Global modifier**: Per-worker multiplier applied to all assignments
+- **Weighted modifier**: Individual multiplier (only applied when skill='w')
 - **Skill×Modality overrides**: Custom weights for specific combinations
 
 ### Admin Pages
@@ -140,6 +142,10 @@ RadIMO_Cortex/
 │       └── fairness_state_*.json
 ├── uploads/                    # Runtime schedule data
 │   └── backups/                # Schedule backups (staged/live/scheduled)
+├── logs/                       # Application logs and usage stats
+│   ├── selection.log           # Assignment + system log
+│   └── usage_stats/            # Usage logging exports
+│       └── usage_stats.csv     # Daily usage rows (wide format)
 ├── data_manager/               # Data handling and state management
 │   ├── __init__.py              # Package exports
 │   ├── csv_parser.py            # CSV parsing utilities
@@ -180,6 +186,7 @@ RadIMO_Cortex/
 | [CONFIGURATION.md](docs/CONFIGURATION.md) | Full config.yaml reference |
 | [API.md](docs/API.md) | REST API endpoints |
 | [ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md) | Admin pages and skill roster |
+| [USAGE_LOGGING.md](docs/USAGE_LOGGING.md) | Usage statistics and export workflow |
 
 ---
 
