@@ -191,6 +191,7 @@ def preload_next_workday(csv_path: str, config: dict, target_date: Optional[Unio
 
         saved_modalities = []
         total_workers = 0
+        save_error: Optional[str] = None
 
         try:
             for modality, df in modality_dfs.items():
@@ -203,6 +204,14 @@ def preload_next_workday(csv_path: str, config: dict, target_date: Optional[Unio
             write_unified_scheduled_file(modality_dfs, target_date=resolved_date)
         except Exception as exc:
             selection_logger.error("Failed to save unified scheduled file: %s", exc)
+            save_error = str(exc)
+
+        if save_error is not None:
+            return {
+                'success': False,
+                'target_date': date_str,
+                'message': f'Fehler beim Speichern des Preload: {save_error}'
+            }
 
         if not saved_modalities:
             selection_logger.info(f"No staff entries found for {date_str} - this is expected for some shifts")
