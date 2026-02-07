@@ -14,7 +14,7 @@ import glob as glob_module
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, List, Optional
 
 # -----------------------------------------------------------
 # File Path Configuration
@@ -147,59 +147,6 @@ def save_json(
                 except OSError:
                     pass
             return False
-
-
-# -----------------------------------------------------------
-# Legacy Entry Cleanup
-# -----------------------------------------------------------
-
-def cleanup_worker_skill_roster(
-    roster_data: Dict[str, Any],
-    valid_skill_modality_keys: Set[str],
-    *,
-    remove_unknown_workers: bool = False,
-    known_worker_ids: Optional[Set[str]] = None,
-) -> Dict[str, Any]:
-    """
-    Clean up legacy entries from worker skill roster.
-
-    Removes:
-    - Unknown skill_modality keys that don't match current config
-    - Optionally removes unknown worker IDs
-
-    Keeps:
-    - 'full_name', 'modifier', 'global_modifier' metadata fields
-
-    Args:
-        roster_data: Current roster data
-        valid_skill_modality_keys: Set of valid 'skill_modality' keys
-        remove_unknown_workers: If True, remove workers not in known_worker_ids
-        known_worker_ids: Set of valid worker IDs (required if remove_unknown_workers=True)
-
-    Returns:
-        Cleaned roster data
-    """
-    # Metadata fields to preserve
-    metadata_fields = {'full_name', 'modifier', 'global_modifier'}
-
-    cleaned = {}
-    for worker_id, worker_data in roster_data.items():
-        # Check if worker should be removed
-        if remove_unknown_workers and known_worker_ids and worker_id not in known_worker_ids:
-            continue
-
-        if not isinstance(worker_data, dict):
-            cleaned[worker_id] = worker_data
-            continue
-
-        cleaned_worker = {}
-        for key, value in worker_data.items():
-            if key in metadata_fields or key in valid_skill_modality_keys:
-                cleaned_worker[key] = value
-
-        cleaned[worker_id] = cleaned_worker
-
-    return cleaned
 
 
 # -----------------------------------------------------------

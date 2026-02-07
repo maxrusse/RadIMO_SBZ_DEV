@@ -7,8 +7,7 @@ tool usage patterns and compare against actual work entries from other data sour
 
 import csv
 import logging
-import os
-from datetime import datetime, date
+from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
@@ -198,14 +197,3 @@ def check_and_export_at_scheduled_time() -> bool:
 
     return False
 
-
-def get_usage_csv_path() -> Path:
-    """
-    Get the path to the usage stats CSV file.
-
-    Note: In wide format, there is a single CSV file containing all dates.
-
-    Returns:
-        Path object for the CSV file
-    """
-    return USAGE_STATS_FILE
