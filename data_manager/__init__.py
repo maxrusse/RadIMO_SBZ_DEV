@@ -81,7 +81,6 @@ from data_manager.file_ops import (
     backup_dataframe,
     load_staged_dataframe,
     load_unified_live_backup,
-    load_unified_staged_data,
     initialize_data_from_unified,
     load_unified_scheduled_into_staged,
     quarantine_file,
@@ -93,7 +92,6 @@ from data_manager.file_ops import (
 from data_manager.schedule_crud import (
     reconcile_live_worker_tracking,
     resolve_overlapping_shifts,
-    resolve_overlapping_shifts_df,
     update_schedule_row,
     add_worker_to_schedule,
     delete_worker_from_schedule,
@@ -115,7 +113,6 @@ from data_manager.csv_parser import (
 # Scheduled tasks
 from data_manager.scheduled_tasks import (
     check_and_perform_daily_reset,
-    clear_staged_data,
     preload_next_workday,
 )
 
@@ -161,7 +158,6 @@ __all__ = [
     'backup_dataframe',
     'load_staged_dataframe',
     'load_unified_live_backup',
-    'load_unified_staged_data',
     'initialize_data_from_unified',
     'load_unified_scheduled_into_staged',
     'quarantine_file',
@@ -171,7 +167,6 @@ __all__ = [
     # Schedule CRUD
     'reconcile_live_worker_tracking',
     'resolve_overlapping_shifts',
-    'resolve_overlapping_shifts_df',
     'update_schedule_row',
     'add_worker_to_schedule',
     'delete_worker_from_schedule',
@@ -189,6 +184,5 @@ __all__ = [
 
     # Scheduled tasks
     'check_and_perform_daily_reset',
-    'clear_staged_data',
     'preload_next_workday',
 ]

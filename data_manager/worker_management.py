@@ -8,7 +8,6 @@ This module provides functions for:
 - Skill roster merging (YAML + JSON)
 """
 import copy
-import json
 from typing import Dict, Any, List, Iterable, Mapping, Optional
 
 import pandas as pd
@@ -19,7 +18,6 @@ from config import (
     MODALITY_SETTINGS,
     allowed_modalities_map,
     skill_columns_map,
-    SKILL_ROSTER_AUTO_IMPORT,
     BALANCER_SETTINGS,
     WORKER_SKILL_ROSTER_PATH,
     selection_logger,
@@ -554,93 +552,3 @@ def extract_modalities_from_skill_overrides(skill_overrides: dict) -> List[str]:
 
     return list(modalities)
 
-
-# -----------------------------------------------------------
-# Cleanup Functions
-# -----------------------------------------------------------
-
-def get_valid_skill_modality_keys() -> set:
-    """Get set of all valid skill_modality keys based on current config."""
-    return {f"{skill}_{mod}" for skill in SKILL_COLUMNS for mod in allowed_modalities}
-
-
-def cleanup_worker_skill_roster_data(
-    roster_data: Dict[str, Any],
-    *,
-    remove_unknown_workers: bool = False,
-    known_worker_ids: Optional[set] = None,
-) -> tuple:
-    """
-    Clean up legacy entries from worker skill roster.
-
-    Removes skill_modality keys that don't match current config.
-
-    Args:
-        roster_data: Current roster data
-        remove_unknown_workers: If True, remove workers not in known_worker_ids
-        known_worker_ids: Set of valid worker IDs (required if remove_unknown_workers=True)
-
-    Returns:
-        Tuple of (cleaned_data, removed_keys_count, removed_workers_count)
-    """
-    from data_manager.json_manager import cleanup_worker_skill_roster
-
-    valid_keys = get_valid_skill_modality_keys()
-
-    # Count items before cleanup
-    total_keys_before = sum(
-        len([k for k in data.keys() if k not in {'full_name', 'modifier', 'global_modifier'}])
-        for data in roster_data.values()
-        if isinstance(data, dict)
-    )
-    workers_before = len(roster_data)
-
-    cleaned = cleanup_worker_skill_roster(
-        roster_data,
-        valid_keys,
-        remove_unknown_workers=remove_unknown_workers,
-        known_worker_ids=known_worker_ids,
-    )
-
-    # Count items after cleanup
-    total_keys_after = sum(
-        len([k for k in data.keys() if k not in {'full_name', 'modifier', 'global_modifier'}])
-        for data in cleaned.values()
-        if isinstance(data, dict)
-    )
-    workers_after = len(cleaned)
-
-    removed_keys = total_keys_before - total_keys_after
-    removed_workers = workers_before - workers_after
-
-    return cleaned, removed_keys, removed_workers
-
-
-def cleanup_and_save_roster(
-    *,
-    remove_unknown_workers: bool = False,
-    known_worker_ids: Optional[set] = None,
-) -> tuple:
-    """
-    Load, cleanup, and save the worker skill roster.
-
-    Returns:
-        Tuple of (success, removed_keys_count, removed_workers_count)
-    """
-    roster = load_worker_skill_json()
-    cleaned, removed_keys, removed_workers = cleanup_worker_skill_roster_data(
-        roster,
-        remove_unknown_workers=remove_unknown_workers,
-        known_worker_ids=known_worker_ids,
-    )
-
-    if removed_keys > 0 or removed_workers > 0:
-        success = save_worker_skill_json(cleaned)
-        if success:
-            selection_logger.info(
-                "Cleaned worker skill roster: removed %d legacy keys, %d unknown workers",
-                removed_keys, removed_workers
-            )
-        return success, removed_keys, removed_workers
-
-    return True, 0, 0

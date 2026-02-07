@@ -580,18 +580,6 @@ def initialize_data_from_unified(file_path: str, *, context: str = '') -> bool:
     return True
 
 
-def load_unified_staged_data(file_path: str) -> bool:
-    """Load staged data from unified backup file."""
-    if _unified_load_state['staged']:
-        return True
-
-    if _load_unified_backup(file_path, use_staged=True):
-        _unified_load_state['staged'] = True
-        return True
-
-    return False
-
-
 def load_unified_live_backup(file_path: str) -> bool:
     """Load live data from unified backup file."""
     if _unified_load_state['live']:

@@ -1,7 +1,6 @@
 # Standard library imports
 import json
 import os
-import shutil
 from datetime import date, datetime
 from functools import wraps
 from typing import Any, Callable, Optional
@@ -24,7 +23,6 @@ from config import (
     MODALITY_SETTINGS,
     SKILL_SETTINGS,
     allowed_modalities,
-    allowed_modalities_map,
     SKILL_COLUMNS,
     SKILL_TEMPLATES,
     SPECIAL_TASKS,

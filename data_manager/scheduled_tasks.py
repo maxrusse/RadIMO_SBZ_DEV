@@ -123,28 +123,6 @@ def check_and_perform_daily_reset() -> None:
     save_state()
 
 
-def clear_staged_data(modality: Optional[str] = None) -> Dict[str, Any]:
-    """Clear staged data for one or all modalities."""
-    cleared = []
-    modalities_to_clear = [modality] if modality else allowed_modalities
-
-    for mod in modalities_to_clear:
-        if mod in staged_modality_data:
-            old_df = staged_modality_data[mod].get('working_hours_df')
-            row_count = len(old_df) if old_df is not None else 0
-
-            staged_modality_data[mod]['working_hours_df'] = None
-            staged_modality_data[mod]['info_texts'] = []
-            staged_modality_data[mod]['total_work_hours'] = {}
-            staged_modality_data[mod]['worker_modifiers'] = {}
-            staged_modality_data[mod]['last_modified'] = None
-
-            if row_count > 0:
-                cleared.append({'modality': mod, 'rows_cleared': row_count})
-
-    return {'cleared': cleared, 'total_modalities': len(cleared)}
-
-
 def _parse_target_date(value: Optional[Union[str, date, datetime]]) -> Optional[date]:
     if value is None:
         return None

@@ -20,7 +20,6 @@ from config import (
 from lib.utils import (
     TIME_FORMAT,
     normalize_skill_value,
-    calculate_shift_duration_hours,
     get_next_workday,
     subtract_intervals,
     merge_intervals,
@@ -394,59 +393,6 @@ def resolve_overlapping_shifts(shifts: List[dict], target_date: date) -> List[di
         result_shifts.extend(resolved)
 
     return result_shifts
-
-
-def resolve_overlapping_shifts_df(df: pd.DataFrame, target_date: Optional[date] = None) -> pd.DataFrame:
-    """
-    Resolve overlapping shifts in a DataFrame.
-
-    When two shifts overlap for the same worker, the later shift wins (based on input order):
-    - Prior shift's time is trimmed to remove the overlap
-    - Gaps (missing time) always win - they are not filled
-
-    Args:
-        df: DataFrame with 'PPL', 'start_time', 'end_time' columns
-        target_date: Date for datetime calculations (defaults to today)
-
-    Returns:
-        DataFrame with resolved shifts (no overlaps)
-    """
-    if df is None or df.empty:
-        return df
-
-    if 'PPL' not in df.columns or 'start_time' not in df.columns or 'end_time' not in df.columns:
-        return df
-
-    # Use provided date or default to today
-    base_date = target_date if target_date is not None else datetime.today().date()
-
-    _ensure_row_type_column(df)
-    shift_rows = df[~df['row_type'].apply(_is_gap_row_type)]
-    gap_rows = df[df['row_type'].apply(_is_gap_row_type)]
-
-    # Convert to list of dicts for processing
-    shifts = shift_rows.to_dict('records')
-
-    # Resolve overlaps
-    resolved_shifts = resolve_overlapping_shifts(shifts, base_date)
-
-    if not resolved_shifts:
-        result_df = pd.DataFrame(columns=df.columns)
-        if not gap_rows.empty:
-            result_df = pd.concat([result_df, gap_rows], ignore_index=True)
-        return result_df
-
-    # Convert back to DataFrame
-    result_df = pd.DataFrame(resolved_shifts)
-    if not gap_rows.empty:
-        result_df = pd.concat([result_df, gap_rows], ignore_index=True)
-
-    # Preserve column order from original
-    cols = [c for c in df.columns if c in result_df.columns]
-    extra_cols = [c for c in result_df.columns if c not in cols]
-    result_df = result_df[cols + extra_cols]
-
-    return result_df
 
 
 def reconcile_live_worker_tracking(modality: Optional[str] = None) -> None:
