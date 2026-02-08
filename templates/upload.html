@@ -143,6 +143,22 @@
       margin-top: 0.75rem;
     }
 
+    .admin-footer {
+      margin-top: 1.5rem;
+      font-size: 0.75rem;
+      color: #777;
+      text-align: right;
+    }
+
+    .admin-footer a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .admin-footer a:hover {
+      text-decoration: underline;
+    }
+
     .form-group {
       margin-bottom: 1rem;
     }
@@ -382,6 +398,12 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <div class="admin-footer">
+    <a href="{{ url_for('static', filename='verfahrensverzeichniss.txt') }}" target="_blank" rel="noopener">
+      Verfahrensverzeichnis
+    </a>
   </div>
 
   <script>
