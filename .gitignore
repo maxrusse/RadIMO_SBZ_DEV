@@ -17,6 +17,10 @@ logs/
 venv/
 env/
 ENV/
+.venv/
+
+# Local agent instructions (keep machine-local)
+AGENTS.md
 
 # IDE
 .vscode/

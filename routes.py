@@ -386,13 +386,101 @@ def admin_required(f: Callable) -> Callable:
         return f(*args, **kwargs)
     return decorated
 
+
+def _build_health_payload() -> dict[str, Any]:
+    return {
+        'status': 'ok',
+        'service': 'RadIMO Cortex',
+        'timestamp': get_local_now().isoformat(),
+    }
+
+
+def _evaluate_readiness(results: list[dict[str, Any]]) -> tuple[str, int]:
+    has_error = any((str(item.get('status', '')).upper() == 'ERROR') for item in results)
+    if has_error:
+        return 'not_ready', 503
+    return 'ready', 200
+
+
+def _build_readiness_payload(context: str = 'readyz', include_results: bool = True) -> tuple[dict[str, Any], int]:
+    try:
+        checks = run_operational_checks(context=context, force=True)
+        results = checks.get('results', [])
+    except Exception as e:
+        fallback = [{
+            'name': 'Operational Checks',
+            'status': 'ERROR',
+            'detail': f'Failed to run operational checks: {str(e)}',
+        }]
+        return {
+            'status': 'not_ready',
+            'service': 'RadIMO Cortex',
+            'timestamp': get_local_now().isoformat(),
+            'summary': {'ok': 0, 'warning': 0, 'error': 1},
+            'checks': fallback,
+        }, 503
+
+    readiness_status, http_status = _evaluate_readiness(results)
+    summary = {'ok': 0, 'warning': 0, 'error': 0}
+    for item in results:
+        status = str(item.get('status', '')).upper()
+        if status == 'OK':
+            summary['ok'] += 1
+        elif status == 'WARNING':
+            summary['warning'] += 1
+        elif status == 'ERROR':
+            summary['error'] += 1
+
+    payload: dict[str, Any] = {
+        'status': readiness_status,
+        'service': 'RadIMO Cortex',
+        'timestamp': checks.get('timestamp', get_local_now().isoformat()),
+        'summary': summary,
+    }
+    if include_results:
+        payload['checks'] = results
+    return payload, http_status
+
+
+def _build_probe_badge_context() -> dict[str, Any]:
+    admin_template_endpoints = {
+        'routes.upload_file',
+        'routes.skill_roster_page',
+        'routes.button_weights_page',
+        'routes.prep_today',
+        'routes.prep_tomorrow',
+        'routes.worker_load_monitor',
+    }
+    show_badges = (
+        request.endpoint in {'routes.login', 'routes.access_login'}
+        or request.endpoint in admin_template_endpoints
+        or bool(session.get('admin_logged_in'))
+    )
+    badge_context: dict[str, Any] = {
+        'show_probe_badges': show_badges,
+        'health_badge_status': 'unknown',
+        'health_badge_text': 'Unknown',
+        'ready_badge_status': 'unknown',
+        'ready_badge_text': 'Unknown',
+    }
+    if not show_badges:
+        return badge_context
+
+    badge_context['health_badge_status'] = 'ok'
+    badge_context['health_badge_text'] = 'Healthy'
+    _, readiness_http = _build_readiness_payload(context='header_badge', include_results=False)
+    badge_context['ready_badge_status'] = 'ok' if readiness_http == 200 else 'error'
+    badge_context['ready_badge_text'] = 'Ready' if readiness_http == 200 else 'Not Ready'
+    return badge_context
+
+
 # -----------------------------------------------------------
 # Route Definitions
 # -----------------------------------------------------------
 
 @routes.context_processor
 def inject_modality_settings() -> dict[str, Any]:
-    return {
+    context = {
         'modalities': MODALITY_SETTINGS,
         'modality_order': allowed_modalities,
         'modality_labels': modality_labels,
@@ -406,6 +494,8 @@ def inject_modality_settings() -> dict[str, Any]:
         'has_basic_access': has_basic_access(),
         'is_authenticated': is_authenticated(),
     }
+    context.update(_build_probe_badge_context())
+    return context
 
 @routes.route('/')
 @access_required
@@ -703,6 +793,34 @@ def access_logout() -> Any:
     session.pop('access_granted', None)
     modality = resolve_modality_from_request()
     return redirect(url_for('routes.access_login', modality=modality))
+
+
+@routes.route('/healthz')
+def healthz() -> Any:
+    return jsonify(_build_health_payload()), 200
+
+
+@routes.route('/readyz')
+def readyz() -> Any:
+    payload, http_status = _build_readiness_payload(context='readyz', include_results=True)
+    return jsonify(payload), http_status
+
+
+@routes.route('/status')
+def status_page() -> Any:
+    health_payload = _build_health_payload()
+    readiness_payload, readiness_http_status = _build_readiness_payload(
+        context='status_page',
+        include_results=True,
+    )
+    return render_template(
+        'status.html',
+        health_payload=health_payload,
+        readiness_payload=readiness_payload,
+        readiness_http_status=readiness_http_status,
+        modality=resolve_modality_from_request(),
+        is_admin=has_admin_access(),
+    )
 
 
 @routes.route('/api/edit_info', methods=['POST'])

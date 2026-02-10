@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+
+{% block title %}RadIMO Cortex | Status{% endblock %}
+
+{% block styles %}
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f0f0;
+      padding: 1rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .status-pill--ok {
+      background: #2e8b57;
+    }
+
+    .status-pill--error {
+      background: #b33a3a;
+    }
+
+    .meta {
+      color: #5f6b7a;
+      font-size: 0.85rem;
+      margin-top: 0.45rem;
+    }
+
+    .probe-links {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .probe-links a {
+      color: #004892;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .probe-links a:hover {
+      text-decoration: underline;
+    }
+
+    .checks-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .checks-table th,
+    .checks-table td {
+      text-align: left;
+      border-bottom: 1px solid #e7ebf0;
+      padding: 0.55rem 0.4rem;
+      vertical-align: top;
+    }
+
+    .checks-table th {
+      background: #f8f9fb;
+      font-weight: 700;
+    }
+
+    .check-status {
+      font-weight: 700;
+    }
+
+    .check-status--ok {
+      color: #2e8b57;
+    }
+
+    .check-status--warning {
+      color: #9a6a00;
+    }
+
+    .check-status--error {
+      color: #b33a3a;
+    }
+{% endblock %}
+
+{% block content %}
+  {% set header_title = 'RadIMO Cortex | Status' %}
+  {% set header_subtitle = 'Health and Readiness' %}
+  {% set header_mode = 'global' %}
+  {% set active_page = '' %}
+  {% set header_nav = namespace(links=[]) %}
+  {% include 'partials/header_links.html' %}
+  {% set header_links = header_nav.links %}
+  {% include 'partials/header.html' %}
+
+  {% set ready_ok = readiness_http_status == 200 %}
+
+  <div class="status-grid">
+    <div class="card">
+      <div>
+        <a href="{{ url_for('routes.healthz') }}" class="status-pill status-pill--ok">Health: OK</a>
+      </div>
+      <div class="meta">
+        Timestamp: {{ health_payload.get('timestamp', '-') }}
+      </div>
+    </div>
+
+    <div class="card">
+      <div>
+        <a href="{{ url_for('routes.readyz') }}"
+          class="status-pill {{ 'status-pill--ok' if ready_ok else 'status-pill--error' }}">
+          Ready: {{ 'READY' if ready_ok else 'NOT READY' }}
+        </a>
+      </div>
+      <div class="meta">
+        Timestamp: {{ readiness_payload.get('timestamp', '-') }}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="meta" style="margin-top:0;">Probe links</div>
+      <div class="probe-links">
+        <a href="{{ url_for('routes.healthz') }}" target="_blank" rel="noopener">/healthz</a>
+        <a href="{{ url_for('routes.readyz') }}" target="_blank" rel="noopener">/readyz</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Readiness Checks</h2>
+    <table class="checks-table">
+      <thead>
+        <tr>
+          <th>Check</th>
+          <th>Status</th>
+          <th>Detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for check in readiness_payload.get('checks', []) %}
+        {% set check_status = (check.get('status', 'UNKNOWN')|upper) %}
+        <tr>
+          <td>{{ check.get('name', '-') }}</td>
+          <td class="check-status check-status--{{ check_status|lower }}">{{ check_status }}</td>
+          <td>{{ check.get('detail', '-') }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="3">No readiness checks returned.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

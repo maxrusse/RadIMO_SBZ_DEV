@@ -74,6 +74,48 @@
       color: var(--basic-auth-logout-hover-color, #dc3545);
     }
 
+    .probe-badges {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+
+    .probe-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 56px;
+      padding: 0.22rem 0.45rem;
+      border-radius: 999px;
+      text-decoration: none;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      border: 1px solid transparent;
+      line-height: 1.1;
+      color: #fff;
+    }
+
+    .probe-badge--ok {
+      background: #2e8b57;
+      border-color: #256f46;
+    }
+
+    .probe-badge--error {
+      background: #b33a3a;
+      border-color: #932e2e;
+    }
+
+    .probe-badge--unknown {
+      background: #6c757d;
+      border-color: #5a6268;
+    }
+
+    .probe-badge:hover {
+      filter: brightness(0.95);
+    }
+
     .nav-link {
       text-decoration: none;
       color: var(--app-header-link-color, #333);

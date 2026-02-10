@@ -13,6 +13,71 @@ When access protection is disabled, these endpoints are reachable without a sess
 
 ---
 
+## Health & Readiness
+
+### Liveness Probe
+
+```http
+GET /healthz
+```
+
+Public endpoint for process liveness. Returns HTTP `200` when the app is running.
+
+**Example response:**
+```json
+{
+  "status": "ok",
+  "service": "RadIMO Cortex",
+  "timestamp": "2026-02-10T12:34:56+01:00"
+}
+```
+
+### Readiness Probe
+
+```http
+GET /readyz
+```
+
+Public endpoint for readiness. Returns HTTP:
+- `200` when no operational check has status `ERROR`
+- `503` when at least one operational check has status `ERROR`
+
+`WARNING` checks do not fail readiness.
+
+**Example response:**
+```json
+{
+  "status": "ready",
+  "service": "RadIMO Cortex",
+  "timestamp": "2026-02-10T12:34:56+01:00",
+  "summary": {
+    "ok": 5,
+    "warning": 1,
+    "error": 0
+  },
+  "checks": [
+    {
+      "name": "Config File",
+      "status": "OK",
+      "detail": "APP_CONFIG is loaded and available"
+    }
+  ]
+}
+```
+
+### Human Status Page
+
+```http
+GET /status
+```
+
+Public HTML page for manual inspection. It shows:
+- current health/readiness badges
+- readiness check list
+- direct links to `/healthz` and `/readyz`
+
+---
+
 ## Worker Assignment
 
 ### Assign Worker (with overflow)
