@@ -76,10 +76,13 @@ class TestGapCrud(unittest.TestCase):
             df = schedule_crud.modality_data[self.modality]["working_hours_df"]
             self.assertTrue(df[df["row_type"] == "gap_segment"].empty)
             shift_rows = df[df["row_type"] == "shift_segment"]
-            self.assertEqual(len(shift_rows), 1)
-            shift_row = shift_rows.iloc[0]
-            self.assertEqual(shift_row["start_time"], time(8, 0))
-            self.assertEqual(shift_row["end_time"], time(12, 0))
+            # Intentional behavior: removing a gap does not refill/merge missing time.
+            self.assertEqual(len(shift_rows), 2)
+            shift_rows = shift_rows.sort_values(by=["start_time"]).reset_index(drop=True)
+            self.assertEqual(shift_rows.iloc[0]["start_time"], time(8, 0))
+            self.assertEqual(shift_rows.iloc[0]["end_time"], time(9, 0))
+            self.assertEqual(shift_rows.iloc[1]["start_time"], time(10, 30))
+            self.assertEqual(shift_rows.iloc[1]["end_time"], time(12, 0))
             backup_mock.assert_called()
 
     def test_update_row_to_gap_enforces_defaults(self) -> None:
