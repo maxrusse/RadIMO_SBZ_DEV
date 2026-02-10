@@ -1,0 +1,26 @@
+medweb_mapping:
+  columns:
+    date: Datum
+    activity: Beschreibung der Aktivität
+    employee_name: Name des Mitarbeiters
+    employee_code: Code des Mitarbeiters
+  rules:
+  - match: Weighted Abd Shift
+    type: shift
+    label: Weighted Abd Shift
+    times:
+      default: 08:00-16:00
+    skill_overrides:
+      abd-onco_ct: 1
+  - match: Regular Abd Shift
+    type: shift
+    label: Regular Abd Shift
+    times:
+      default: 08:00-16:00
+    skill_overrides:
+      abd-onco_ct: 1
+balancer:
+  hours_counting:
+    shift_default: true
+    gap_default: false
+worker_roster: {}

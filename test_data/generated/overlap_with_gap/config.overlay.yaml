@@ -1,0 +1,32 @@
+medweb_mapping:
+  columns:
+    date: Datum
+    activity: Beschreibung der Aktivität
+    employee_name: Name des Mitarbeiters
+    employee_code: Code des Mitarbeiters
+  rules:
+  - match: Overlap Shift A
+    type: shift
+    label: Overlap Shift A
+    times:
+      default: 08:00-12:00
+    skill_overrides:
+      notfall_ct: 1
+  - match: Overlap Shift B
+    type: shift
+    label: Overlap Shift B
+    times:
+      default: 10:00-14:00
+    skill_overrides:
+      notfall_ct: 1
+  - match: Board Gap
+    type: gap
+    label: Board Gap
+    times:
+      default: 09:30-10:00
+    counts_for_hours: false
+balancer:
+  hours_counting:
+    shift_default: true
+    gap_default: false
+worker_roster: {}

@@ -32,6 +32,7 @@ RadIMO Cortex orchestrates workload distribution for radiology teams across mult
 ```bash
 pip install -r requirements.txt
 python scripts/ops_check.py  # Check system readiness
+python scripts/gen_test_data.py --scenario all  # Generate deterministic test fixtures (optional)
 flask --app app run --debug  # Start application
 ```
 
@@ -160,9 +161,7 @@ RadIMO_Cortex/
 │   └── usage_logger.py         # Usage tracking
 ├── scripts/                    # Development and utility scripts
 │   ├── ops_check.py            # Pre-deployment checks
-│   ├── prepare_config.py       # Config generator from CSV
-│   ├── exam_values.py          # Exam value export/import tool
-│   └── code_aggregator.py      # Documentation export tool
+│   └── gen_test_data.py        # Scenario generator for deterministic test data
 ├── test_data/                  # Test CSV files and examples
 ├── templates/                  # HTML templates (Admin pages aligned to Prep)
 ├── static/                     # CSS, JS, assets
@@ -187,6 +186,7 @@ RadIMO_Cortex/
 | [API.md](docs/API.md) | REST API endpoints |
 | [ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md) | Admin pages and skill roster |
 | [USAGE_LOGGING.md](docs/USAGE_LOGGING.md) | Usage statistics and export workflow |
+| [TEST_DATA.md](docs/TEST_DATA.md) | Scenario-based generated test data workflow |
 
 ---
 

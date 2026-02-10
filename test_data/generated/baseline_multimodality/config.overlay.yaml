@@ -1,0 +1,40 @@
+medweb_mapping:
+  columns:
+    date: Datum
+    activity: Beschreibung der Aktivität
+    employee_name: Name des Mitarbeiters
+    employee_code: Code des Mitarbeiters
+  rules:
+  - match: Baseline CT Notfall
+    type: shift
+    label: Baseline CT Notfall
+    times:
+      default: 08:00-16:00
+    skill_overrides:
+      notfall_ct: 1
+  - match: Baseline MR Privat
+    type: shift
+    label: Baseline MR Privat
+    times:
+      default: 08:00-16:00
+    skill_overrides:
+      privat_mr: 1
+  - match: Baseline XRAY Paed
+    type: shift
+    label: Baseline XRAY Paed
+    times:
+      default: 08:00-16:00
+    skill_overrides:
+      paed_xray: 1
+  - match: Baseline Mammo Gyn
+    type: shift
+    label: Baseline Mammo Gyn
+    times:
+      default: 08:00-16:00
+    skill_overrides:
+      gyn_mammo: 1
+balancer:
+  hours_counting:
+    shift_default: true
+    gap_default: false
+worker_roster: {}

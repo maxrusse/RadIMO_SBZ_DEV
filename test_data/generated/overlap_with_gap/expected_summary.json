@@ -1,0 +1,65 @@
+{
+  "assignment_checks": [],
+  "modalities": {
+    "ct": {
+      "gap_segment_count": 1,
+      "row_count": 3,
+      "rows": [
+        {
+          "counts_for_hours": false,
+          "end": "10:00",
+          "ppl": "Dr. Gap Worker (GW01)",
+          "row_type": "gap_segment",
+          "skill_signature": "notfall:-1|privat:-1|gyn:-1|paed:-1|msk-haut:-1|abd-onco:-1|card-thor:-1|uro:-1|kopf-hals:-1",
+          "start": "09:30",
+          "tasks": "Board Gap"
+        },
+        {
+          "counts_for_hours": true,
+          "end": "09:30",
+          "ppl": "Dr. Gap Worker (GW01)",
+          "row_type": "shift_segment",
+          "skill_signature": "notfall:1",
+          "start": "08:00",
+          "tasks": "Overlap Shift A"
+        },
+        {
+          "counts_for_hours": true,
+          "end": "14:00",
+          "ppl": "Dr. Gap Worker (GW01)",
+          "row_type": "shift_segment",
+          "skill_signature": "notfall:1",
+          "start": "10:00",
+          "tasks": "Overlap Shift B"
+        }
+      ],
+      "shift_segment_count": 2,
+      "workers": [
+        "Dr. Gap Worker (GW01)"
+      ]
+    },
+    "mammo": {
+      "gap_segment_count": 0,
+      "row_count": 0,
+      "rows": [],
+      "shift_segment_count": 0,
+      "workers": []
+    },
+    "mr": {
+      "gap_segment_count": 0,
+      "row_count": 0,
+      "rows": [],
+      "shift_segment_count": 0,
+      "workers": []
+    },
+    "xray": {
+      "gap_segment_count": 0,
+      "row_count": 0,
+      "rows": [],
+      "shift_segment_count": 0,
+      "workers": []
+    }
+  },
+  "scenario": "overlap_with_gap",
+  "target_date": "2026-01-23"
+}

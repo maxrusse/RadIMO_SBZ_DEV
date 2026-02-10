@@ -1,0 +1,57 @@
+{
+  "assignment_checks": [],
+  "modalities": {
+    "ct": {
+      "gap_segment_count": 0,
+      "row_count": 2,
+      "rows": [
+        {
+          "counts_for_hours": true,
+          "end": "16:00",
+          "ppl": "Dr. Regular Worker (RW01)",
+          "row_type": "shift_segment",
+          "skill_signature": "abd-onco:1",
+          "start": "08:00",
+          "tasks": "Regular Abd Shift"
+        },
+        {
+          "counts_for_hours": true,
+          "end": "16:00",
+          "ppl": "Dr. Weighted Worker (WW01)",
+          "row_type": "shift_segment",
+          "skill_signature": "abd-onco:w",
+          "start": "08:00",
+          "tasks": "Weighted Abd Shift"
+        }
+      ],
+      "shift_segment_count": 2,
+      "workers": [
+        "Dr. Regular Worker (RW01)",
+        "Dr. Weighted Worker (WW01)"
+      ]
+    },
+    "mammo": {
+      "gap_segment_count": 0,
+      "row_count": 0,
+      "rows": [],
+      "shift_segment_count": 0,
+      "workers": []
+    },
+    "mr": {
+      "gap_segment_count": 0,
+      "row_count": 0,
+      "rows": [],
+      "shift_segment_count": 0,
+      "workers": []
+    },
+    "xray": {
+      "gap_segment_count": 0,
+      "row_count": 0,
+      "rows": [],
+      "shift_segment_count": 0,
+      "workers": []
+    }
+  },
+  "scenario": "weighted_worker",
+  "target_date": "2026-01-23"
+}
