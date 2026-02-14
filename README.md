@@ -34,6 +34,7 @@ pip install -r requirements.txt
 python scripts/ops_check.py  # Check system readiness
 python scripts/gen_test_data.py --scenario all  # Generate deterministic test fixtures (optional)
 python scripts/apply_demo_data.py  # Prepare deterministic UI demo data
+python scripts/capture_screenshots.py  # Generate training screenshots + manifest
 flask --app app run --debug  # Start application
 ```
 
@@ -176,6 +177,7 @@ RadIMO_Cortex/
     ├── ADMIN_GUIDE.md          # Admin pages guide
     ├── API.md                  # API endpoints
     ├── CONFIGURATION.md        # Config reference (incl. special tasks)
+    ├── SCREENSHOTS.md          # Screenshot generation for training docs
     ├── USAGE_LOGGING.md        # Usage logging documentation
     └── WORKFLOW.md             # Master CSV workflow guide
 ```
@@ -192,6 +194,7 @@ RadIMO_Cortex/
 | [ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md) | Admin pages and skill roster |
 | [USAGE_LOGGING.md](docs/USAGE_LOGGING.md) | Usage statistics and export workflow |
 | [TEST_DATA.md](docs/TEST_DATA.md) | Scenario-based generated test data workflow |
+| [SCREENSHOTS.md](docs/SCREENSHOTS.md) | Training screenshot workflow and scene catalog |
 
 ---
 
