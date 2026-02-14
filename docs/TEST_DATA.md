@@ -6,6 +6,8 @@ RadIMO includes a deterministic scenario pipeline to support both:
 
 Generated artifacts live under `test_data/generated/`.
 
+Demo fixtures live under `test_data/demo/`.
+
 ---
 
 ## What Gets Generated
@@ -77,6 +79,36 @@ python -m unittest discover -s tests -p "test_*.py" -v
 
 ---
 
+## Demo Data (Screenshots / Manual UI)
+
+Use `scripts/apply_demo_data.py` to create a deterministic live/staged dataset
+that matches the default `config.yaml` mapping rules.
+
+```bash
+python scripts/apply_demo_data.py
+```
+
+This writes:
+- `uploads/master_medweb.csv`
+- `data/button_weights.json` (from `test_data/demo/button_weights_demo.json`)
+
+Then it triggers:
+- `POST /load-today-from-master`
+- `POST /preload-from-master` (next day)
+
+---
+
+## Screenshot Automation (Playwright)
+
+```bash
+python scripts/capture_screenshots.py
+```
+
+Default output folder:
+- `_docs/screenshots/radimo_cortex_playwright_<today>/`
+
+---
+
 ## Manual Portal Check
 
 1. Start app locally (`flask --app app run --debug`).
@@ -91,3 +123,4 @@ python -m unittest discover -s tests -p "test_*.py" -v
 
 - Generated fixtures are deterministic for the same scenario + date.
 - The gap behavior in current tests is intentional: removing a gap does not auto-merge/fill shift segments.
+- `test_data/demo/` is the canonical demo fixture location.
