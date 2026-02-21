@@ -247,6 +247,37 @@ def get_roster_modifier(canonical_id: str) -> float:
     return modifier
 
 
+def get_roster_modifier_raw(canonical_id: str) -> Optional[float]:
+    """
+    Get worker's explicit roster 'modifier' value without default fallback.
+
+    Returns None when no explicit roster modifier is set (or value is invalid).
+    This is useful when callers need to combine roster modifier with
+    balancer.default_w_modifier explicitly.
+
+    Args:
+        canonical_id: Worker's canonical ID
+
+    Returns:
+        Explicit roster modifier as float, or None
+    """
+    if not worker_skill_json_roster:
+        load_worker_skill_json()
+
+    worker_data = worker_skill_json_roster.get(canonical_id, {})
+    if 'modifier' not in worker_data:
+        return None
+
+    raw_modifier = worker_data.get('modifier')
+    try:
+        modifier = float(raw_modifier)
+        if modifier <= 0:
+            return None
+        return modifier
+    except (TypeError, ValueError):
+        return None
+
+
 def get_global_modifier(canonical_id: str) -> float:
     """
     Get worker's global modifier from skill roster.
@@ -551,4 +582,3 @@ def extract_modalities_from_skill_overrides(skill_overrides: dict) -> List[str]:
                     modalities.add(mod)
 
     return list(modalities)
-

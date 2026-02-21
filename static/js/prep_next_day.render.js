@@ -181,7 +181,7 @@ function renderTableHeader(tab) {
     });
   }
 
-  headerHtml += '<th rowspan="2" class="modifier-col">Mod.</th>';
+  headerHtml += '<th rowspan="2" class="modifier-col">W Mod.</th>';
   headerHtml += '<th rowspan="2">Actions</th>';
   headerHtml += '</tr>';
 
@@ -605,9 +605,10 @@ function renderEditModalContent() {
   </div>
 
   <div style="min-width: 70px;">
-    <label style="font-size: 0.75rem; color: #666; display: block;">Modifier</label>
+    <label style="font-size: 0.75rem; color: #666; display: block;">Shift W Modifier</label>
     <select id="edit-shift-${shiftIdx}-modifier" style="padding: 0.4rem; font-size: 0.85rem;"
       onchange="updateShiftFromModal(${shiftIdx}, { Modifier: parseFloat(this.value) })" ${isEditable ? '' : 'disabled'}>
+      <option value="0.3" ${shift.modifier === 0.3 ? 'selected' : ''}>0.3x (30%, weighted-only)</option>
       <option value="0.5" ${shift.modifier === 0.5 ? 'selected' : ''}>0.5x</option>
       <option value="0.75" ${shift.modifier === 0.75 ? 'selected' : ''}>0.75x</option>
       <option value="1.0" ${!shift.modifier || shift.modifier === 1.0 ? 'selected' : ''}>1.0x</option>
@@ -705,8 +706,9 @@ function renderEditModalContent() {
   <input type="time" id="modal-add-end" value="15:00" style="padding: 0.4rem; font-size: 0.85rem;">
 </div>
 <div style="min-width: 70px;">
-  <label style="font-size: 0.75rem; color: #666; display: block;">Modifier</label>
+  <label style="font-size: 0.75rem; color: #666; display: block;">Shift W Modifier</label>
   <select id="modal-add-modifier" style="padding: 0.4rem; font-size: 0.85rem;">
+    <option value="0.3">0.3x (30%, weighted-only)</option>
     <option value="0.5">0.5x</option>
     <option value="0.75">0.75x</option>
     <option value="1.0" selected>1.0x</option>
@@ -818,8 +820,9 @@ function renderAddWorkerModalContent(containerId = addWorkerModalState.container
         </div>
 
         <div style="min-width: 70px;">
-          <label style="font-size: 0.75rem; color: #666; display: block;">Modifier</label>
+          <label style="font-size: 0.75rem; color: #666; display: block;">Shift W Modifier</label>
           <select onchange="updateAddWorkerTask(${idx}, 'modifier', parseFloat(this.value))" style="padding: 0.4rem; font-size: 0.85rem;">
+            <option value="0.3" ${task.modifier === 0.3 ? 'selected' : ''}>0.3x (30%, weighted-only)</option>
             <option value="0.5" ${task.modifier === 0.5 ? 'selected' : ''}>0.5x</option>
             <option value="0.75" ${task.modifier === 0.75 ? 'selected' : ''}>0.75x</option>
             <option value="1.0" ${!task.modifier || task.modifier === 1.0 ? 'selected' : ''}>1.0x</option>

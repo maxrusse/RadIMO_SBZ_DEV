@@ -357,25 +357,40 @@ The `global_modifier` adjusts workload for ALL assignments (skill = 0, 1, or 'w'
 
 #### W Modifier (applies only to 'w' assignments)
 
-The `modifier` field (W Modifier) only affects workers with skill=`w` (weighted/training). Use this for trainees who need reduced workload while learning.
+The `modifier` field is a **W Modifier stream** and only affects workers with skill=`w` (weighted/training). In prep/edit shifts, this is the shift-level W modifier (separate from global modifier).
 
 ```
-Priority: Shift Modifier > Roster Modifier > Default (balancer.default_w_modifier)
+Priority: Shift W Modifier > Roster W Modifier > Default W Modifier (balancer.default_w_modifier)
 ```
 
 | Source | When Used |
 |--------|-----------|
-| **Shift Modifier** | If shift explicitly sets `Modifier ≠ 1.0` |
-| **Roster Modifier** | If shift modifier is default (1.0), use roster's `modifier` field |
-| **Default** | If neither is set, use `balancer.default_w_modifier` |
+| **Shift W Modifier** | Shift-level stream (active row; if unset/default, treated as `1.0`) |
+| **Roster W Modifier** | Worker-level W stream from roster (`modifier`), or `1.0` if unset |
+| **Default W Modifier** | Global baseline W stream (`balancer.default_w_modifier`) |
 
 **Roster setup:** In the Skill Roster page, set the "W Modifier" field for workers with 'w' skills.
 
 #### Combined Effect
 
-When both modifiers apply (worker has skill='w'), they multiply:
+Modifiers are **separate streams**:
+- `global_modifier` is always applied for that worker (all 0/1/w assignments)
+- `w_modifier` applies only for `w` assignments and is composed from all three W streams
+
+Shift modifier does **not** overwrite global modifier; they multiply.
+
+Explicitly with all three W streams multiplied for weighted (`w`) assignments:
+```
+effective_w_modifier = shift_w_modifier × roster_w_modifier × default_w_modifier
+
+weight_non_w = base_weight × (1.0 / global_modifier)
+weight_w     = base_weight × (1.0 / global_modifier) × (1.0 / effective_w_modifier)
+```
+
+Equivalent compact form for weighted (`w`) assignments:
 ```
 weight = base_weight × (1.0 / global_modifier) × (1.0 / w_modifier)
+where w_modifier = shift_w_modifier × roster_w_modifier × default_w_modifier
 ```
 
 **Example:**
@@ -540,7 +555,7 @@ vendor_mappings:
       times:
         default: "07:00-15:00"
         Freitag: "07:00-13:00"
-      modifier: 0.5  # Beginner: counts double toward their load
+      modifier: 0.3  # Very low-yield shift (~30% capacity, e.g., protected non-RadIMO time)
       skill_overrides:
         notfall_mr: w
         privat_mr: 0
@@ -605,10 +620,10 @@ The `skill_overrides` field supports shortcuts:
 
 ### Weighted/Assisted Workers
 
-Use `skill_overrides: {Skill_mod: w}` plus a `modifier` (0.5–1.5):
+Use `skill_overrides: {Skill_mod: w}` plus a `modifier` (0.3–1.5):
 ```yaml
 - match: "MSK/Haut Anfänger"
-  modifier: 0.5  # Beginner: counts double toward their load
+  modifier: 0.3  # Very low-yield shift (~30% capacity, e.g., protected non-RadIMO time)
   skill_overrides:
     msk-haut_ct: w
     msk-haut_xray: w
