@@ -25,7 +25,7 @@ from lib.utils import (
 )
 from data_manager import (
     get_canonical_worker_id,
-    get_roster_modifier,
+    get_roster_modifier_raw,
     get_global_modifier,
     global_worker_data,
     modality_data,
@@ -91,6 +91,7 @@ def update_global_assignment(
     strict_mode: bool = False,
     work_amount: float = 1.0,
     weight_override: Optional[float] = None,
+    shift_modifier_override: Optional[float] = None,
 ) -> str:
     """
     Record a worker assignment and update global weighted counts.
@@ -108,6 +109,8 @@ def update_global_assignment(
         strict_mode: If True, apply strict button weight multiplier.
         work_amount: Optional multiplier for special-task work balance.
         weight_override: Optional fixed weight override for special tasks.
+        shift_modifier_override: Optional per-assignment shift modifier from
+            the active schedule row (preferred over pooled worker-level cache).
 
     Returns:
         Canonical worker ID
@@ -122,18 +125,21 @@ def update_global_assignment(
     # For weighted ('w') assignments, also apply the 'w' modifier
     # skill=1 (regular specialist) and skill=0 (generalist) only use global_modifier
     if is_weighted:
-        # Priority: shift modifier (if != 1.0) > roster modifier > default_w_modifier
-        # Shift modifier of 1.0 is treated as "not explicitly set"
-        shift_modifier = modality_data[modality]['worker_modifiers'].get(person, 1.0)
-        shift_modifier = coerce_float(shift_modifier, 1.0)
+        # Multiply all W streams for weighted assignments:
+        # shift_w_modifier × roster_w_modifier × default_w_modifier.
+        # Shift stream still prefers active row over pooled cache fallback.
+        shift_modifier = coerce_float(shift_modifier_override, 1.0)
+        if shift_modifier == 1.0:
+            pooled_shift_modifier = modality_data[modality]['worker_modifiers'].get(person, 1.0)
+            shift_modifier = coerce_float(pooled_shift_modifier, 1.0)
 
-        if shift_modifier != 1.0:
-            # Shift explicitly set a non-default modifier
-            w_modifier = shift_modifier
-        else:
-            # Fallback to roster modifier (for trainees without shift-specific modifier)
-            w_modifier = get_roster_modifier(canonical_id)
+        roster_modifier_raw = get_roster_modifier_raw(canonical_id)
+        roster_modifier = coerce_float(roster_modifier_raw, 1.0)
 
+        default_w_modifier = BALANCER_SETTINGS.get('default_w_modifier', 1.0)
+        default_w_modifier = coerce_float(default_w_modifier, 1.0)
+
+        w_modifier = shift_modifier * roster_modifier * default_w_modifier
         w_modifier = w_modifier if w_modifier > 0 else 1.0
     else:
         w_modifier = 1.0

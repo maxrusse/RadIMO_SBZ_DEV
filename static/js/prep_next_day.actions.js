@@ -185,7 +185,7 @@ function onInlineModifierChange(tab, modKey, rowIndex, value, groupIdx, shiftIdx
 
 // Valid skill values for quick edit validation
 const VALID_SKILL_VALUES = ['-1', '0', '1', 'w', 'W'];
-const VALID_MODIFIER_VALUES = [0.5, 0.75, 1, 1.0, 1.25, 1.5];
+const VALID_MODIFIER_VALUES = [0.3, 0.5, 0.75, 1, 1.0, 1.25, 1.5];
 
 // Validate and save skill input on blur
 function validateAndSaveSkill(el) {
@@ -253,11 +253,11 @@ function validateAndSaveModifier(el) {
   let parsed = parseFloat(el.value);
 
   // Validate - clamp to valid range
-  if (isNaN(parsed) || parsed < 0.5) parsed = 0.5;
+  if (isNaN(parsed) || parsed < 0.3) parsed = 0.3;
   else if (parsed > 1.5) parsed = 1.5;
 
   // Round to nearest valid value
-  const validValues = [0.5, 0.75, 1.0, 1.25, 1.5];
+  const validValues = [0.3, 0.5, 0.75, 1.0, 1.25, 1.5];
   parsed = validValues.reduce((prev, curr) =>
     Math.abs(curr - parsed) < Math.abs(prev - parsed) ? curr : prev
   );
@@ -274,11 +274,11 @@ function validateAndSaveShiftModifier(el) {
   let parsed = parseFloat(el.value);
 
   // Validate - clamp to valid range
-  if (isNaN(parsed) || parsed < 0.5) parsed = 0.5;
+  if (isNaN(parsed) || parsed < 0.3) parsed = 0.3;
   else if (parsed > 1.5) parsed = 1.5;
 
   // Round to nearest valid value
-  const validValues = [0.5, 0.75, 1.0, 1.25, 1.5];
+  const validValues = [0.3, 0.5, 0.75, 1.0, 1.25, 1.5];
   parsed = validValues.reduce((prev, curr) =>
     Math.abs(curr - parsed) < Math.abs(prev - parsed) ? curr : prev
   );
@@ -303,7 +303,7 @@ function handleModKeydown(event, el) {
     event.preventDefault();
   } else if (event.key === 'ArrowUp') {
     const val = parseFloat(el.value) || 1.0;
-    const validValues = [0.5, 0.75, 1.0, 1.25, 1.5];
+    const validValues = [0.3, 0.5, 0.75, 1.0, 1.25, 1.5];
     const idx = validValues.indexOf(val);
     const next = idx < validValues.length - 1 ? validValues[idx + 1] : validValues[validValues.length - 1];
     el.value = next;
@@ -311,7 +311,7 @@ function handleModKeydown(event, el) {
     event.preventDefault();
   } else if (event.key === 'ArrowDown') {
     const val = parseFloat(el.value) || 1.0;
-    const validValues = [0.5, 0.75, 1.0, 1.25, 1.5];
+    const validValues = [0.3, 0.5, 0.75, 1.0, 1.25, 1.5];
     const idx = validValues.indexOf(val);
     const next = idx > 0 ? validValues[idx - 1] : validValues[0];
     el.value = next;
@@ -1808,29 +1808,6 @@ function applySkillValues(skillMap = {}) {
   });
 }
 
-function applyTaskSkillPreset() {
-  const taskSelect = document.getElementById('edit-task');
-  if (!taskSelect) return;
-  const option = taskSelect.options[taskSelect.selectedIndex];
-  if (!option || !option.dataset.skills) return;
-
-  try {
-    const skills = JSON.parse(option.dataset.skills) || {};
-    applySkillValues(skills);
-
-    // Also apply modifier from task config
-    const taskName = option.value;
-    const taskConfig = TASK_ROLES.find(t => t.name === taskName);
-    if (taskConfig && taskConfig.modifier !== undefined) {
-      const modifierSelect = document.getElementById('edit-modifier');
-      if (modifierSelect) {
-        modifierSelect.value = taskConfig.modifier.toString();
-      }
-    }
-  } catch (err) {
-    console.error('Failed to apply task skill preset', err);
-  }
-}
 
 // Apply worker skill preset for a specific modality
 function applyWorkerSkillPresetForModality(workerName, modKey) {

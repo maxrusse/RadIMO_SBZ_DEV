@@ -1640,6 +1640,7 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any
                         actual_modality,
                         strict=strict_mode,
                     )
+                candidate_shift_modifier = candidate.get('Modifier', 1.0)
                 canonical_id = update_global_assignment(
                     person,
                     actual_skill,
@@ -1648,6 +1649,7 @@ def _assign_worker(modality: str, role: str, allow_overflow: bool = True) -> Any
                     strict_mode=strict_mode,
                     work_amount=task_work_amount,
                     weight_override=weight_override,
+                    shift_modifier_override=candidate_shift_modifier,
                 )
                 state_modified = True
 
